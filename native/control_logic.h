@@ -1,0 +1,16 @@
+#ifndef RE4_CONTROL_LOGIC_H
+#define RE4_CONTROL_LOGIC_H
+#include <stdint.h>
+#define RE4_MAGIC 0x52453443u
+#define RE4_TTL_MS 500u
+#define RE4_MOVEMENT_MASK 15u
+/* Wrap-safe tick arithmetic; reject torn writes, expired input and opposite keys. */
+static inline uint32_t re4_buttons(uint32_t sequence_before, uint32_t sequence_after,
+        uint32_t now, uint32_t stamp, uint32_t armed, uint32_t stop, uint32_t buttons) {
+    if ((sequence_before & 1u) || sequence_before != sequence_after || !armed || stop
+            || (uint32_t)(now - stamp) >= RE4_TTL_MS || (buttons & ~RE4_MOVEMENT_MASK)) return 0;
+    if ((buttons & 3u) == 3u) buttons &= ~3u;
+    if ((buttons & 12u) == 12u) buttons &= ~12u;
+    return buttons;
+}
+#endif

@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.2.0"
+    version = "0.3.0"
     jar = root / f"minecraft/build/libs/re4bridge-{version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -37,23 +37,35 @@ def main():
                            (root / "START-SIMULATOR.bat", "START-SIMULATOR.bat"),
                            (root / "tools/fake_re4_host.py", "tools/fake_re4_host.py"),
                            (root / "START-RE4-BRIDGE.bat", "START-RE4-BRIDGE.bat"),
+                           (root / "START-RE4-CONTROLS.bat", "START-RE4-CONTROLS.bat"),
+                           (root / "INSTALL-RE4-CONTROLS.ps1", "INSTALL-RE4-CONTROLS.ps1"),
+                           (root / "UNINSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1"),
+                           (root / "INSTALL-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.bat"),
+                           (root / "UNINSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat"),
+                           (root / "native/build/dinput8.dll", "native/dinput8.dll"),
                            (root / "tools/re4_live_host.py", "tools/re4_live_host.py"),
+                           (root / "tools/re4_control.py", "tools/re4_control.py"),
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
-                           (root / "docs/RE4-LIVE.md", "README.md"),
+                           (root / "docs/RE4-CONTROLS.md", "README.md"),
+                           (root / "docs/RE4-LIVE.md", "docs/RE4-LIVE.md"),
                            (root / "docs/VALIDATION.md", "docs/VALIDATION.md"),
                            (root / "docs/CONTRACT.md", "docs/CONTRACT.md")]:
             data = file.read_bytes()
             if file.suffix == ".bat":
                 data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
             archive.writestr(name, data)
+        native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
+        archive.writestr("NATIVE-SHA256.txt", native_hash + "  native/dinput8.dll\n")
     # Source archive excludes every runtime/build/cache tree and any generated token.
     source = destination / f"re4bridge-{version}-source.zip"
-    excluded = {"__pycache__", "re4bridge.json"}
+    excluded = {"__pycache__", "re4bridge.json", "build"}
     top_level = [".gitignore", "README.md", "MODLOG.md", "build.gradle", "settings.gradle",
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
+                 "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
+                 "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]
-    for directory in ["bridge-core/src", "minecraft/src", "tools", "docs", "gradle"]:
+    for directory in ["bridge-core/src", "minecraft/src", "tools", "docs", "gradle", "native"]:
         files.extend((root / directory).rglob("*"))
     with zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as archive:
         for file in sorted(set(files)):

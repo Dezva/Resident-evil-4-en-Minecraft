@@ -1,4 +1,4 @@
-# Evidencia de validacion — prototipo 0.2.0
+# Evidencia de validacion — prototipo 0.3.0
 
 Validado en Linux cloud, 2026-10-10, con Temurin JDK 21.0.8+9 y Gradle 8.11.1.
 Descargas de JDK y distribución Gradle verificadas con SHA-256 oficial. El wrapper
@@ -7,11 +7,11 @@ el almacén de certificados de confianza de la máquina.
 
 | Comprobación | Resultado |
 |---|---|
-| `:bridge-core:test` | 8 pruebas pasadas, 0 fallos, 0 omitidas |
-| `python3 -m unittest discover -s tools -p 'test_*.py' -v` | 12 pruebas pasadas |
+| `:bridge-core:test` | 9 pruebas pasadas, 0 fallos, 0 omitidas |
+| `python3 -m unittest discover -s tools -p 'test_*.py' -v` | 15 pruebas pasadas |
 | `-Pminecraft=true :minecraft:build` | Compilación y remapeo del JAR correctos |
 | Pruebas Minecraft con `fabric-loader-junit` | 2 pruebas pasadas, 0 omitidas |
-| Contenido del JAR | Metadatos 0.2.0, entrypoint cliente y nucleo anidado presentes |
+| Contenido del JAR | Metadatos 0.3.0, entrypoint cliente y nucleo anidado presentes |
 
 La prueba Java ↔ Python abre TCP real en loopback y comprueba autenticación,
 confirmaciones, pose, caja de losa, heartbeat y cierre. Las pruebas de Minecraft
@@ -58,17 +58,43 @@ de esta prueba es una fixture sintetica; no se distribuye en el ZIP Windows.
 Una prueba Python nueva valida el modo lector y su rechazo a poses salientes.
 
 La compilacion/remapeo del mod y las pruebas de geometria Minecraft pasan.
-El seguimiento espectador, comandos de calibracion y lectura RE4 conjunta aun
-no se ejecutaron en una sesion grafica real. Guia: `docs/RE4-LIVE.md`.
+El usuario confirmo que el seguimiento funciona en su PC. Su captura muestra
+`follow: true`, 4555 ACK y posiciones variables en la consola del host.
 La lectura del personaje confirmada por el usuario no verifica su camara,
 escala a bloques, colisiones ni control desde Minecraft.
 
-## Todavía no implementado
+## Modulo de control 0.3.0
 
-- Plugin nativo para RE4, composición de imágenes y sincronía de cámara por frame.
+DLL C compilada como PE32/i386 con MinGW GCC 14.2.0, headers 12.0.0 y binutils
+2.44, descargados con apt desde repositorios Debian verificados y extraidos en
+workspace. Exports DirectInput inspeccionados; imports solo KERNEL32, USER32 y
+msvcrt. No dependencia a DLL de runtime MinGW. La politica C de TTL de 500 ms,
+wrap, parada, seqlock y teclas opuestas se ejecuto en Linux con nueve aserciones.
+
+Tres nuevas pruebas Python verifican armado explicito, enclavamiento, rechazo
+de comandos invalidos, perdida de personaje y falta de ticks. Una prueba Java
+nueva intercambia controles con host Python por TCP real y IPC sintetico:
+arranque desarmado, input correcto, corte tras 200 ms sin muestras y parada
+explicita. No se presenta el IPC sintetico como una prueba del cargador real.
+
+Instaladores ejecutados con PowerShell 7.4.7 Linux, descargado desde el release
+oficial y verificado con hashes.sha256. Se comprobo copia de saves por hash,
+rechazo de DLL existente, retirada propia/conservacion de DLL ajena y rechazo
+de saves vacios. Windows PowerShell 5.1 y permisos reales siguen pendientes.
+PowerShell inicialmente no pudo crear cache en /home; se corrigio mediante
+rutas XDG dentro de workspace sin cambiar HOME.
+
+La DLL no fue cargada en Windows/RE4 en cloud: sus firmas adicionales, hook,
+movimiento, colisiones nativas, parada F8 y frames en segundo plano deben probarse
+en el PC del usuario. No se valida todavia camara libre ni sincronizacion completa.
+
+## Todavia no implementado
+
+- Composicion de imagenes y sincronia de camara por frame.
 - Colisión y navegación de RE4; geometría RE4 → Minecraft.
 - Entidades proxy y daño de TNT, espadas o flechas entre juegos.
-- Movimiento del personaje nativo, Ashley, puertas, cinemáticas y guardados.
+- Movimiento nativo verificado en juego; Ashley, puertas, cinematicas y guardados
+  coordinados entre ambos juegos.
 
 Una conexión al simulador no es evidencia de que RE4 funcione. No se ejecutó ni
 modificó RE4 desde este entorno. Ningún ejecutable o recurso del juego se incluye

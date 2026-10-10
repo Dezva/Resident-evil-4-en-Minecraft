@@ -12,7 +12,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class BridgeConnection implements AutoCloseable {
     public record Status(boolean connected, String message, long acknowledgedSequence) {}
     private final BridgeConfig config;
-    private final boolean readerMode;
+    public enum Mode { SIMULATOR, READER, CONTROL }
+    private final Mode mode;
+    private record ControlFrame(JsonObject frame, long createdNs) {}
+    private final AtomicReference<ControlFrame> control = new AtomicReference<>();
+    private volatile boolean nativeArmed;
+    private volatile int nativeStop;
+    private volatile long nativeTicks;
     private volatile Re4Sample re4Sample;
     private final AtomicReference<JsonObject> pose = new AtomicReference<>();
     private final AtomicReference<JsonObject> collision = new AtomicReference<>();
@@ -21,9 +27,21 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile Socket socket;
     private Thread worker;
 
-    public BridgeConnection(BridgeConfig config) { this(config, false); }
-    public BridgeConnection(BridgeConfig config, boolean readerMode) { this.config = config; this.readerMode = readerMode; }
-    public boolean readerMode() { return readerMode; }
+    public BridgeConnection(BridgeConfig config) { this(config, Mode.SIMULATOR); }
+    public BridgeConnection(BridgeConfig config, boolean readerMode) { this(config, readerMode ? Mode.READER : Mode.SIMULATOR); }
+    public BridgeConnection(BridgeConfig config, Mode mode) { this.config = config; this.mode = mode; }
+    public boolean readerMode() { return mode != Mode.SIMULATOR; }
+    public boolean controllerMode() { return mode == Mode.CONTROL; }
+    public boolean nativeArmed() { return nativeArmed; }
+    public int nativeStop() { return nativeStop; }
+    public long nativeTicks() { return nativeTicks; }
+    public void publishControl(boolean armed, int buttons, int generation) {
+        if (buttons < 0 || buttons > 15 || generation < 0) throw new IllegalArgumentException("Invalid control");
+        JsonObject frame = new JsonObject();
+        frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
+        frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
+        control.set(new ControlFrame(frame, System.nanoTime()));
+    }
     public Re4Sample re4Sample() { return re4Sample; }
     public Status status() { return status; }
     public void publishPose(JsonObject frame) { pose.set(frame.deepCopy()); }
@@ -54,23 +72,32 @@ public final class BridgeConnection implements AutoCloseable {
             peer.getOutputStream().write(LineProtocol.encode(hello));
             JsonObject welcome = LineProtocol.read(peer.getInputStream());
             if (!"welcome".equals(string(welcome, "type")) || !session.equals(string(welcome, "session"))
-                    || !(readerMode ? "re4_reader" : "simulator").equals(string(welcome, "mode"))) {
+                    || !(mode == Mode.CONTROL ? "re4_control" : readerMode() ? "re4_reader" : "simulator").equals(string(welcome, "mode"))) {
                 throw new IOException("Unexpected peer mode");
             }
-            String modeMessage = readerMode ? "RE4 reader (read only)" : "simulator (RE4 is not connected)";
+            String modeMessage = mode == Mode.CONTROL ? "RE4 controller" : readerMode() ? "RE4 reader (read only)" : "simulator (RE4 is not connected)";
             status = new Status(true, modeMessage, 0);
             long sequence = 0;
             long lastSend = System.nanoTime();
             boolean preferCollision = true;
             while (running) {
                 JsonObject frame = null;
-                if (readerMode) {
-                    if (sequence > 0 && System.nanoTime() - lastSend < 100_000_000L) {
+                if (readerMode()) {
+                    if (sequence > 0 && System.nanoTime() - lastSend < (controllerMode() ? 50_000_000L : 100_000_000L)) {
                         Thread.sleep(Duration.ofMillis(10));
                         continue;
                     }
                     frame = new JsonObject();
                     frame.addProperty("type", "re4_poll");
+                    if (controllerMode()) {
+                        var latest = control.get();
+                        if (latest != null && System.nanoTime() - latest.createdNs() < 200_000_000L) frame = latest.frame().deepCopy();
+                        else {
+                            frame.addProperty("type", "re4_control"); frame.addProperty("armed", false);
+                            frame.addProperty("buttons", 0);
+                            frame.addProperty("arm_id", latest == null ? 0 : latest.frame().get("arm_id").getAsInt());
+                        }
+                    }
                 } else frame = preferCollision ? collision.getAndSet(null) : pose.getAndSet(null);
                 if (frame == null) frame = preferCollision ? pose.getAndSet(null) : collision.getAndSet(null);
                 preferCollision = !preferCollision;
@@ -92,9 +119,23 @@ public final class BridgeConnection implements AutoCloseable {
                         || !Long.toString(sequence).equals(string(ack, "seq"))) {
                     throw new IOException("Invalid acknowledgement");
                 }
-                if (readerMode) {
+                if (readerMode()) {
                     if (!ack.has("re4_sample") || !ack.get("re4_sample").isJsonObject()) throw new IOException("Missing RE4 sample");
                     re4Sample = Re4Sample.parse(ack.getAsJsonObject("re4_sample"), System.nanoTime());
+                    if (controllerMode()) {
+                        JsonObject state = ack.getAsJsonObject("control_state");
+                        if (state == null || !state.getAsJsonPrimitive("armed").isBoolean()
+                                || !state.getAsJsonPrimitive("stop").isNumber() || !state.getAsJsonPrimitive("hook_ticks").isNumber())
+                            throw new IOException("Invalid control acknowledgement");
+                        nativeArmed = state.get("armed").getAsBoolean();
+                        nativeStop = state.get("stop").getAsInt();
+                        nativeTicks = state.get("hook_ticks").getAsLong();
+                        if (nativeStop < 0 || nativeStop > 2 || nativeTicks < 0 || nativeTicks > 0xFFFFFFFFL)
+                            throw new IOException("Invalid native status");
+                        if (!state.get("stop").getAsString().equals(Integer.toString(nativeStop))
+                                || !state.get("hook_ticks").getAsString().equals(Long.toString(nativeTicks)))
+                            throw new IOException("Non integral native status");
+                    }
                 }
                 status = new Status(true, modeMessage, sequence);
             }
@@ -105,6 +146,7 @@ public final class BridgeConnection implements AutoCloseable {
         } finally {
             running = false;
             re4Sample = null;
+            nativeArmed = false;
             socket = null;
             if (status.connected()) status = new Status(false, "disconnected", status.acknowledgedSequence());
         }
@@ -125,5 +167,7 @@ public final class BridgeConnection implements AutoCloseable {
         pose.set(null);
         collision.set(null);
         re4Sample = null;
+        nativeArmed = false;
+        control.set(null);
     }
 }

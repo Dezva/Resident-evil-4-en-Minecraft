@@ -42,6 +42,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private double unitsPerBlock = 100;
     private int ySign = -1;
     private int turnSign = 1;
+    private boolean driving;
+    private int armGeneration;
+    private long armRequestedNs;
 
     @Override public void onInitializeClient() {
         try {
@@ -54,6 +57,28 @@ public final class Re4BridgeClient implements ClientModInitializer {
             literal("re4bridge")
                 .then(literal("connect").executes(ctx -> connect(ctx.getSource().getClient(), false)))
                 .then(literal("re4").executes(ctx -> connect(ctx.getSource().getClient(), true)))
+                .then(literal("controller").executes(ctx -> connectController(ctx.getSource().getClient())))
+                .then(literal("arm").executes(ctx -> {
+                    var current = bridge;
+                    var sample = current == null ? null : current.re4Sample();
+                    if (current == null || !current.controllerMode() || !current.status().connected()
+                            || sample == null || !sample.fresh(System.nanoTime()) || current.nativeTicks() == 0) {
+                        say(ctx.getSource().getClient(), "Conecta /re4bridge controller con RE4 cargado y el modulo nativo activo.");
+                        return 0;
+                    }
+                    following = false;
+                    driving = true;
+                    ++armGeneration;
+                    armRequestedNs = System.nanoTime();
+                    current.publishControl(true, 0, armGeneration);
+                    say(ctx.getSource().getClient(), "Control solicitado. W/S avanzar/retroceder; A/D girar. F8 o /re4bridge stop detienen.");
+                    return 1;
+                }))
+                .then(literal("stop").executes(ctx -> {
+                    stopDriving();
+                    say(ctx.getSource().getClient(), "Control RE4 desarmado.");
+                    return 1;
+                }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("scale").then(argument("units", DoubleArgumentType.doubleArg(1, 10000)).executes(ctx -> {
                     unitsPerBlock = DoubleArgumentType.getDouble(ctx, "units");
@@ -72,6 +97,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     return calibrate(ctx.getSource().getClient());
                 })))
                 .then(literal("follow").executes(ctx -> {
+                    stopDriving();
                     MinecraftClient client = ctx.getSource().getClient();
                     if (following) { following = false; say(client, "Seguimiento detenido."); return 1; }
                     if (client.player == null || !client.player.isSpectator() || calibration == null
@@ -94,6 +120,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     String state = bridge == null ? "disconnected" : bridge.status().message()
                             + "; mensajes confirmados: " + bridge.status().acknowledgedSequence();
                     ctx.getSource().sendFeedback(Text.literal("RE4 Bridge: " + state));
+                    if (bridge != null && bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
+                        "Control: solicitado=" + driving + "; nativo=" + bridge.nativeArmed() + "; parada="
+                        + bridge.nativeStop() + "; ticks=" + bridge.nativeTicks()));
                     if (bridge != null && bridge.readerMode()) {
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
@@ -107,6 +136,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private int connect(MinecraftClient client, boolean readerMode) {
+        return connect(client, readerMode ? BridgeConnection.Mode.READER : BridgeConnection.Mode.SIMULATOR);
+    }
+
+    private int connect(MinecraftClient client, BridgeConnection.Mode mode) {
         if (config == null) {
             say(client, "No se pudo leer config/re4bridge.json. Revisa su formato y reinicia Minecraft.");
             return 0;
@@ -118,14 +151,15 @@ public final class Re4BridgeClient implements ClientModInitializer {
         disconnect(client);
         previousPerspective = client.options.getPerspective();
         client.options.setPerspective(Perspective.FIRST_PERSON);
-        bridge = new BridgeConnection(config, readerMode);
+        bridge = new BridgeConnection(config, mode);
         bridge.start();
-        say(client, readerMode ? "Conectando al lector real de RE4. Usa /re4bridge status; luego /re4bridge calibrate."
+        say(client, mode != BridgeConnection.Mode.SIMULATOR ? "Conectando a RE4. Usa /re4bridge status."
             : "Conectando al simulador local. RE4 todavía no está conectado. Usa /re4bridge status.");
         return 1;
     }
 
     private void disconnect(MinecraftClient client) {
+        stopDriving();
         if (bridge != null) bridge.close();
         bridge = null;
         following = false;
@@ -135,7 +169,21 @@ public final class Re4BridgeClient implements ClientModInitializer {
         previousPerspective = null;
     }
 
+    private int connectController(MinecraftClient client) {
+        armGeneration = 0;
+        int result = connect(client, BridgeConnection.Mode.CONTROL);
+        if (result == 0) return 0;
+        say(client, "Conectando a controles RE4. Estado inicial desarmado; luego /re4bridge arm.");
+        return 1;
+    }
+
+    private void stopDriving() {
+        driving = false;
+        if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, armGeneration);
+    }
+
     private int calibrate(MinecraftClient client) {
+        stopDriving();
         following = false;
         calibration = null;
         var current = bridge;
@@ -161,6 +209,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             return;
         }
         if (!current.status().connected()) {
+            stopDriving();
             following = false;
             calibration = null;
             if (!current.status().message().equals("connecting") && previousPerspective != null) {
@@ -168,6 +217,21 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 previousPerspective = null;
             }
             return;
+        }
+        if (current.controllerMode()) {
+            var sample = current.re4Sample();
+            if (client.isPaused() || client.currentScreen != null || !client.isWindowFocused()
+                    || sample == null || !sample.fresh(System.nanoTime())
+                    || (driving && System.nanoTime() - armRequestedNs >= 500_000_000L
+                        && (current.nativeStop() != 0 || !current.nativeArmed()))) stopDriving();
+            int buttons = 0;
+            if (driving) {
+                if (client.options.forwardKey.isPressed()) buttons |= 1;
+                if (client.options.backKey.isPressed()) buttons |= 2;
+                if (client.options.rightKey.isPressed()) buttons |= 4;
+                if (client.options.leftKey.isPressed()) buttons |= 8;
+            }
+            current.publishControl(driving, buttons, armGeneration);
         }
         if (client.isPaused()) return;
         if (current.readerMode()) {

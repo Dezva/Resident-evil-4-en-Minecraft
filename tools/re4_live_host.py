@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authenticated loopback RE4 read-only host. Never writes game memory."""
+"""Authenticated loopback RE4 host; optional local native-input controller."""
 import argparse
 import os
 from pathlib import Path
@@ -7,19 +7,26 @@ import socket
 import struct
 from fake_re4_host import ProtocolError, load_config, serve_peer
 from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locate_player_slot, sample_player
+from re4_control import NativeControl, ControlPolicy
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
+    parser.add_argument("--control", action="store_true", help="Require native module; explicit /re4bridge arm needed")
     args = parser.parse_args()
     process = None
+    native = None
     try:
         config = load_config(args.game_dir / "config" / "re4bridge.json")
-        process = WindowsProcess(find_pid(), args.game_exe)
+        pid = find_pid()
+        process = WindowsProcess(pid, args.game_exe)
         slot = locate_player_slot(process.read, process.base, process.size)
-        print("RE4 UHD 1.1.0 detectado. No se escribe memoria del juego.", flush=True)
+        print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
+        if args.control:
+            native = NativeControl(pid)
+            print("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
 
         def provider():
             try:
@@ -31,14 +38,19 @@ def main():
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.bind(("127.0.0.1", config["port"]))
             server.listen(1)
-            print(f"READY 127.0.0.1:{config['port']} — LECTOR RE4 REAL; usa /re4bridge re4", flush=True)
+            command = "controller" if args.control else "re4"
+            print(f"READY 127.0.0.1:{config['port']} — RE4 REAL; usa /re4bridge {command}", flush=True)
             while True:
                 peer, _ = server.accept()
                 with peer:
+                    policy = ControlPolicy(native) if native is not None else None
                     try:
-                        serve_peer(peer, config["token"], {}, provider)
+                        serve_peer(peer, config["token"], {}, provider, policy.apply if policy else None)
                     except (ProtocolError, OSError) as error:
                         print("Sesion cerrada:", error, flush=True)
+                    finally:
+                        if policy:
+                            policy.stop()
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError, ProtocolError, ReaderError) as error:
@@ -46,6 +58,8 @@ def main():
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     finally:
+        if native is not None:
+            native.close()
         if process is not None:
             process.close()
     return 0

@@ -12,4 +12,6 @@ test {
     useJUnitPlatform()
     inputs.file('../tools/fake_re4_host.py')
     inputs.file('../tools/fixtures/re4_peer.py')
+    inputs.file('../tools/fixtures/control_peer.py')
+    inputs.file('../tools/re4_control.py')
 }

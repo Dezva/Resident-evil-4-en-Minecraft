@@ -1,0 +1,104 @@
+# Version 0.3.0: controles Minecraft -> RE4 UHD 1.1.0
+
+Prueba experimental de movimiento nativo. Con Minecraft activo, sus teclas de
+movimiento se transmiten a RE4: avanzar/retroceder y girar. El nuevo modulo
+procesa esa entrada dentro del frame del juego; no cambia coordenadas de RE4
+por teletransporte. Todavia no hay camara libre Minecraft en RE4, geometria
+compartida, bloques con colision nativa ni dano cruzado.
+
+## Instalar
+
+1. Cierra Minecraft y RE4. Extrae todo el ZIP fuera de la carpeta del juego.
+2. En `%APPDATA%\.minecraft\mods` retira el JAR anterior y coloca
+   `re4bridge-0.3.0.jar` de la carpeta `mods` del ZIP. Solo un JAR de RE4 Bridge.
+   Conserva Fabric API y Minecraft/Fabric 1.21.1.
+3. Ejecuta `INSTALL-RE4-CONTROLS.bat` y lee su resultado. Antes de instalar,
+   copia y verifica por SHA256 tus partidas de:
+   `D:\Games\Resident Evil 4 - Ultimate HD Edition\Bin32\Profile\Player\Saves`.
+   Copia tambien los INI de Bin32. Las copias quedan en
+   `%LOCALAPPDATA%\RE4Bridge\Backups\<fecha-identificador>`; anota la carpeta.
+4. Debe indicar `Instalado` y `Copia de seguridad verificada`. Solo agrega
+   `D:\Games\Resident Evil 4 - Ultimate HD Edition\Bin32\dinput8.dll`.
+   No reemplaza `bio4.exe`, guardados ni configuraciones. Si ya hay un
+   `dinput8.dll`, el instalador se detiene: comunica ese error y conserva el archivo.
+5. Abre RE4 en modo ventana y carga una partida en un sitio donde puedas probar
+   movimiento. Abre Minecraft y tu mundo local de prueba. Cierra hosts anteriores
+   y ejecuta `START-RE4-CONTROLS.bat` con los permisos que funcionaron para el lector.
+
+Los BAT del instalador ejecutan solo los PS1 incluidos con ExecutionPolicy
+Bypass para ese proceso. No cambian la politica global de PowerShell, registro,
+antivirus o permisos del sistema. Revisa los scripts si quieres antes de abrirlos.
+Si las rutas cambiaron, usa los parametros `-GameBin` y `-SavesDir` del PS1.
+
+## Primera prueba corta
+
+Mantene visibles ambas ventanas. Deja el foco en Minecraft y ejecuta:
+
+```text
+/re4bridge controller
+/re4bridge status
+/re4bridge arm
+```
+
+`controller` exige el host nativo; no se conecta al simulador ni al lector simple.
+Empieza desarmado. `status` muestra contador de ticks del modulo. Tras `arm`,
+cierra el chat y mantene la ventana Minecraft activa:
+
+- W / tecla configurada de avanzar en Minecraft: avanzar en RE4.
+- S / retroceder: retroceder en RE4.
+- A / izquierda: girar a izquierda en RE4.
+- D / derecha: girar a derecha en RE4.
+
+Son controles de giro del RE4 clasico; A/D no son desplazamiento lateral.
+El raton todavia no dirige su camara. Minecraft tambien mantiene su movimiento
+normal local; esta prueba no alinea aun ambos personajes como una unica entidad.
+No combines `follow` con control: activar uno desactiva el otro.
+
+Prueba W durante un segundo y sueltala. Mira si el personaje de RE4 avanza y se
+detiene. Prueba A/D durante un segundo. La consola debe mostrar `control` con
+`armed: True` y `hook_ticks` creciente mientras controla. Abrir el chat para
+consultar `status` desarma el control; por eso puede mostrar nativo desarmado.
+
+## Parar y volver a controlar
+
+F8 produce una parada de emergencia enclavada. `/re4bridge stop` tambien
+desarma. Abrir chat, inventario/menu, pausar Minecraft, perder su foco, salir del
+mundo o perder la muestra RE4 desarma. Despues repite `/re4bridge arm` para volver
+a activar. No se rearma automaticamente.
+
+La red envia input hasta 20 Hz. Si el cliente deja de muestrear, el worker manda
+desarmado tras 200 ms. Si el host se bloquea/desconecta, el modulo deja de aplicar
+input remoto tras 500 ms y enclava parada 2. Tras parar, la entrada normal de RE4
+vuelve a quedar a cargo del juego. F8 es parada 1.
+
+Si no se mueve, envia el resultado de `status` y el mensaje de la consola. El
+contador `hook_ticks` permite distinguir DLL no inicializada de un juego que no
+ejecuta frames al perder el foco. No se fuerza a RE4 a continuar en segundo plano
+ni se modifica su gestion de ventanas en esta version. Evita minimizar RE4;
+la prueba requiere que siga ejecutando sus frames con Minecraft activo.
+
+## Retirar y restaurar
+
+Cierra RE4 y ejecuta `UNINSTALL-RE4-CONTROLS.bat`. Solo elimina la DLL si su hash
+coincide con la del paquete; conserva partidas, configuraciones y backups.
+La desinstalacion no restaura partidas automaticamente. Para restaurar una copia
+que elegiste, con RE4 cerrado, usa en PowerShell (sustituye la ruta de backup):
+
+```powershell
+Get-ChildItem -LiteralPath "C:\ruta\backup\Saves" -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination "D:\Games\Resident Evil 4 - Ultimate HD Edition\Bin32\Profile\Player\Saves" -Recurse -Force }
+```
+
+## Evidencia y limites
+
+Compilado como DLL PE32/i386, con exports DirectInput y solo imports de DLL del
+sistema Windows. Pruebas C ejecutan la politica real de TTL, estados desarmados,
+seqlock y mascara. Pruebas Java/Python usan TCP real con IPC sintetico y comprueban
+armado, input y corte por falta de nuevas muestras. Instalador/desinstalador
+probados con PowerShell en Linux y archivos sinteticos: copia verificada,
+rechazo de DLL existente, retirada exclusiva de DLL propia y carpeta saves vacia.
+El cargador Windows, el hook PadRead y movimiento/colision de RE4 reales aun no
+se probaron en cloud. Esta prueba en tu PC es necesaria antes de ampliar el modulo.
+
+Referencia y diseno nativo en el repositorio: `native/README.md`.
+Puedes seguir usando el modo de lectura/seguimiento 0.2.0 sin armar controles;
+`START-RE4-BRIDGE.bat` y `/re4bridge re4` conservan ese modo.

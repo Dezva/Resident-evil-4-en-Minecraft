@@ -73,3 +73,31 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   incluye Java/Python con TCP real y fixture de personaje que desaparece.
 - Paquete Windows 0.2.0 conserva Fabric 1.21.1 y API. Se sustituye el JAR anterior;
   no se instala ningun archivo dentro de RE4. Prueba grafica conjunta pendiente.
+
+## 2026-10-10 — Control nativo 0.3.0 (en desarrollo)
+
+- El usuario confirmo seguimiento 0.2.0, con captura `follow: true` y 4555 ACK.
+- Ruta elegida: proxy dinput8 x86 que reenvia a la DLL original del sistema y
+  modifica un CALL identificado de PadRead en memoria, despues del input nativo.
+  Agrega solo bits avanzar/retroceder/girar; no teletransporta RE4 ni escribe su
+  posicion. La logica de movimiento/colision sigue perteneciendo a RE4.
+- Referencia publica re4_tweaks revision 92c0208bd09c29c9640e13a2493b8e6bd6edd700:
+  KeyboardMouseTweaks.cpp (llamada PadRead), Game.cpp (Key_btn_on), SDK/pad.h (bits).
+  No se asume API de plugins estable. Se rechaza instalar sobre un dinput8 existente.
+- IPC local por memoria compartida con contador/heartbeat, corte de 500 ms y
+  parada F8 enclavada. Red sigue loopback autenticada. Instalacion con juego cerrado,
+  copia previa de saves/config suministrados y desinstalacion por hash propio.
+  Validacion real del modulo en Windows pendiente; no se ejecuta RE4 en cloud.
+
+- Ruta de saves confirmada por el usuario:
+  `D:\Games\Resident Evil 4 - Ultimate HD Edition\Bin32\Profile\Player\Saves`.
+- Se resolvio el CALL interior exacto de la referencia publica, verificando
+  ReadCall/InjectHook en CookiePLMonster/ModUtils; no se envuelve el CALL exterior.
+- DLL compilada PE32 x86, cinco exports DirectInput, sin runtime adicional.
+  La DLL carga la original por ruta absoluta SystemDirectory para evitar recursion.
+- 9 pruebas Java, 15 Python y 2 Minecraft pasaron; suite C con 9 aserciones.
+  Pruebas PowerShell con archivos sinteticos verifican backup y no sobreescritura,
+  retirada exclusiva del DLL propio y saves vacios. Host autentica antes de input.
+- Native hook y movimiento real pendientes de prueba en Windows; no se afirma
+  colision comprobada, camara primera persona ni input de raton. W/S/A/D mapean
+  movimiento nativo clasico. No se fuerza ejecucion RE4 en segundo plano.

@@ -1,5 +1,24 @@
 # Puente v1: contrato del prototipo
 
+## Control nativo (mod 0.3.0)
+
+Modo separado `re4_control`, solicitado con `/re4bridge controller` y host
+`--control`. Solo acepta `type: re4_control` con `armed` booleano, `buttons`
+entero 0..15 y `arm_id` entero 0..2147483647, ademas de protocol/session/seq.
+Armado requiere arm_id >0 y una nueva generacion para rearmar tras parar. Bits
+1/2/4/8 = forward/back/right/left nativos; no se permiten ataques u otros bits.
+`ack` incluye re4_sample y control_state {armed,stop,hook_ticks}. Stop 1=F8,
+2=TTL expirado. La sesion arranca desarmada y desarma al cerrar o fallar.
+
+MC publica teclas hasta 20 Hz solo al activar `/re4bridge arm`, con mundo local,
+ventana enfocada, sin UI/pausa y con muestra RE4 reciente. El worker nunca
+repite input de mas de 200 ms: envia desarmado en su lugar. Abrir UI/perder foco
+desarma y exige arm explicito. Native IPC usa TTL 500 ms y seqlock: ver
+native/README.md. El modulo llama a PadRead original, despues reemplaza solo los
+cuatro bits de movimiento en el hilo del juego. No teletransporta RE4.
+Control y follow se excluyen para no crear autoridades circulares. Este modo
+aun no iguala las posiciones ni camaras de los dos juegos.
+
 Este contrato cubre el simulador y el lector externo RE4 con Minecraft Java
 1.21.1. El canal de lectura no controla el renderizador ni escribe memoria RE4.
 

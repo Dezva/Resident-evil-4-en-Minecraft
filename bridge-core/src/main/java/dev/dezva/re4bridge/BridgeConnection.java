@@ -12,6 +12,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class BridgeConnection implements AutoCloseable {
     public record Status(boolean connected, String message, long acknowledgedSequence) {}
     private final BridgeConfig config;
+    private final boolean readerMode;
+    private volatile Re4Sample re4Sample;
     private final AtomicReference<JsonObject> pose = new AtomicReference<>();
     private final AtomicReference<JsonObject> collision = new AtomicReference<>();
     private volatile Status status = new Status(false, "disconnected", 0);
@@ -19,7 +21,10 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile Socket socket;
     private Thread worker;
 
-    public BridgeConnection(BridgeConfig config) { this.config = config; }
+    public BridgeConnection(BridgeConfig config) { this(config, false); }
+    public BridgeConnection(BridgeConfig config, boolean readerMode) { this.config = config; this.readerMode = readerMode; }
+    public boolean readerMode() { return readerMode; }
+    public Re4Sample re4Sample() { return re4Sample; }
     public Status status() { return status; }
     public void publishPose(JsonObject frame) { pose.set(frame.deepCopy()); }
     public void publishCollision(JsonObject frame) { collision.set(frame.deepCopy()); }
@@ -49,15 +54,24 @@ public final class BridgeConnection implements AutoCloseable {
             peer.getOutputStream().write(LineProtocol.encode(hello));
             JsonObject welcome = LineProtocol.read(peer.getInputStream());
             if (!"welcome".equals(string(welcome, "type")) || !session.equals(string(welcome, "session"))
-                    || !"simulator".equals(string(welcome, "mode"))) {
-                throw new IOException("Unexpected peer; prototype accepts only the simulator");
+                    || !(readerMode ? "re4_reader" : "simulator").equals(string(welcome, "mode"))) {
+                throw new IOException("Unexpected peer mode");
             }
-            status = new Status(true, "simulator (RE4 is not connected)", 0);
+            String modeMessage = readerMode ? "RE4 reader (read only)" : "simulator (RE4 is not connected)";
+            status = new Status(true, modeMessage, 0);
             long sequence = 0;
             long lastSend = System.nanoTime();
             boolean preferCollision = true;
             while (running) {
-                JsonObject frame = preferCollision ? collision.getAndSet(null) : pose.getAndSet(null);
+                JsonObject frame = null;
+                if (readerMode) {
+                    if (sequence > 0 && System.nanoTime() - lastSend < 100_000_000L) {
+                        Thread.sleep(Duration.ofMillis(10));
+                        continue;
+                    }
+                    frame = new JsonObject();
+                    frame.addProperty("type", "re4_poll");
+                } else frame = preferCollision ? collision.getAndSet(null) : pose.getAndSet(null);
                 if (frame == null) frame = preferCollision ? pose.getAndSet(null) : collision.getAndSet(null);
                 preferCollision = !preferCollision;
                 if (frame == null && System.nanoTime() - lastSend >= 1_000_000_000L) {
@@ -78,14 +92,19 @@ public final class BridgeConnection implements AutoCloseable {
                         || !Long.toString(sequence).equals(string(ack, "seq"))) {
                     throw new IOException("Invalid acknowledgement");
                 }
-                status = new Status(true, "simulator (RE4 is not connected)", sequence);
+                if (readerMode) {
+                    if (!ack.has("re4_sample") || !ack.get("re4_sample").isJsonObject()) throw new IOException("Missing RE4 sample");
+                    re4Sample = Re4Sample.parse(ack.getAsJsonObject("re4_sample"), System.nanoTime());
+                }
+                status = new Status(true, modeMessage, sequence);
             }
         } catch (IOException | RuntimeException e) {
-            if (running) status = new Status(false, "connection failed; check simulator, config and protocol", status.acknowledgedSequence());
+            if (running) status = new Status(false, "connection failed; check host, config and protocol", status.acknowledgedSequence());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
             running = false;
+            re4Sample = null;
             socket = null;
             if (status.connected()) status = new Status(false, "disconnected", status.acknowledgedSequence());
         }
@@ -105,5 +124,6 @@ public final class BridgeConnection implements AutoCloseable {
         status = new Status(false, "disconnected", status.acknowledgedSequence());
         pose.set(null);
         collision.set(null);
+        re4Sample = null;
     }
 }

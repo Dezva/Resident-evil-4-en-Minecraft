@@ -11,4 +11,5 @@ dependencies {
 test {
     useJUnitPlatform()
     inputs.file('../tools/fake_re4_host.py')
+    inputs.file('../tools/fixtures/re4_peer.py')
 }

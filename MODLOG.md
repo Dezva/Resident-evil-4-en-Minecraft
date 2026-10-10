@@ -54,3 +54,22 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   debe probarse en el PC del usuario. No se afirma integracion nativa completa.
 - Paquete independiente `re4bridge-re4-reader-0.1.0-windows.zip`, con lanzador,
   lector e instrucciones; generado por `tools/package_re4_reader.py`.
+
+## 2026-10-10 — Conexion RE4 -> Minecraft 0.2.0
+
+- El usuario resolvio acceso denegado (OpenProcess Windows 5) y confirmo que
+  posicion/angulos reales cambian al caminar/girar. Capturas con `state: player`.
+- Se implemento host Win32 externo de solo lectura y modo autenticado
+  `re4_reader`, diferenciado de `simulator`. Minecraft solicita muestras a 10 Hz,
+  valida contenido y descarta estados sin personaje o muestras de mas de 1 s.
+- Comandos re4/calibrate/scale/ysign/turnsign/follow. Seguimiento optativo RE4 ->
+  Minecraft en espectador por teleports del servidor integrado; referencia local,
+  escala provisional 100, sin asumir orientacion absoluta. No escribe memoria
+  RE4 ni importa render/geometria/dano. El objetivo final Minecraft -> RE4 sigue
+  pendiente; esta etapa valida transporte y coordenadas en el sentido de lectura.
+- Se detiene por cambios de dimension/modo, perdida de conexion y saltos mayores
+  de 64 bloques por eje. Pausa suspende movimiento y conserva conexion.
+- Evidencia cloud: 8 pruebas Java core, 12 Python y 2 geometria Minecraft;
+  incluye Java/Python con TCP real y fixture de personaje que desaparece.
+- Paquete Windows 0.2.0 conserva Fabric 1.21.1 y API. Se sustituye el JAR anterior;
+  no se instala ningun archivo dentro de RE4. Prueba grafica conjunta pendiente.

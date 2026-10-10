@@ -99,7 +99,7 @@ def validate_sample(frame):
         raise ProtocolError("Contradictory completeness")
 
 
-def serve_peer(peer, token, report):
+def serve_peer(peer, token, report, sample_provider=None):
     # Timeout prevents an unauthenticated or dead peer occupying the only session indefinitely.
     peer.settimeout(3.0)
     with peer.makefile("rwb") as stream:
@@ -114,11 +114,13 @@ def serve_peer(peer, token, report):
             raise ProtocolError("Invalid session") from exc
         if session != hello["session"]:
             raise ProtocolError("Noncanonical session")
-        write_frame(stream, {"protocol": 1, "type": "welcome", "session": session, "mode": "simulator"})
+        mode = "re4_reader" if sample_provider is not None else "simulator"
+        write_frame(stream, {"protocol": 1, "type": "welcome", "session": session, "mode": mode})
         sequence = 0
         report.clear()
-        report.update(poses=0, snapshots=0, last_sequence=0, mode="simulator", disconnected=False)
-        print("Conectado a Minecraft. SIMULADOR: RE4 no está conectado.", flush=True)
+        report.update(poses=0, snapshots=0, last_sequence=0, mode=mode, disconnected=False)
+        print("Conectado a Minecraft. " + ("LECTOR RE4, solo lectura." if sample_provider else
+              "SIMULADOR: RE4 no está conectado."), flush=True)
         last_print = 0.0
         while True:
             try:
@@ -130,7 +132,9 @@ def serve_peer(peer, token, report):
                 return
             if frame.get("session") != session or type(frame.get("seq")) is not int or frame["seq"] != sequence + 1:
                 raise ProtocolError("Stale session or nonmonotonic sequence")
-            if frame.get("type") != "heartbeat":
+            if mode == "re4_reader" and frame.get("type") != "re4_poll":
+                raise ProtocolError("Reader accepts only re4_poll")
+            if mode == "simulator" and frame.get("type") != "heartbeat":
                 validate_sample(frame)
             sequence = frame["seq"]
             report["last_sequence"] = sequence
@@ -141,9 +145,16 @@ def serve_peer(peer, token, report):
                 report["snapshots"] += 1
                 # Replace the entire sampled region. Omitted/removed blocks do not persist.
                 report["last_collision"] = {k: frame[k] for k in ("center", "complete", "blocks", "dimension")}
-            write_frame(stream, {"protocol": 1, "type": "ack", "session": session, "seq": sequence})
+            ack = {"protocol": 1, "type": "ack", "session": session, "seq": sequence}
+            if sample_provider is not None:
+                ack["re4_sample"] = sample_provider()
+            write_frame(stream, ack)
             if time.monotonic() - last_print > 1:
                 last_print = time.monotonic()
+                if sample_provider is not None:
+                    print(f"seq={sequence} RE4={ack['re4_sample'].get('state')} "
+                          f"position={ack['re4_sample'].get('position_raw')}", flush=True)
+                    continue
                 collision = report.get("last_collision", {})
                 print(f"seq={sequence} poses={report['poses']} snapshots={report['snapshots']} "
                       f"feet={report.get('last_pose', {}).get('feet')} "

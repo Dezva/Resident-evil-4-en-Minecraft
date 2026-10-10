@@ -1,17 +1,18 @@
 # Puente v1: contrato del prototipo
 
-Este contrato cubre el simulador y Minecraft Java 1.21.1. No establece todavía
-un contrato con la memoria ni el renderizador de RE4.
+Este contrato cubre el simulador y el lector externo RE4 con Minecraft Java
+1.21.1. El canal de lectura no controla el renderizador ni escribe memoria RE4.
 
 ## Autoridad y alcance
 
-Minecraft controla el movimiento, inventario y simulación del jugador. El cliente
+En modo simulador, Minecraft controla el movimiento, inventario y simulación del jugador. El cliente
 envía su pose; el servidor integrado toma las formas de colisión de su mundo.
 El receptor de esta versión solo confirma y registra información. No controla
 Minecraft, no edita el mundo y no aplica daño en RE4.
 
 Solo se admite un mundo local de un jugador. La conexión se solicita con
-`/re4bridge connect` y se cierra al salir del mundo. El cliente activa primera
+`/re4bridge connect` para simulador o `/re4bridge re4` para el lector real,
+y se cierra al salir del mundo. El cliente activa primera
 persona al conectar y restaura la perspectiva anterior al desconectar o fallar.
 
 ## Transporte y ciclo de vida
@@ -22,8 +23,8 @@ persona al conectar y restaura la perspectiva anterior al desconectar o fallar.
 - El cliente genera un UUID `session` nuevo para cada conexión.
 - `hello` lleva `token`, leído de `config/re4bridge.json` de la instancia.
   El archivo se genera localmente al iniciar el mod; no se distribuye ni registra.
-- El receptor responde `welcome` con la misma sesión y `mode: "simulator"`.
-  Esta versión rechaza otros modos para no confundir una prueba con RE4 real.
+- El receptor responde `welcome` con la misma sesion y `mode: "simulator"` o
+  `mode: "re4_reader"`. El cliente exige el modo que solicito al conectar.
 - Tras el saludo, el cliente asigna `seq` creciente desde 1 a cada trama y espera
   un `ack` con la misma sesión y secuencia antes de enviar la siguiente.
 - Timeout de conexión: 1.5 s; respuesta: 2.5 s; sesión ociosa en el simulador: 3 s.
@@ -39,6 +40,39 @@ persona al conectar y restaura la perspectiva anterior al desconectar o fallar.
 Este canal es de diagnóstico. No transporta imágenes, profundidad, meshes,
 sonido ni eventos de combate. El protocolo del puente nativo necesitará estos
 canales y sus medidas de latencia antes de afirmar que la cámara está sincronizada.
+
+## Lectura RE4 (mod 0.2.0)
+
+En modo `re4_reader`, el cliente envia solamente `type: "re4_poll"`, con
+`protocol`, `session` y `seq`, hasta 10 Hz, incluso durante la pausa. No envia
+poses ni colisiones del mundo Minecraft. El host autentica y valida secuencia
+antes de consultar memoria; responde `ack` con un objeto `re4_sample`:
+
+```json
+{"protocol":1,"type":"ack","session":"00000000-0000-0000-0000-000000000001","seq":1,"re4_sample":{"state":"player","position_raw":[100,-200,300],"angles_raw":[0,1.5,0]}}
+```
+
+`state` puede ser `player`, `waiting_player`, `transition` o `unavailable`.
+Los tres ultimos invalidan la ultima posicion. En `player`, ambos vectores
+deben tener tres numeros finitos con magnitud <= 100000000. La edad se mide
+desde la recepcion con el reloj JVM; caduca tras un segundo. No se compara el
+reloj Python con el Java. El host no acepta ordenes de escritura ni estado del
+mundo Minecraft en este modo.
+
+`/re4bridge calibrate` ancla ambas posiciones y el yaw de Minecraft al angulo
+Y del personaje RE4. Conversion relativa:
+Xmc = Xmc0 + (Xre4-Xre40)/escala; Z equivalente;
+Ymc = Ymc0 + ysign*(Yre4-Yre40)/escala;
+yawMC = yawMC0 + turnsign*grados(anguloY-anguloY0), normalizado a [-180,180).
+Escala inicial 100 unidades/bloque, Y invertida y giro positivo son ajustes
+provisionales, no medidas verificadas. No se lee pitch de la camara RE4.
+
+El seguimiento se activa aparte con `/re4bridge follow`, requiere espectador
+y aplica teleports al jugador del servidor integrado en su hilo, hasta 10 Hz.
+Comprueba conexion, dimension, calibracion vigente y frescura antes de moverlo.
+No edita bloques. No prueba colisiones fisicas. Desconexion/cambio de dimension
+invalida calibracion; un salto por eje de mas de 64 bloques detiene seguimiento.
+Los ajustes de calibracion son locales a esta sesion de Minecraft.
 
 ## Pose
 

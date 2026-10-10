@@ -13,8 +13,11 @@ licencia incluida en el JAR original.
 3. Abre la instalación Fabric 1.21.1 de SKLauncher y crea un mundo nuevo Creativo,
    superplano. No uses tus mundos importantes para esta prueba.
 4. Abre `START-SIMULATOR.bat` de la carpeta extraída. Su ventana debe mostrar
-   `READY 127.0.0.1:28741 — SIMULADOR, no RE4`. Si falta Python, instala Python 3
-   desde su sitio oficial con el lanzador `py` y vuelve a intentarlo.
+   `READY 127.0.0.1:28741 — SIMULADOR, no RE4`. El archivo de inicio busca primero
+   `py -3` y después `python`, comprobando que la versión sea al menos 3.10.
+   Si falta Python, instálalo desde https://www.python.org/downloads/windows/.
+   En el instalador clásico activa **Add python.exe to PATH** y el lanzador `py`.
+   Cierra la ventana de inicio y vuelve a abrirla después de instalar Python.
 5. En el chat del mundo, escribe `/re4bridge connect`. Después consulta
    `/re4bridge status`: debe decir `simulator` y aumentar el contador de mensajes.
 6. Camina, gira, coloca bloques y rómpelos cerca del jugador. En la ventana del
@@ -28,6 +31,10 @@ ejecuta:
 ```powershell
 py -3 tools\fake_re4_host.py --game-dir 'C:\ruta\de\tu\instancia'
 ```
+
+Si `py` no se reconoce pero `python --version` devuelve 3.10 o posterior, usa
+`python` en lugar de `py -3` en los comandos de esta guía. Si ninguno se reconoce,
+instala Python y reinicia la terminal. Tener Minecraft/Java no instala Python.
 
 Para guardar una muestra de las cajas de colisión:
 

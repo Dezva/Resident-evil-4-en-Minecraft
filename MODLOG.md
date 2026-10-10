@@ -28,3 +28,12 @@
   archivos de RE4 y no se publicó nada en GitHub.
 
 Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
+
+## 2026-10-10 — Lanzador Python en Windows
+
+- El usuario ya puso los JAR y abrió el mundo superplano en SKLauncher, pero el
+  lanzador batch falló porque Windows no encontró el comando `py`.
+- Se añadió detección de `python` como alternativa y comprobación de Python 3.10+,
+  con instrucciones de instalación si ninguno de los dos comandos funciona.
+- No se cambiaron los JAR ni el protocolo. La ejecución batch en Windows sigue
+  pendiente de confirmar en el equipo del usuario.

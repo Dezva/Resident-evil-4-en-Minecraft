@@ -24,12 +24,26 @@ acceso a métodos internos remapeados. Se corrigió la configuración con la
 dependencia oficial `fabric-loader-junit`; la ejecución posterior completó ambas
 pruebas. No se deshabilitaron aserciones ni pruebas.
 
+## Prueba manual del usuario en Windows
+
+El usuario cargo el mod con SKLauncher en un mundo superplano. Su captura muestra
+conexion al simulador y 256 mensajes confirmados. Posteriormente confirmo que el
+numero `blocks` aumenta al colocar bloques y disminuye al romperlos. Esto valida
+el envio de cambios de bloques en su instancia; no prueba la integracion con RE4.
+
 ## Pendiente de comprobar en Windows
 
-- Arranque gráfico con SKLauncher y carga del JAR en la instancia del usuario.
-- Comandos del cliente en un mundo real, cambio/restauración de perspectiva.
-- Muestreo del servidor integrado al colocar y romper bloques dentro del radio.
-- Pausa y reconexión desde la interfaz del juego.
+- Restauracion de perspectiva, pausa y reconexion desde la interfaz del juego.
+
+## Componente lector de RE4
+
+`tools/re4_reader.py` implementa deteccion y lectura externa de posicion en
+Windows. Seis pruebas de memoria sintetica comprueban resolucion de firmas,
+lectura de pose, cabeceras PE malformadas, version incompatible, firmas ambiguas,
+punteros invalidos, muestras no finitas y transiciones. Junto con las cinco del
+simulador, `python3 -m unittest discover -s tools -p 'test_*.py' -v` pasa 11 pruebas.
+Estas pruebas no ejecutan las llamadas Win32 ni el juego. Su validacion real
+sigue pendiente: instrucciones en `docs/RE4-READER.md`.
 
 ## Todavía no implementado
 

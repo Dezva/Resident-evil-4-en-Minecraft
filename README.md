@@ -5,7 +5,9 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** mod de diagnóstico para Minecraft y un simulador local.
+**Estado actual:** mod de diagnóstico para Minecraft, simulador local y un
+[lector externo de posicion para RE4 UHD 1.1.0](docs/RE4-READER.md).
+El lector tiene pruebas de memoria sintetica; falta verificarlo en Windows con RE4.
 Todavía no hay un plugin nativo para RE4, composición de imágenes ni daño entre
 juegos. El simulador no abre, cambia ni se conecta a RE4.
 

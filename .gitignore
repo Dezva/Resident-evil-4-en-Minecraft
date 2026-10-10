@@ -1,0 +1,10 @@
+.gradle/
+**/build/
+minecraft/run/
+minecraft/logs/
+__pycache__/
+*.pyc
+dist/
+.idea/
+*.iml
+config/re4bridge.json

@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+    }
+}
+rootProject.name = 're4-minecraft-bridge'
+include 'bridge-core'
+// Core tests can run without downloading Minecraft or resolving Fabric Loom.
+if (providers.gradleProperty('minecraft').isPresent()) {
+    include 'minecraft'
+}

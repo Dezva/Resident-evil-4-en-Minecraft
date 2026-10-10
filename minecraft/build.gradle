@@ -1,0 +1,28 @@
+plugins { id 'fabric-loom' version '1.9.2' }
+version = '0.1.0'
+group = 'dev.dezva.re4bridge'
+base { archivesName = 're4bridge' }
+repositories { mavenCentral() }
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.1'
+    mappings 'net.fabricmc:yarn:1.21.1+build.3:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.16.10'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.116.6+1.21.1'
+    implementation project(':bridge-core')
+    include project(':bridge-core')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    // Minecraft's remapped package-private accesses need Fabric's test class loader.
+    testImplementation 'net.fabricmc:fabric-loader-junit:0.16.10'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+test {
+    useJUnitPlatform()
+    workingDir = layout.buildDirectory.dir('test-run').get().asFile
+    doFirst { workingDir.mkdirs() }
+}
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}

@@ -1,0 +1,14 @@
+plugins { id 'java-library' }
+repositories { mavenCentral() }
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+dependencies {
+    // Match the Gson version already shipped with Minecraft 1.21.1.
+    api 'com.google.code.gson:gson:2.10.1'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+test {
+    useJUnitPlatform()
+    inputs.file('../tools/fake_re4_host.py')
+}

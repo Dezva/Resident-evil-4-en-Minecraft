@@ -1,1 +1,1 @@
-dcf96974448afb27d1a78135a42a7a93e063fb58ce1fd154cc34327ccb3e5fc8  re4bridge-0.1.0-windows.zip
+ce49b497e22edf3a72cedc8836214f288b73be33b8c40d17c9b7f46b47194cae  re4bridge-0.1.0-windows.zip

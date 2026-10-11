@@ -1,4 +1,28 @@
-# Version 0.3.0: controles Minecraft -> RE4 UHD 1.1.0
+# Paquete 0.3.1: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0)
+
+## Diagnostico y actualizacion desde 0.3.0
+
+El paquete 0.3.1 mantiene abierto el identificador de la memoria compartida
+durante la vida del proceso y muestra el codigo de error Windows del host.
+No se ha confirmado aun la causa del fallo en el PC del usuario.
+
+Con RE4 abierto y una partida cargada, ejecuta `DIAGNOSE-RE4-CONTROLS.bat`
+como administrador. Solo lee rutas, hashes, modulos cargados y estado IPC;
+no instala, reemplaza ni activa controles. Puede usarse antes de actualizar.
+Envia toda su salida si el host no encuentra el modulo.
+
+Para actualizar la DLL: cierra RE4, ejecuta `UNINSTALL-RE4-CONTROLS.bat`
+del paquete **0.3.0 anterior**, y luego `INSTALL-RE4-CONTROLS.bat` del nuevo
+paquete. Si la desinstalacion rechaza el hash, conserva la DLL y envia el
+diagnostico: no es seguro asumir que sea nuestra. El mod Minecraft 0.3.0
+no necesita reinstalarse. Abre RE4 de nuevo y ejecuta el nuevo host.
+
+`Ya existe dinput8.dll` al repetir el instalador significa que se conserva
+un archivo existente; no demuestra que RE4 haya cargado la DLL.
+`DINPUT8 NO CARGADA` o una ruta de sistema en el diagnostico indican que
+la DLL local no esta proporcionando este puente. Una ruta local con IPC
+ausente requiere investigar su inicializacion. Estado IPC 2 indica que
+la comprobacion del ejecutable/firmas no se acepto; 3, fallo del hook.
 
 Prueba experimental de movimiento nativo. Con Minecraft activo, sus teclas de
 movimiento se transmiten a RE4: avanzar/retroceder y girar. El nuevo modulo

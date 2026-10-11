@@ -15,6 +15,8 @@ typedef struct {
 } Shared;
 _Static_assert(sizeof(Shared) == 40, "IPC layout");
 static Shared *state;
+/* Retain the named mapping handle until process exit, independently of its view. */
+static HANDLE shared_mapping;
 static HMODULE system_dinput;
 static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 static void (__cdecl *original_pad)(void);
@@ -83,8 +85,8 @@ static void install_hook(void) {
     if (!mapping) return;
     if (GetLastError() == ERROR_ALREADY_EXISTS) { CloseHandle(mapping); return; }
     state = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared));
-    CloseHandle(mapping);
-    if (!state) return;
+    if (!state) { CloseHandle(mapping); return; }
+    shared_mapping = mapping;
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 1; state->status = 2;
     unsigned char *base = (unsigned char *)GetModuleHandleW(NULL);
     if (!readable(base, sizeof(IMAGE_DOS_HEADER))) return;

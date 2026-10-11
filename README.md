@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** version 0.3.0 con [controles nativos experimentales
+**Estado actual:** paquete 0.3.1 (mod 0.3.0) con [controles nativos experimentales
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada requiere prueba en Windows. Todavia no hay composicion de imagenes,
@@ -42,7 +42,7 @@ Para la prueba Java/Python en Windows, si no existe `python3` en PATH, configura
 `$env:RE4BRIDGE_PYTHON` con la ruta de `python.exe` (sin argumentos).
 En Linux, usar `./gradlew` y `python3` en los mismos comandos.
 El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.3.0.jar`.
-Para control real, sigue [la guia 0.3.0](docs/RE4-CONTROLS.md).
+Para control real, sigue [la guia de controles y diagnostico](docs/RE4-CONTROLS.md).
 Compilar/probar el modulo y los instaladores:
 
 ```bash

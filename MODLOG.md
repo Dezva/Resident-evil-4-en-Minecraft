@@ -101,3 +101,13 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
 - Native hook y movimiento real pendientes de prueba en Windows; no se afirma
   colision comprobada, camara primera persona ni input de raton. W/S/A/D mapean
   movimiento nativo clasico. No se fuerza ejecucion RE4 en segundo plano.
+
+## 0.3.1: diagnostico del modulo nativo
+
+- Se conserva el handle de la memoria compartida durante la vida de RE4.
+- El host informa el codigo Windows y PID al fallar OpenFileMapping.
+- Diagnostico PowerShell de solo lectura: hashes, ruta de DLL cargada y estado IPC.
+- Paquete mantiene el mod 0.3.0. Actualizacion retira primero la DLL con el
+  desinstalador del paquete anterior; nunca reemplaza una DLL desconocida.
+- Validacion cloud: compilacion PE32, politica C, 15 pruebas Python y fixtures
+  de instalador PowerShell. La causa en Windows y movimiento real siguen pendientes.

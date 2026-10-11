@@ -13,8 +13,9 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.3.0"
-    jar = root / f"minecraft/build/libs/re4bridge-{version}.jar"
+    version = "0.3.1"
+    mod_version = "0.3.0"  # Native/host hotfix; the Minecraft mod is unchanged.
+    jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
         "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.116.6+1.21.1/"
@@ -23,7 +24,7 @@ def main():
         raise SystemExit("Fabric API checksum does not match the official Maven artifact")
     with zipfile.ZipFile(jar) as mod:
         metadata = json.loads(mod.read("fabric.mod.json"))
-        if metadata["version"] != version or metadata["depends"]["minecraft"] != "1.21.1":
+        if metadata["version"] != mod_version or metadata["depends"]["minecraft"] != "1.21.1":
             raise SystemExit("Wrong mod version")
         with mod.open(metadata["jars"][0]["file"]) as nested:
             with zipfile.ZipFile(nested) as core:
@@ -38,6 +39,8 @@ def main():
                            (root / "tools/fake_re4_host.py", "tools/fake_re4_host.py"),
                            (root / "START-RE4-BRIDGE.bat", "START-RE4-BRIDGE.bat"),
                            (root / "START-RE4-CONTROLS.bat", "START-RE4-CONTROLS.bat"),
+                           (root / "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.bat"),
+                           (root / "DIAGNOSE-RE4-CONTROLS.ps1", "DIAGNOSE-RE4-CONTROLS.ps1"),
                            (root / "INSTALL-RE4-CONTROLS.ps1", "INSTALL-RE4-CONTROLS.ps1"),
                            (root / "UNINSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1"),
                            (root / "INSTALL-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.bat"),
@@ -62,6 +65,7 @@ def main():
     top_level = [".gitignore", "README.md", "MODLOG.md", "build.gradle", "settings.gradle",
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
+                 "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

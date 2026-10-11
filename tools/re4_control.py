@@ -64,11 +64,18 @@ class NativeControl:
             fn.argtypes, fn.restype = args, result
         self.handle = self.k.OpenFileMappingW(6, False, f"Local\\RE4Bridge-Control-{pid}")
         if not self.handle:
-            raise ReaderError("No se encontro el modulo nativo. Instala la DLL y reinicia RE4.")
+            code = ctypes.get_last_error()
+            hint = ("Acceso denegado: ejecuta el host con los mismos permisos que RE4."
+                    if code == 5 else
+                    "El canal no existe: ejecuta DIAGNOSE-RE4-CONTROLS.bat para comprobar la DLL cargada."
+                    if code == 2 else
+                    "Ejecuta DIAGNOSE-RE4-CONTROLS.bat y comunica el resultado.")
+            raise ReaderError(f"OpenFileMapping fallo (Windows {code}, PID {pid}). {hint}")
         self.address = self.k.MapViewOfFile(self.handle, 6, 0, 0, 40)
         if not self.address:
+            code = ctypes.get_last_error()
             self.k.CloseHandle(self.handle)
-            raise ReaderError("No se pudo abrir la memoria compartida nativa")
+            raise ReaderError(f"MapViewOfFile fallo (Windows {code})")
         self.words = (ctypes.c_uint32 * 10).from_address(self.address)
         self.last_ticks = self.words[8]
         self.last_tick_time = time.monotonic() - 1

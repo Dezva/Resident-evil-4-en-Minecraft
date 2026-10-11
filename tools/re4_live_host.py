@@ -28,7 +28,7 @@ def main():
             native = NativeControl(pid)
             print("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
             capabilities = native.status()['capabilities']
-            print(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}", flush=True)
+            print(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}, correr={bool(capabilities & 4)}", flush=True)
 
         def provider():
             try:

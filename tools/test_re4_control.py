@@ -55,6 +55,24 @@ class ControlTests(unittest.TestCase):
             self.assertEqual(writer.writes, [])
         validate_control(self.frame(generation=0, armed=False, buttons=0))
 
+    def test_run_capability_and_stop_require_explicit_rearm(self):
+        writer=Writer()
+        policy=ControlPolicy(writer)
+        player={'state':'player'}
+        status=policy.apply(self.frame(buttons=65),player)
+        self.assertFalse(status['armed'])
+        self.assertIn('correr',status['reason'])
+        old_status=writer.status
+        writer.status=lambda: dict(old_status(),capabilities=7)
+        self.assertFalse(policy.apply(self.frame(buttons=65),player)['armed'])
+        self.assertTrue(policy.apply(self.frame(generation=2,buttons=69),player)['armed'])
+        self.assertEqual(writer.writes[-1],(True,69))
+        writer.stop_code=1
+        self.assertFalse(policy.apply(self.frame(generation=2,buttons=69),player)['armed'])
+        self.assertEqual(writer.writes[-1],(False,0))
+        for buttons in (16,32,80,128,-1):
+            with self.assertRaises(ProtocolError): validate_control(self.frame(buttons=buttons))
+
     def test_diagnostics_distinguish_request_stop_and_applied_native_input(self):
         writer = Writer()
         original_status = writer.status

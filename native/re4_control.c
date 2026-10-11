@@ -337,12 +337,13 @@ static void __cdecl pad_hook(void) {
                     last_look_sequence = (uint32_t)before;
                 }
                 if ((state->capabilities & 2u) && (flags & 3u) == 3u && isfinite(view_yaw) && *player_slot == player) {
-                    *(float *)(uintptr_t)(player+0xA4) = input ? re4_walk_heading(view_yaw,input) : view_yaw;
-                    input = input ? 1u : 0u; relative_walk = 1;
+                    uint32_t movement = input & RE4_MOVEMENT_MASK;
+                    *(float *)(uintptr_t)(player+0xA4) = movement ? re4_walk_heading(view_yaw,movement) : view_yaw;
+                    input = re4_relative_input(input); relative_walk = 1;
                 }
             }
         }
-        *key_on = (*key_on & ~(uint64_t)RE4_MOVEMENT_MASK) | input;
+        *key_on = (*key_on & ~(uint64_t)RE4_CONTROL_MASK) | input;
         state->native_buttons = input;
     } else {
         uint32_t player = current_player();
@@ -414,7 +415,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=409; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=410; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -473,7 +474,7 @@ static void install_hook(void) {
     memcpy(&slot,p+1,4);
     if (slot < (uintptr_t)base || slot > (uintptr_t)base+size-4 || !readable((void *)(uintptr_t)slot,4)) return;
     player_slot = (volatile uint32_t *)(uintptr_t)slot;
-    state->capabilities = 1;
+    state->capabilities = 5; /* Mouse + KEY_RUN; FP is added after camera validation. */
     unsigned char *c = unique_pattern(base,size,nt,camera_pattern,sizeof(camera_pattern)/sizeof(int));
     unsigned char *ctrl = unique_pattern(base,size,nt,ctrl_pattern,sizeof(ctrl_pattern)/sizeof(int));
     unsigned char *smooth = unique_pattern(base,size,nt,smooth_pattern,sizeof(smooth_pattern)/sizeof(int));

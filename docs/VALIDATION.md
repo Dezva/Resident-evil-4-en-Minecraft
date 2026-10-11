@@ -253,3 +253,15 @@ projection telemetry rather than another unverified camera algorithm.
 Three portable C suites and36 Python tests pass, including rejecting short,
 unknown, odd-sequence and nonfinite telemetry. Installer fixtures preserve
 backup/hash/own-only removal. PE32 compiled, Windows gameplay not run here.
+
+## 0.4.10 run input
+
+Pinned SDK/pad.h at92c0208bd09c29c9640e13a2493b8e6bd6edd700 identifies
+KEY_RUN0x40. Capability4 and exact permitted mask0x4F added across native,
+host and mod. TCP fixture verifies sprint69 and release5 without disconnect;
+unknown actions16/32 rejected. Native tests cover relative conversion69→65,
+cancelled axes/no-direction stripping run, stop/disarm/TTL. Gradle executed
+15 core and2 Minecraft tests with0 failures/skips; Python37 and three C
+suites pass. Native PE32 compiled; gameplay run speed not tested on Windows.
+Trace022618 confirms loaded build409 and zero projection writes despite
+increasing entries. Camera algorithm preserved; no claim of visual fix.

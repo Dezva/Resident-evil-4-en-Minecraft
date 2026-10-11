@@ -288,3 +288,17 @@ de la misma llamada. TRACE solo lectura y secuencia completa. Sin cambio de
 algoritmo de cámara/locomoción; no se promete solución visual. Mod/host0.4.3.
 Tres suites C y36 pruebas Python pasan; requiere captura Windows para decidir
 si el hook no cubre la vista o si otra fase sobrescribe el ajuste.
+
+## 0.4.10 — correr, cámara pendiente
+
+Trace022618:223 muestras, build409 cargado, ratón acumulado0 en pruebas;
+projection.calls2853492→3203928 y writes0. El ajuste final no llegó a aplicarse;
+condición de rechazo pendiente. Usuario permite avanzar: cámara jugable.
+Añade tecla de sprint Minecraft configurada (Ctrl por defecto, mantener) como
+KEY_RUN0x40 del SDK/pad.h público fijado. Máscara0x4F rechaza otros botones;
+capacidad4 evita solicitar correr en DLL anterior. FP conserva correr al
+traducir direcciones relativas, cancelación de opuestos elimina correr sin
+dirección. Mod/host/DLL0.4.10 requieren actualización conjunta. Sin cambios
+al algoritmo de cámara, velocidad/posiciones, partidas o inventario.
+TRACE muestra transcurrido/restante en consola, sin overlay nuevo.
+15 pruebas core,2 Minecraft,37 Python y tres suites C pasan en Linux.

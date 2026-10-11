@@ -13,8 +13,8 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.9"
-    mod_version = "0.4.3"
+    version = "0.4.10"
+    mod_version = "0.4.10"
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -58,7 +58,7 @@ def main():
                            (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-DIAGNOSTIC-0.4.9.md", "README.md"),
+                           (root / "docs/RE4-RUN-0.4.10.md", "README.md"),
                            (root / "docs/RE4-CONTROLS.md", "docs/RE4-CONTROLS.md"),
                            (root / "docs/RE4-LIVE.md", "docs/RE4-LIVE.md"),
                            (root / "docs/VALIDATION.md", "docs/VALIDATION.md"),

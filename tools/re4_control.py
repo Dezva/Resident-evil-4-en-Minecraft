@@ -13,8 +13,8 @@ MAGIC = 0x52453443
 def validate_control(frame):
     if frame.get("type") != "re4_control" or type(frame.get("armed")) is not bool:
         raise ProtocolError("Invalid control frame")
-    if type(frame.get("buttons")) is not int or not 0 <= frame["buttons"] <= 15:
-        raise ProtocolError("Only movement buttons are allowed")
+    if type(frame.get("buttons")) is not int or frame["buttons"] < 0 or frame["buttons"] & ~79:
+        raise ProtocolError("Only movement and run buttons are allowed")
     if type(frame.get("arm_id")) is not int or not 0 <= frame["arm_id"] <= 2147483647:
         raise ProtocolError("Invalid arm generation")
     if frame["armed"] and frame["arm_id"] == 0:
@@ -64,6 +64,9 @@ class ControlPolicy:
         if look and look["first_person"] and not (status.get("capabilities", 0) & 2):
             self.armed = False
             reason = "firma de camara no disponible"
+        if frame["buttons"] & 64 and not (status.get("capabilities",0) & 4):
+            self.armed = False
+            reason = "DLL sin soporte de correr; instala 0.4.10"
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
         return {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],

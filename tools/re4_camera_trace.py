@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "29696fd38b7085582b1647eaaf3f0c5945b566534de98296d89549c2811279cd": "0.4.10",
     "1e578b891f83811a36d9624077554e2d7ae67d96647ef03ca00a4073d76752c8": "0.4.9",
     "4e929e2dcd6bd0034d1ee101eb75840aeb732a28710b55f02ba6967484b2a0ed": "0.4.8",
     "69118533f1d2b21f5f7bd9d3c5f6154e81b97aa2b1ab871a362a1b77416015e5": "0.4.7",
@@ -209,7 +210,10 @@ def main():
                 if ipc: row['ipc']=ipc.sample()
                 if diagnostic: row['projection_diagnostic']=diagnostic.sample()
                 log.write(json.dumps(row,allow_nan=False)+'\n'); log.flush()
+                elapsed=int(time.monotonic()-start)
+                print(f'REGISTRANDO {elapsed:02d}/{args.seconds:02d} s | quedan {max(0,args.seconds-elapsed):02d} s',end='\r',flush=True)
                 time.sleep(0.2)
+            print()
             print('Registro terminado:',output)
     except (ReaderError,OSError,ValueError) as error:
         print('ERROR:',error); return 1

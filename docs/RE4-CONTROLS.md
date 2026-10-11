@@ -1,5 +1,9 @@
 # Controles Minecraft -> RE4 UHD 1.1.0
 
+Actualización vigente: [0.4.10 con correr](RE4-RUN-0.4.10.md). Requiere
+mod0.4.10, host y DLL nuevos. Mantén la tecla de sprint de Minecraft (Ctrl
+izquierdo por defecto) mientras avanzas. La velocidad la calcula RE4.
+
 Para 0.4.0, sigue [raton y camara](RE4-MOUSE-CAMERA.md). El usuario confirmo
 W/S/A/D de 0.3.5 sin retraso notable. Las actualizaciones siguientes son historicas.
 

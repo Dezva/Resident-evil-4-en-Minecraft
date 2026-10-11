@@ -181,3 +181,13 @@ No new hooks, locomotion/camera algorithm or automatic arm are introduced.
 The counters establish whether the validated entry actually runs during the
 user's test; on-disk DLL hashes alone cannot do that. Hooks are expected to
 run on the game's update/render thread, as before.
+
+## 0.4.10 KEY_RUN
+
+Allow mask0x4F: four direction bits plus native KEY_RUN0x40, verified from
+SDK/pad.h at the pinned reference revision above. Aim0x10/reload0x20/fire0x80
+remain forbidden. The native hook advertises capability4 for run in addition
+to mouse1/FP2 and replaces only these five permitted bits after PadRead.
+Opposite directions cancel; run with no remaining direction is removed.
+FP relative movement translates direction to forward1 while preserving run64.
+No speed/position/collision/animation-state edits. Diagnostic build is410.

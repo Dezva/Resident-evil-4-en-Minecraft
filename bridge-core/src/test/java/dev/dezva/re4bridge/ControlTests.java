@@ -28,11 +28,17 @@ class ControlTests {
             await(bridge::nativeArmed);
             await(() -> bridge.nativeButtons() == 5);
             assertEquals("activo", bridge.nativeReason());
-            assertEquals(3, bridge.nativeCapabilities());
+            assertEquals(7, bridge.nativeCapabilities());
             assertEquals(10, bridge.nativeLookPackets());
             bridge.publishControl(true, 5, 1, new MouseLook.Input(true, false, 20, -15, 160));
             await(() -> { try { return Files.readString(log).contains("'total_yaw': 20.0"); } catch (Exception e) { return false; } });
             assertTrue(Files.readString(log).contains("INPUT armed=True buttons=5"));
+            assertThrows(IllegalArgumentException.class, () -> bridge.publishControl(true, 16, 1));
+            assertThrows(IllegalArgumentException.class, () -> bridge.publishControl(true, 32, 1));
+            bridge.publishControl(true, 69, 1);
+            await(() -> bridge.nativeButtons() == 69);
+            bridge.publishControl(true, 5, 1);
+            await(() -> bridge.nativeButtons() == 5); // Releasing sprint keeps ordinary movement.
             // The network worker remains running; absence of new client ticks must still stop input.
             await(() -> !bridge.nativeArmed());
             assertTrue(bridge.status().connected());

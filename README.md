@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [paquete de diagnóstico 0.4.9](docs/RE4-DIAGNOSTIC-0.4.9.md), con mod/host 0.4.3. El vídeo y registro del usuario confirman que 0.4.8 sigue desviando la cámara en reposo. 0.4.9 mide la ejecución de proyección y su resultado; no se presenta como una corrección visual. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [paquete completo 0.4.10 con correr](docs/RE4-RUN-0.4.10.md), requiere mod/host/DLL nuevos. Sprint usa la tecla de Minecraft (Ctrl por defecto) y velocidad nativa de RE4. La captura0.4.9 confirma que el ajuste final de cámara no se aplicó; cámara pendiente, se continúa por petición del usuario. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

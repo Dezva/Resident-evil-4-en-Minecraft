@@ -259,6 +259,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (client.options.backKey.isPressed()) buttons |= 2;
                 if (client.options.rightKey.isPressed()) buttons |= 4;
                 if (client.options.leftKey.isPressed()) buttons |= 8;
+                if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {

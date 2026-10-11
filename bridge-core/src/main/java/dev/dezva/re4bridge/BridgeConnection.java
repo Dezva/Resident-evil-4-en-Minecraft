@@ -49,7 +49,7 @@ public final class BridgeConnection implements AutoCloseable {
         publishControl(armed, buttons, generation, null);
     }
     public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look) {
-        if (buttons < 0 || buttons > 15 || generation < 0) throw new IllegalArgumentException("Invalid control");
+        if (buttons < 0 || (buttons & ~79) != 0 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
@@ -157,7 +157,7 @@ public final class BridgeConnection implements AutoCloseable {
                         if (state.has("native_buttons")) {
                             var value = state.getAsJsonPrimitive("native_buttons");
                             nativeButtons = value.getAsInt();
-                            if (!value.isNumber() || nativeButtons < 0 || nativeButtons > 15
+                            if (!value.isNumber() || nativeButtons < 0 || (nativeButtons & ~79) != 0
                                     || !value.getAsString().equals(Integer.toString(nativeButtons)))
                                 throw new IOException("Invalid native button status");
                         }
@@ -167,7 +167,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 throw new IOException("Invalid native reason");
                             nativeReason = value.getAsString();
                         }
-                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 3);
+                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 7);
                         if (state.has("camera_active")) {
                             if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");
                             cameraActive = state.get("camera_active").getAsBoolean();

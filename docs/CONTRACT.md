@@ -20,15 +20,18 @@ con FOV/roll originales. El rearme reinicia el acumulador.
 
 Modo separado `re4_control`, solicitado con `/re4bridge controller` y host
 `--control`. Solo acepta `type: re4_control` con `armed` booleano, `buttons`
-entero 0..15 y `arm_id` entero 0..2147483647, ademas de protocol/session/seq.
+entero no negativo con máscara permitida 0x4F (0x0F antes de 0.4.10)
+y `arm_id` entero 0..2147483647, ademas de protocol/session/seq.
 Armado requiere arm_id >0 y una nueva generacion para rearmar tras parar. Bits
-1/2/4/8 = forward/back/right/left nativos; no se permiten ataques u otros bits.
+1/2/4/8 = forward/back/right/left nativos; desde 0.4.10, bit64 = KEY_RUN.
+No se permiten ataques, apuntado, recarga u otros bits. Correr exige capacidad4
+de la DLL; host rechaza su solicitud con DLL anterior y exige nuevo arm.
 `ack` incluye re4_sample y control_state {armed,stop,hook_ticks}. Stop 1=F8,
 2=TTL expirado. La sesion arranca desarmada y desarma al cerrar o fallar.
 
 El host 0.3.5 agrega reason, requested_buttons y native_buttons como campos
 opcionales para observar solicitud y aplicacion. native_buttons es mascara
-0..15 y reason texto de hasta 160 caracteres. El mod tolera su ausencia en
+0x4F (0x0F en versiones anteriores) y reason texto de hasta 160 caracteres. El mod tolera su ausencia en
 hosts previos, pero necesita el nuevo host para el detalle del indicador.
 
 MC publica teclas hasta 20 Hz solo al activar `/re4bridge arm`, con mundo local,
@@ -36,7 +39,11 @@ ventana enfocada, sin UI/pausa y con muestra RE4 reciente. El worker nunca
 repite input de mas de 200 ms: envia desarmado en su lugar. Abrir UI/perder foco
 desarma y exige arm explicito. Native IPC usa TTL 500 ms y seqlock: ver
 native/README.md. El modulo llama a PadRead original, despues reemplaza solo los
-cuatro bits de movimiento en el hilo del juego. No teletransporta RE4.
+cuatro bits de movimiento y, desde0.4.10, KEY_RUN en el hilo del juego.
+W+S y A+D cancelan su eje; sin dirección restante también se retira KEY_RUN.
+FP transforma dirección relativa a mirada en avance nativo manteniendo correr.
+Capacidades: ratón1, cámara2, correr4. IPC continúa siendo v2/80bytes.
+No teletransporta RE4.
 Control y follow se excluyen para no crear autoridades circulares. Este modo
 aun no iguala las posiciones ni camaras de los dos juegos.
 

@@ -10,6 +10,20 @@ int main(void) {
     assert(re4_buttons(2,4,100,50,1,0,1)==0);
     assert(re4_buttons(2,2,100,50,1,0,15)==0);
     assert(re4_buttons(2,2,100,50,1,0,128)==0);
+    assert(re4_buttons(2,2,100,50,1,0,65)==65);
+    assert(re4_buttons(2,2,100,50,1,0,69)==69);
+    assert(re4_relative_input(69)==65); /* Forward-right + sprint keeps KEY_RUN. */
+    assert(re4_relative_input(72)==65); /* FP lateral motion is native forward. */
+    assert(re4_buttons(2,2,100,50,1,0,64)==0);
+    assert(re4_buttons(2,2,100,50,1,0,67)==0); /* W+S cancels sprint too. */
+    assert(re4_buttons(2,2,100,50,1,0,76)==0); /* A+D cancels sprint too. */
+    assert(re4_buttons(2,2,100,50,1,0,77)==65); /* Cancel A+D, keep W+run. */
+    assert(re4_buttons(2,2,550,50,1,0,65)==0);
+    assert(re4_buttons(2,2,100,50,0,0,65)==0);
+    assert(re4_buttons(2,2,100,50,1,1,65)==0);
+    assert(re4_buttons(2,2,100,50,1,0,16)==0); /* Aim remains forbidden. */
+    assert(re4_buttons(2,2,100,50,1,0,32)==0); /* Reload remains forbidden. */
+    assert(re4_relative_input(64)==0);
     assert(re4_buttons(2,2,10,UINT32_MAX-20,1,0,5)==5);
     assert(re4_cached_frame_usable(1,100,50,1,1,0));
     assert(!re4_cached_frame_usable(0,100,50,1,1,0));

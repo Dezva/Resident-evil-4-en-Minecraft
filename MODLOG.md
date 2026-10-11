@@ -130,3 +130,10 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   divididas, firmas ausentes/ambiguas y version/llamada no compatibles.
 - Aun pendiente la salida del lector en el ejecutable real; no se relajan
   comprobaciones ni se activan hooks basandose solo en pruebas sinteticas.
+
+- El lector del usuario encuentra todas las firmas y valida version/memoria;
+  falla exclusivamente wrapper_starts_call. Se amplian los datos de la rama
+  con bytes/RVA para distinguir CALL, JMP relativo o prologo de funcion.
+  ReadCall de ModUtils lee rel32 sin distinguir E8/E9; no se cambia aun el
+  hook sin conocer los bytes de la entrada real. Cuarta prueba del lector
+  comprueba salto relativo y que se conserva la memoria sintetica.

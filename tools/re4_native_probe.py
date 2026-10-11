@@ -52,12 +52,20 @@ def inspect(read, base, size, query=None):
         checks["wrapper_in_module"] = base <= wrapper <= base + size - 5
         if checks["wrapper_in_module"]:
             data = read(wrapper, 5)
+            report["branch_details"] = {
+                "call_rva": hex(call - base),
+                "wrapper_rva": hex(wrapper - base),
+                "wrapper_bytes": read(wrapper, min(24, base + size - wrapper)).hex(" "),
+            }
             checks["wrapper_starts_call"] = data[0] == 0xe8
-            if checks["wrapper_starts_call"]:
+            checks["wrapper_starts_jump"] = data[0] == 0xe9
+            if checks["wrapper_starts_call"] or checks["wrapper_starts_jump"]:
                 target = wrapper + 5 + struct.unpack_from("<i", data, 1)[0]
                 checks["target_in_module"] = base <= target < base + size
                 if checks["target_in_module"]:
                     read(target, 1)
+                    report["branch_details"]["target_rva"] = hex(target - base)
+                    report["branch_details"]["target_bytes"] = read(target, min(24, base + size - target)).hex(" ")
                     if query:
                         checks["target_executable"] = bool(query(target)["protection"] & (0x20 | 0x40 | 0x80))
     return report

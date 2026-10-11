@@ -49,6 +49,19 @@ class ProbeTests(unittest.TestCase):
         self.assertFalse(report['checks']['wrapper_starts_call'])
         self.assertFalse(report['checks']['version_1_1_0'])
         self.assertNotIn('target_in_module', report['checks'])
+        self.assertTrue(report['branch_details']['wrapper_bytes'].startswith('90 '))
+
+    def test_relative_jump_is_reported_without_installing_hook(self):
+        m = fixture()
+        m.data[0x1600] = 0xe9
+        before = bytes(m.data)
+        report = inspect(m.read, m.base, m.size)
+        self.assertFalse(report['checks']['wrapper_starts_call'])
+        self.assertTrue(report['checks']['wrapper_starts_jump'])
+        self.assertTrue(report['checks']['target_in_module'])
+        self.assertEqual(report['branch_details']['wrapper_rva'], '0x1600')
+        self.assertEqual(report['branch_details']['target_rva'], '0x1700')
+        self.assertEqual(bytes(m.data), before)
 
 
 if __name__ == '__main__':

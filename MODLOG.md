@@ -497,3 +497,9 @@ Reset. Los 138 fallos de Present y 3 Reset eran anteriores al inicio de esta
 prueba. Pendientes la precisión del anclaje al moverse, recuperación del dispositivo
 y estabilidad prolongada. Colocación/eliminación desde Minecraft y colisiones
 siguen sin implementar. Se conserva el paquete publicado sin reconstruirlo.
+
+Nueva prueba de recorrido: el usuario confirmó que el cubo se quedó en su sitio,
+con vídeo `testeadocubo.mp4` e informe `cube-test-20261011-153629.json`.
+1.164 dibujos adicionales en 30,02 segundos, sin fallos nuevos de dibujo,
+restauración, Reset o Present. Anclaje observado en ese recorrido; causa del
+desplazamiento extraño previo sin determinar. Sin cambios de código o paquete.

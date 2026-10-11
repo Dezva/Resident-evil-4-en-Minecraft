@@ -496,3 +496,19 @@ Esto acredita arranque y dibujo visible durante esta prueba. No acredita todaví
 anclaje/proyección precisa al moverse, recuperación de pérdida/Reset durante
 el dibujo, estabilidad prolongada, colisiones ni colocación desde Minecraft.
 Registro documental sin reconstruir la DLL ni modificar los ZIP publicados.
+
+### Recorrido con cubo — informe 153629
+
+El usuario confirmó que el cubo se mantuvo en su sitio en el nuevo recorrido.
+Se inspeccionaron fotogramas de `testeadocubo.mp4`: el cubo cambia de tamaño y
+posición en pantalla al acercarse/alejarse y reaparece al volver a mirar hacia
+su ubicación. `cube-test-20261011-153629.json` registra 1.164 dibujos adicionales
+(6.583 a 7.747) durante 30,02 segundos, parada por duración y cero fallos de
+dibujo/restauración. Reset permanece en 8 y fallos de Present en 426, sin nuevos
+eventos de esos tipos durante la prueba. Los pases omitidos aumentan en 628;
+ese contador agrupa pases de render ajenos y geometría fuera de vista, por lo
+que no identifica por sí solo la causa de cada omisión.
+
+Evidencia de anclaje durante el recorrido, sin resolver la causa del desplazamiento
+extraño referido anteriormente ni acreditar precisión de proyección, estabilidad
+prolongada o recuperación de dispositivo. No cambia el código ni el paquete.

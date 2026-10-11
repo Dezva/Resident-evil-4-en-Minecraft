@@ -14,6 +14,16 @@ antes de iniciar; ambos contadores permanecieron iguales. Esta evidencia confirm
 la visibilidad durante la prueba, sin acreditar todavía la precisión del anclaje
 al caminar, la estabilidad prolongada o la recuperación tras pérdida de dispositivo.
 
+En una prueba posterior el usuario confirmó que el cubo permaneció en su sitio
+al moverse y aportó `testeadocubo.mp4` y `cube-test-20261011-153629.json`.
+Los fotogramas muestran cambios de tamaño y posición en pantalla al acercarse,
+alejarse y girar; el cubo vuelve a aparecer al mirar hacia su ubicación.
+El informe registra 1.164 dibujos adicionales en 30,02 segundos, sin nuevos
+fallos de dibujo, restauración, Reset o Present. Esto aporta evidencia del
+anclaje durante ese recorrido. No se ha reproducido ni explicado el desplazamiento
+extraño referido en la prueba anterior; estabilidad prolongada y recuperación
+del dispositivo siguen pendientes.
+
 Se parte de0.4.17, cuya captura gráfica confirmó tu informe. Los JAR del mod
 Minecraft0.4.11 y Fabric API siguen iguales. Controles/cámara/correr no cambian.
 No se activa dibujo al abrir RE4, el host o CAPTURE-RE4-GRAPHICS.
@@ -97,5 +107,6 @@ activaciones. CLI verifica snapshot sin escritura, mutex, limpieza/cierre,
 cuenta atrás/duración/F8/parada nativa con reloj virtual e informe al fallar.
 La nube no ejecuta RE4/Direct3D real. El usuario confirmó después el arranque y
 el cubo visible en Windows mediante la captura y el informe descritos arriba.
-La precisión de la proyección al caminar y la recuperación tras cambios de
-dispositivo requieren pruebas adicionales; los contadores por sí solos no las prueban.
+El recorrido posterior aporta evidencia visual del anclaje al moverse. La precisión
+de la proyección y la recuperación tras cambios de dispositivo requieren pruebas
+adicionales; los contadores por sí solos no las prueban.

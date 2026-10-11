@@ -243,3 +243,13 @@ barreras/reloj simulados e interrumpe publicación después de copiar campos;
 verifica reintento, exclusión de candidato roto de caché, live stop/disarm,
 caducidad y wrap. Fixtures instaladores/diagnóstico pasan. No se ejecuta DLL
 Windows en esas pruebas; estabilidad visual/locomoción real pendiente0.4.8.
+
+## 0.4.9 projection diagnosis
+
+Reviewed user's gpt.mp4 and216 observations from trace020114. Stable requested
+view yaw with~0.209rad idle Global deviation is present after initial mouse
+movement. 0.4.8 has not solved the visual behavior. Added independent native
+projection telemetry rather than another unverified camera algorithm.
+Three portable C suites and36 Python tests pass, including rejecting short,
+unknown, odd-sequence and nonfinite telemetry. Installer fixtures preserve
+backup/hash/own-only removal. PE32 compiled, Windows gameplay not run here.

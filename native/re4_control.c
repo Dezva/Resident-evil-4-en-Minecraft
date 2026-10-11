@@ -23,6 +23,16 @@ _Static_assert(sizeof(Shared) == 80, "IPC v2 layout");
 static Shared *state;
 /* Retain the named mapping handle until process exit, independently of its view. */
 static HANDLE shared_mapping;
+/* Separate telemetry: it never extends or changes the 80-byte control protocol. */
+typedef struct {
+    uint32_t magic, version;
+    volatile LONG sequence;
+    uint32_t build, pid, calls, writes, rejected, stamp, pad_ticks, camera_ticks, applied;
+    float yaw_before, yaw_written, yaw_after, view_yaw;
+} CameraDiagnostics;
+_Static_assert(sizeof(CameraDiagnostics) == 64, "Camera diagnostic layout");
+static CameraDiagnostics *diagnostics;
+static HANDLE diagnostic_mapping;
 static HMODULE system_dinput;
 static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 static void (__cdecl *original_pad)(void);
@@ -237,6 +247,12 @@ static void write_render_camera(unsigned char *camera) {
     memcpy(camera+0xDC,render_right,12);
     float distance = 1000.f; memcpy(camera+0xF4,&distance,4);
 }
+static float observed_camera_yaw(unsigned char *camera) {
+    if (!readable(camera+0xA4,sizeof(CameraPoint))) return 0.f;
+    CameraPoint point; memcpy(&point,camera+0xA4,sizeof(point));
+    float x=point.target[0]-point.position[0], z=point.target[2]-point.position[2];
+    return isfinite(x) && isfinite(z) ? atan2f(x,z) : 0.f;
+}
 /* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
 static void __cdecl projection_hook(void) {
     ControlFrame control = {0};
@@ -244,6 +260,17 @@ static void __cdecl projection_hook(void) {
     uint32_t armed = control.armed, stamp = control.stamp, generation = control.generation;
     uint32_t global = global_slot ? *global_slot : 0;
     unsigned char *camera = (unsigned char *)(uintptr_t)((uintptr_t)global+0x74);
+    int applied = 0;
+    if (diagnostics) {
+        InterlockedIncrement(&diagnostics->sequence);
+        MemoryBarrier();
+        diagnostics->calls++;
+        diagnostics->stamp=GetTickCount();
+        diagnostics->pad_ticks=(uint32_t)state->hook_ticks;
+        diagnostics->camera_ticks=(uint32_t)state->camera_ticks;
+        diagnostics->view_yaw=isfinite(view_yaw) ? view_yaw : 0.f;
+        diagnostics->yaw_before=observed_camera_yaw(camera);
+    }
     if (complete && armed && state->armed && !state->stop
             && (uint32_t)(GetTickCount()-stamp) < RE4_TTL_MS && state->camera_active
             && render_player == current_player() && generation == render_generation
@@ -255,9 +282,20 @@ static void __cdecl projection_hook(void) {
         }
         if (camera == saved_global_camera) {
             write_render_camera(camera_ctrl+0x60); write_render_camera(camera);
+            applied = 1;
         }
     } else if (render_saved) restore_first_person();
+    if (diagnostics) {
+        diagnostics->applied=(uint32_t)applied;
+        if (applied) diagnostics->writes++; else diagnostics->rejected++;
+        diagnostics->yaw_written=observed_camera_yaw(camera);
+    }
     original_projection();
+    if (diagnostics) {
+        diagnostics->yaw_after=observed_camera_yaw(camera);
+        MemoryBarrier();
+        InterlockedIncrement(&diagnostics->sequence);
+    }
 }
 
 static void __cdecl pad_hook(void) {
@@ -365,6 +403,21 @@ static void install_hook(void) {
     if (!state) { CloseHandle(mapping); return; }
     shared_mapping = mapping;
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
+    swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
+    HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
+    if (telemetry) {
+        if (GetLastError() == ERROR_ALREADY_EXISTS) CloseHandle(telemetry);
+        else {
+            diagnostics=MapViewOfFile(telemetry,FILE_MAP_ALL_ACCESS,0,0,sizeof(CameraDiagnostics));
+            if (!diagnostics) CloseHandle(telemetry);
+            else {
+                diagnostic_mapping=telemetry;
+                memset(diagnostics,0,sizeof(*diagnostics));
+                diagnostics->magic=0x52453444; diagnostics->version=1;
+                diagnostics->build=409; diagnostics->pid=GetCurrentProcessId();
+            }
+        }
+    }
     unsigned char *base = (unsigned char *)GetModuleHandleW(NULL);
     if (!readable(base, sizeof(IMAGE_DOS_HEADER))) return;
     IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;

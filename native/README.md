@@ -168,3 +168,16 @@ mocked clock/barriers and interrupts publication after copying fields. Verifies
 the torn candidate never updates cache, retry obtains the full new frame, odd
 publication reuses only unexpired frame, and live disarm/stop reject reuse.
 No runtime Windows DLL is executed by this harness.
+
+## 0.4.9 projection telemetry
+
+Control IPC remains80bytes/v2. A separate64-byte v1 mapping named
+`Local\RE4Bridge-CameraDiagnostics-PID` reports loaded build409, PID, calls,
+writes, rejections, native tick counters and camera yaw before/write/after
+original_projection. Its sequence is odd while a projection call is being
+observed and even on completion. TRACE opens with FILE_MAP_READ only and
+rejects partial samples. If creation fails, controls continue unchanged.
+No new hooks, locomotion/camera algorithm or automatic arm are introduced.
+The counters establish whether the validated entry actually runs during the
+user's test; on-disk DLL hashes alone cannot do that. Hooks are expected to
+run on the game's update/render thread, as before.

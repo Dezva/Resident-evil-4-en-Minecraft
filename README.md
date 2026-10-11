@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [paquete completo 0.4.8](docs/RE4-STABILITY-0.4.8.md), con mod/host 0.4.3 y DLL 0.4.8. Ajuste de la entrada de proyección y lectura estable de controles para cambios rápidos de WASD. El usuario confirma mejora/activación FP0.4.7; estabilidad0.4.8 pendiente de prueba Windows. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [paquete de diagnóstico 0.4.9](docs/RE4-DIAGNOSTIC-0.4.9.md), con mod/host 0.4.3. El vídeo y registro del usuario confirman que 0.4.8 sigue desviando la cámara en reposo. 0.4.9 mide la ejecución de proyección y su resultado; no se presenta como una corrección visual. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

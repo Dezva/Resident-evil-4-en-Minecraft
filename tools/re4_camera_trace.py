@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "1e578b891f83811a36d9624077554e2d7ae67d96647ef03ca00a4073d76752c8": "0.4.9",
     "4e929e2dcd6bd0034d1ee101eb75840aeb732a28710b55f02ba6967484b2a0ed": "0.4.8",
     "69118533f1d2b21f5f7bd9d3c5f6154e81b97aa2b1ab871a362a1b77416015e5": "0.4.7",
     "fd58c15d645215a6ba841a84b3422ab9967e881ca44291bdfc9f3652a21af48b": "0.4.6",
@@ -109,24 +110,44 @@ def decode_ipc(data):
     return result
 
 
+def decode_diagnostics(data):
+    if len(data) != 64:
+        raise ReaderError('Diagnostico de proyeccion incompleto.')
+    words = struct.unpack_from('<12I',data)
+    if words[0] != 0x52453444 or words[1] != 1 or words[2] & 1:
+        raise ReaderError('Diagnostico de proyeccion desconocido/incompleto.')
+    angles = struct.unpack_from('<4f',data,48)
+    if not all(math.isfinite(value) for value in angles):
+        raise ReaderError('Diagnostico de proyeccion no finito.')
+    result = dict(zip(['sequence','build','pid','calls','writes','rejected','stamp',
+                       'pad_ticks','camera_ticks','applied'],words[2:]))
+    result.update(zip(['yaw_before','yaw_written','yaw_after','view_yaw'],angles))
+    return result
+
+
 class ReadOnlyIPC:
-    def __init__(self, pid):
+    def __init__(self, pid, diagnostic=False):
+        self.diagnostic=diagnostic
         self.k = ctypes.WinDLL('kernel32', use_last_error=True)
         for name, args, result in [('OpenFileMappingW',[w.DWORD,w.BOOL,w.LPCWSTR],w.HANDLE),
                                    ('MapViewOfFile',[w.HANDLE,w.DWORD,w.DWORD,w.DWORD,ctypes.c_size_t],ctypes.c_void_p),
                                    ('UnmapViewOfFile',[ctypes.c_void_p],w.BOOL),('CloseHandle',[w.HANDLE],w.BOOL)]:
             fn=getattr(self.k,name); fn.argtypes=args; fn.restype=result
-        self.handle=self.k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-Control-{pid}')
+        mapping='CameraDiagnostics' if diagnostic else 'Control'
+        self.handle=self.k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-{mapping}-{pid}')
         if not self.handle: raise ReaderError(f"IPC de lectura no disponible (Windows {ctypes.get_last_error()}).")
         self.view=0
         try:
-            self.length=40
+            self.length=64 if diagnostic else 40
             self.view=self.k.MapViewOfFile(self.handle,4,0,0,self.length)
             if not self.view: raise ReaderError("No se pudo leer IPC.")
             header=ctypes.string_at(self.view,8)
-            if u32(header)!=0x52453443 or u32(header,4) not in (1,2):
+            if diagnostic:
+                if u32(header)!=0x52453444 or u32(header,4)!=1:
+                    raise ReaderError('Diagnostico desconocido.')
+            elif u32(header)!=0x52453443 or u32(header,4) not in (1,2):
                 raise ReaderError("IPC desconocido.")
-            if u32(header,4)==2:
+            if not diagnostic and u32(header,4)==2:
                 self.k.UnmapViewOfFile(self.view); self.view=0; self.length=80
                 self.view=self.k.MapViewOfFile(self.handle,4,0,0,self.length)
                 if not self.view: raise ReaderError("No se pudo leer IPC v2.")
@@ -141,7 +162,7 @@ class ReadOnlyIPC:
         after=u32(ctypes.string_at(self.view+8,4))
         if before!=after or before & 1 or u32(data,8)!=before:
             return {"state":"torn_sample"}
-        return decode_ipc(data)
+        return decode_diagnostics(data) if self.diagnostic else decode_ipc(data)
 
     def close(self):
         if self.view: self.k.UnmapViewOfFile(self.view); self.view=0
@@ -163,15 +184,19 @@ def main():
     parser.add_argument('--output',type=Path)
     args=parser.parse_args()
     output=args.output or Path(__file__).resolve().parents[1]/('camera-trace-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S')+'.jsonl')
-    process=ipc=None
+    process=ipc=diagnostic=None
     try:
         pid=find_pid(); process=WindowsProcess(pid,args.exe)
         slot=locate_player_slot(process.read,process.base,process.size)
         addresses=camera_addresses(process.read,process.base,process.size)
         try: ipc=ReadOnlyIPC(pid); ipc_error=None
         except ReaderError as error: ipc_error=str(error)
+        try: diagnostic=ReadOnlyIPC(pid,diagnostic=True); diagnostic_error=None
+        except ReaderError as error: diagnostic_error=str(error)
         with output.open('x',encoding='utf-8') as log:
             header=metadata(args.exe); header['ipc_error']=ipc_error
+            header['projection_diagnostic_error']=diagnostic_error
+            if diagnostic: header['loaded_diagnostic']=diagnostic.sample()
             log.write(json.dumps(header,allow_nan=False)+'\n'); log.flush()
             print('LECTURA SOLAMENTE. No se modifica RE4 ni se activa/desactiva el puente.')
             print('Vuelve a Minecraft, arm, camina y luego suelta W. Registro de',args.seconds,'segundos.')
@@ -182,6 +207,7 @@ def main():
                 row=observation(process.read,process.base,process.size,slot,addresses)
                 row['elapsed']=round(time.monotonic()-start,3)
                 if ipc: row['ipc']=ipc.sample()
+                if diagnostic: row['projection_diagnostic']=diagnostic.sample()
                 log.write(json.dumps(row,allow_nan=False)+'\n'); log.flush()
                 time.sleep(0.2)
             print('Registro terminado:',output)
@@ -189,6 +215,7 @@ def main():
         print('ERROR:',error); return 1
     finally:
         if ipc: ipc.close()
+        if diagnostic: diagnostic.close()
         if process: process.close()
     return 0
 

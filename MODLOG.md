@@ -276,3 +276,15 @@ vigente, sin reiniciar ancla/giro por un frame roto ni extender timestamp.
 Live stop/desarmado y TTL500ms conservan prioridad. Mod/host0.4.3 sin cambios.
 Tres suites C,32 pruebas Python y fixtures PowerShell pasan. Estabilidad real
 0.4.8 pendiente de Windows; no se modificaron instaladores ni movimiento.
+
+## 0.4.9 — diagnóstico de proyección
+
+Usuario no nota mejora con 0.4.8; vídeo gpt.mp4 revisado y216 muestras del
+trace020114. En reposo sin ratón, Global aún se desvía hasta~12°; al caminar
+se alinea. No se atribuye todo al movimiento inicial del ratón. Añade mapping
+separado64bytes con build/PID realmente cargados, contadores de entrada,
+escritura/rechazo y yaw antes/escrito/después de original_projection dentro
+de la misma llamada. TRACE solo lectura y secuencia completa. Sin cambio de
+algoritmo de cámara/locomoción; no se promete solución visual. Mod/host0.4.3.
+Tres suites C y36 pruebas Python pasan; requiere captura Windows para decidir
+si el hook no cubre la vista o si otra fase sobrescribe el ajuste.

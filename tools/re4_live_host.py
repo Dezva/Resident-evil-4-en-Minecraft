@@ -8,6 +8,7 @@ import struct
 from fake_re4_host import ProtocolError, load_config, serve_peer
 from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locate_player_slot, sample_player
 from re4_control import NativeControl, ControlPolicy
+from re4_graphics_capture import read_capture
 
 
 def main():
@@ -26,7 +27,11 @@ def main():
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             native = NativeControl(pid)
-            print('RECUPERACION 0.4.14: bloques visuales desactivados. No ejecutes blocktest; controles y camara disponibles.',flush=True)
+            print('0.4.15: captura de creacion grafica, dibujo DESACTIVADO. No ejecutes blocktest; controles y camara disponibles.',flush=True)
+            try:
+                captured=read_capture(process.k,pid)
+                print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
+            except ReaderError as error:print('Captura grafica:',error,flush=True)
             print("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
             capabilities = native.status()['capabilities']
             print(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}, correr={bool(capabilities & 4)}", flush=True)

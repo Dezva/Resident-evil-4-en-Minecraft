@@ -344,3 +344,30 @@ ausencia de cierres anteriores ni identifica módulo/excepción/dirección. Reti
 el detector elimina el fallo observado en esta prueba; la causa exacta anterior
 sigue sin confirmar. No se probó dibujo (desactivado) ni se repitió una prueba
 completa de controles/cámara en esta confirmación de arranque.
+
+## 0.4.15 — creación gráfica, sin renderer
+
+La captura utiliza funciones nuevas independientes del renderer retirado.
+Import lookup acotado sobre cabeceras/imports PE32; no escritura durante búsqueda.
+Fixture del instalador ejecuta la función real extraída: API oficial SysWOW64 y
+fallback Windows32, CAS/objetivo original, import cambiado, biblioteca externa,
+límites, permisos de página ejecutable preservados, query/protect fallidos y
+rollback si falla restauración. APIs COM ausentes en este fixture de instalación:
+no se ejecutan métodos durante DllMain. No se crea mapping/heap en ese recorrido.
+
+La fachada real de fábrica se ejecuta contra17 métodos tipados simulados.
+Verifica forwarding de argumentos/resultados, identidad IUnknown/IDirect3D9,
+referencias propias balanceadas incluso si un dispositivo retiene fábrica nativa,
+asignación fallida, fábrica NULL y salida/parámetros inválidos cuando CreateDevice
+falla. El dispositivo permanece byte a byte intacto; no se llama su vtable.
+Tres fixtures pasan también con ASan/UBSan. No prueban interoperabilidad real del
+driver/juego ni identidad comparada contra GetDirect3D de un dispositivo nativo.
+
+Lector IPC96bytes abre solo FILE_MAP_READ;4 pruebas comprueban campos del informe,
+snapshot cambiante/ocupado, cabeceras/build/PID inválidos, canal ausente, bytes sin
+modificar y limpieza de handles/proceso incluso al fallar.55 pruebas Python y4
+suites C pasan. DLLPE32 compila con -Werror, solo imports KERNEL32/msvcrt/USER32.
+Símbolos capture_* presentes; block_*/EndScene y mapping BlockPreview ausentes.
+Mod/API se reutilizan sin cambios. Instalación/desinstalación respaldos/hash propio
+probadas; no se ejecuta RE4 ni Direct3D9 real en Linux. Windows requiere abrir,
+cargar y ejecutar CAPTURE-RE4-GRAPHICS; todavía no hay dibujo ni colisión de bloques.

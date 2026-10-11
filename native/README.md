@@ -1,4 +1,14 @@
-# Native RE4 movement and optional look, 0.4.8
+# Native RE4 movement, optional look and creation capture, 0.4.15
+
+0.4.15 adds a creation-only diagnostic ([instructions](../docs/RE4-CAPTURE-0.4.15.md)).
+DllMain now redirects one validated PE32 Direct3DCreate9 import; it does not call
+COM, allocate a wrapper/mapping or load modules. The original import must exactly
+match the export in the system D3D9 library. Missing/changed/ambiguous imports are
+refused. Outside DllMain, the returned factory is wrapped with a typed17-method
+IDirect3D9 facade; original device outputs are observed without dereferencing,
+retaining, altering or wrapping them. Device addresses are historical snapshots.
+No device scan or EndScene hook; block_render.h remains excluded with #error.
+The lower historical descriptions document previous versions, not active graphics.
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original

@@ -380,3 +380,22 @@ re4-crash-20261011-054530.json devuelve events: [] para los últimos siete días
 sin módulo, excepción ni offset para atribuir la causa exacta de0.4.13. Se
 documenta éxito de arranque/carga y se conserva0.4.14 como base, con renderer
 desactivado. No se republica ZIP ni se requiere reinstalación para esta evidencia.
+
+## 0.4.15 — captura de la creación real, dibujo desactivado
+
+Se parte de0.4.14, cuyo arranque/carga confirma el usuario. Se intercepta solo
+la importación PE32 única Direct3DCreate9 si apunta a la exportación oficial de
+D3D9 en el directorio de sistema (SysWOW64/Windows32). Cambio CAS con protección
+restaurada/rollback; DllMain no llama COM, carga DLL, reserva heap ni crea IPC.
+Fábrica recién devuelta envuelta en fachada externa tipada17métodos, identidad
+IUnknown/IDirect3D9 y referencias balanceadas; allocationfail devuelve original.
+CreateDevice delegado conserva parámetros/HRESULT/salida y registra números,
+sin retener/tocar dispositivo ni cambiar su vtable. Interfaces desconocidas
+se delegan y se cuentan; GetDirect3D del dispositivo devuelve fábrica original,
+por lo que igualdad con fachada/cobertura necesita Windows. Sin EndScene, sonda
+auxiliar, barrido de heap ni blocktest. Control/cámara/correr no se modifican.
+IPC independiente96bytesv1, lector read-only y CAPTURE-RE4-GRAPHICS para probar
+solo con RE4, sin Minecraft/host. Mod0.4.11/API conservados.55 Python y4 suites C
+pasan;3 fixtures de captura reales con APIs simuladas pasan ASan/UBSan. Instalador
+verifica copias/hash y desinstalador solo retira DLL propia. Arranque/captura real
+pendientes de Windows;0.4.14 se conserva como recuperación sin sobrescribir ZIP.

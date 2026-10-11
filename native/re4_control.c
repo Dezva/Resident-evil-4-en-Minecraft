@@ -394,8 +394,9 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
     return find_patterns(base,image_size,nt,pattern,length,&found,1) == 1 ? found : NULL;
 }
 
-/* Recovery 0.4.14: no guessed COM objects, device scans or graphics hooks.
- * block_render.h is withdrawn and deliberately excluded from this binary. */
+/* No guessed COM objects, device scans or rendering hooks.
+ * The withdrawn block_render.h remains excluded; capture only observes creation. */
+#include "d3d9_capture.h"
 
 static void install_hook(void) {
     wchar_t name[80];
@@ -407,6 +408,7 @@ static void install_hook(void) {
     if (!state) { CloseHandle(mapping); return; }
     shared_mapping = mapping;
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
+    capture_ensure_mapping();
     swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
     HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
     if (telemetry) {
@@ -418,7 +420,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=414; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=415; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -603,6 +605,10 @@ __declspec(dllexport) HRESULT WINAPI DllRegisterServer(void) { return E_NOTIMPL;
 __declspec(dllexport) HRESULT WINAPI DllUnregisterServer(void) { return E_NOTIMPL; }
 BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,LPVOID reserved) {
     (void)reserved;
-    if (reason == DLL_PROCESS_ATTACH) DisableThreadLibraryCalls(instance);
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(instance);
+        /* Import redirection only. Actual COM wrapping/IPC starts after entry. */
+        capture_install_import();
+    }
     return TRUE;
 }

@@ -8,6 +8,7 @@
 #define HEAP_ZERO_MEMORY 8
 #define E_POINTER ((int32_t)0x80004003)
 #define E_FAIL ((int32_t)0x80004005)
+#define E_OUTOFMEMORY ((int32_t)0x8007000E)
 #define E_NOINTERFACE ((int32_t)0x80004002)
 #define S_OK 0
 #define SUCCEEDED(hr) ((int32_t)(hr)>=0)
@@ -19,6 +20,9 @@
 #define D3DFVF_XYZRHW 4
 #define D3DFVF_DIFFUSE 64
 #define D3DPT_LINELIST 2
+#define D3DPT_TRIANGLELIST 4
+#define D3DFILL_SOLID 3
+#define D3DRS_FILLMODE 8
 #define D3DTSS_COLOROP 1
 #define D3DTSS_COLORARG1 2
 #define D3DTSS_ALPHAOP 4

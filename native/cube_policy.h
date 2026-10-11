@@ -3,8 +3,8 @@
 #include <stdint.h>
 #define CUBE_MAX_BOXES 128u
 typedef struct {uint32_t magic,version,sequence,stamp,enabled,epoch,mode,reserved;
-    float bounds[6],origin[4];uint32_t count,scene_reserved;float boxes[CUBE_MAX_BOXES][6];} CubeCommand;
-_Static_assert(sizeof(CubeCommand)==3152,"Cube command v3 layout");
+    float bounds[6],origin[4];uint32_t count,style;float boxes[CUBE_MAX_BOXES][6];} CubeCommand;
+_Static_assert(sizeof(CubeCommand)==3152,"Cube command v4 layout");
 typedef struct {uint32_t epoch,blocked,blocked_reason;unsigned fatal,lost,anchored;float bounds[6];} CubeGate;
 enum {CUBE_OFF=1,CUBE_STALE,CUBE_F8,CUBE_LOST,CUBE_RESTORE,CUBE_INTERFACE,CUBE_CAMERA,CUBE_TARGET,CUBE_GRAPHICS};
 enum {CUBE_BEGIN,CUBE_FRAME,CUBE_DRAW,CUBE_FAILURE,CUBE_RESTORE_FAILURE,CUBE_ESCAPE,

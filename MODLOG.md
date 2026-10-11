@@ -568,3 +568,32 @@ DLL PE32 imports KERNEL32/msvcrt/USER32; JAR compilado. SHA nativa:
 dbcc928f14ae5e7ef5f990691ea715bdf09ba6b2182008c057139ed913a63496.
 Versiones anteriores conservadas; nueva prueba Windows necesaria antes de
 superficies o física. No se transferirán las estructuras/mobs del superplano.
+
+## 0.4.22 — caras rellenas con sombreado provisional
+
+El usuario confirma la cuadrícula 0.4.21: dos filas de piedras y losa, retirada
+individual sin desplazar las restantes; captura con cinco cajas visibles.
+Ahora se añaden caras grises opacas con sombreado por orientación, recorte de
+polígonos contra near y cuatro planos de pantalla, culling de caras traseras
+más eliminación de caras interiores completamente cubiertas, orden far-first.
+No hay texturas, profundidad compartida con RE4 ni colisión física.
+
+blocks style solid/wire conserva referencia y formas; blocks on selecciona
+solid cuando el host anuncia surface_available. CubeCommand v4/3152 conserva
+layout: style0/1 sustituye scene_reserved en offset76; solo mode2 admite style1.
+Build422, CubeTelemetryv1/92 y CaptureIPCv3/3296 conservados. Host nuevo acepta
+v3/421 para wire y v2/419 para único; solid incompatible desarma antes de escribir
+input. Snapshot inválido se rechaza antes de publicar. Nueva DLL/JAR/host22.
+
+Mesh CPU temporal acotada a 334848 bytes, como máximo16128 vértices; una llamada
+DrawPrimitiveUP(TRIANGLELIST), respaldo completo y24 setters restaurados.
+Memoria liberada en el mismo frame incluso ante errores; sin recursos GPU
+persistentes. Interceptación de creación, factory/device wrappers y hooks de
+control/cámara sin cambios. TTL/F8/desconexión y bloqueos de fallos conservados.
+
+84 Python,20 bridge-core,16 Minecraft,4 suitesC pasan. Siete fixtures pasan
+ASan/UBSan; clipping/extremos/2000 escenas aleatorias, orden, losas, retirada,
+estilo, límites, estado/referencias/heap y fallos cubiertos. Instaladores y
+respaldo propios pasan. DLL PE32: imports KERNEL32/msvcrt/USER32. SHA nativa:
+4decaf42a3b6dc99b9846522ccc234de2cf621dd7b7bd43a0d48abc32b458c2e.
+0.4.21 intacta para recuperación. Arranque/dibujo/rendimiento Windows pendientes.

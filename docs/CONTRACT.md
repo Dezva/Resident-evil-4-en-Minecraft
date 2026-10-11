@@ -180,6 +180,31 @@ El dispositivo proviene de CreateDevice y se envuelve sin alterar su objeto o ta
 nativos. Se conserva el dibujo/restauración de estados de 0.4.18. El canal retirado
 BlockPreview-PID no se abre ni se utiliza en esta versión.
 
+### Caras visuales 0.4.22
+
+Preview de escena acepta style opcional, entero estricto0(wire)/1(solid); ausencia
+significa0. Los mismos límites y coordenadas de escena0.4.21 se mantienen.
+Host anuncia surface_available bool solo para CubeCommandv4/build422; un solid
+sin esa capacidad desarma antes de publicar input y desactiva el dibujo. Cliente
+valida ACK preview_state.style0..1. scene_available también admite v4/422.
+
+CubeCommandv4 conserva3152bytes y offsets de v3; style(uint32 offset76) reemplaza
+scene_reserved. mode2 permite style0/1, mode0/1 requieren count0/style0; header
+reserved(offset28) sigue0. Reader nativo exige v4. Host admite(v2,419), (v3,421)
+y(v4,422) y rechaza solid en v2/v3 antes de modificar el mapping. Secuencia,
+TTL500ms, mutex/F8, snapshot completo y borrado de slots mantienen sus reglas.
+
+Solid genera caras grises opacas: culling según ojo local, descarte de interiores
+completamente cubiertas, orden aproximado de lejos a cerca y recorte de quads
+contra near1 y cuatro planos de frustum. No usa profundidad del escenario RE4.
+Hasta768caras/16128vértices en scratch CPU temporal334848bytes; una llamada
+TRIANGLELIST con vértices transformados. Wire conserva LINELIST.24 setters,
+SBT_ALL/Capture/Apply/Release y liberación de scratch dentro de cada llamada;
+fallos de restauración bloquean nuevas activaciones hasta reinicio. No modifica
+factory/creación/device/hook de cámara ni crea recursos GPU persistentes.
+CubeTelemetryv1/92 y CaptureIPCv3/3296 conservados, build422. Superficies no
+implican materiales/texturas, detección de suelo ni colisión física.
+
 ### Escena visual 0.4.21
 
 Preview puede usar exclusivamente `{origin:[x,y,z,yaw],boxes:[[minX,minY,minZ,maxX,maxY,maxZ],...]}`.

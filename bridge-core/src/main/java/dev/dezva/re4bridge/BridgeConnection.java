@@ -46,6 +46,10 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile int previewStatus = -1;
     private volatile boolean previewAvailable;
     private volatile boolean sceneAvailable;
+    private volatile boolean surfaceAvailable;
+    private volatile int previewStyle;
+    public boolean surfaceAvailable() {return surfaceAvailable;}
+    public int previewStyle() {return previewStyle;}
     private volatile int previewBoxCount;
     public boolean sceneAvailable() { return sceneAvailable; }
     public int previewBoxCount() { return previewBoxCount; }
@@ -212,6 +216,7 @@ public final class BridgeConnection implements AutoCloseable {
                             }
                             if (preview.has("skipped_passes")) previewSkipped=unsignedCounter(preview,"skipped_passes");
                             if (preview.has("box_count")) previewBoxCount=boundedInteger(preview,"box_count",BlockScene.MAX_BOXES);
+                            if (preview.has("style")) previewStyle=boundedInteger(preview,"style",1);
                             if (preview.has("reason")) {
                                 var value=preview.getAsJsonPrimitive("reason");
                                 if (!value.isString() || value.getAsString().length()>160)
@@ -228,6 +233,11 @@ public final class BridgeConnection implements AutoCloseable {
                             var available=state.getAsJsonPrimitive("scene_available");
                             if (!available.isBoolean()) throw new IOException("Invalid scene capability");
                             sceneAvailable=available.getAsBoolean();
+                        }
+                        if (state.has("surface_available")) {
+                            var available=state.getAsJsonPrimitive("surface_available");
+                            if (!available.isBoolean()) throw new IOException("Invalid surface capability");
+                            surfaceAvailable=available.getAsBoolean();
                         }
                         if (state.has("camera_active")) {
                             if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");

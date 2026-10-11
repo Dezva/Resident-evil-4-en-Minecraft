@@ -25,6 +25,7 @@ class ControlTests {
             await(() -> bridge.nativeTicks() == 123);
             await(bridge::previewAvailable);
             await(bridge::sceneAvailable);
+            await(bridge::surfaceAvailable);
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(false,0,0,null,new BlockPreview(1,2,3003,1000));
             await(() -> bridge.status().acknowledgedSequence()>=2);
@@ -51,9 +52,11 @@ class ControlTests {
             assertEquals(12,bridge.previewSkipped());assertEquals("pase omitido",bridge.previewReason());
             assertEquals(1,bridge.previewStatus());assertEquals(99,bridge.previewFrames());assertEquals(20,bridge.previewDraws());
             var scene=new BlockScene(10,20,30,0,java.util.List.of(
-                new BlockScene.Bounds(0,0,-1000,1000,1000,0),new BlockScene.Bounds(1000,0,-1000,2000,500,0)));
+                new BlockScene.Bounds(0,0,-1000,1000,1000,0),new BlockScene.Bounds(1000,0,-1000,2000,500,0)),1);
             bridge.publishSceneControl(true,5,1,null,scene);
-            await(() -> bridge.previewBoxCount()==2);
+            await(() -> bridge.previewBoxCount()==2 && bridge.previewStyle()==1);
+            bridge.publishSceneControl(true,5,1,null,new BlockScene(scene.x(),scene.y(),scene.z(),scene.yaw(),scene.boxes(),0));
+            await(() -> bridge.previewStyle()==0);
             assertTrue(Files.readString(log).contains("'origin': [10.0, 20.0, 30.0, 0.0]"));
             bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.

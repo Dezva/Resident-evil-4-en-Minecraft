@@ -69,4 +69,54 @@ class SceneTests(unittest.TestCase):
         visual.publish(True,1,valid);self.assertEqual(struct.unpack_from('<I',k.command,72)[0],128)
         self.assertEqual(struct.unpack_from('<6f',k.command,80+127*24),(0,0,0,10,500,1000));visual.close()
 
+    def test_surface_v4_style_change_preserves_origin_removal_and_cleanup(self):
+        k=Kernel(version=4,build=422);before=k.telemetry.raw
+        visual=NativePreview(42,k,user=k);scene=dict(self.scene(),style=1)
+        self.assertTrue(visual.surface_available);visual.publish(True,1,scene)
+        self.assertEqual(struct.unpack_from('<I',k.command,76)[0],1)
+        self.assertEqual(visual.status()['style'],1);epoch=visual.session.epoch
+        visual.publish(True,1,scene);self.assertEqual(visual.session.epoch,epoch)
+        origin=k.command.raw[56:72];boxes=k.command.raw[80:128]
+        with patch('secrets.randbits',return_value=epoch+1):visual.publish(True,1,dict(scene,style=0))
+        self.assertEqual(visual.session.epoch,epoch+1)
+        self.assertEqual(k.command.raw[56:72],origin);self.assertEqual(k.command.raw[80:128],boxes)
+        self.assertEqual(struct.unpack_from('<I',k.command,76)[0],0)
+        visual.publish(True,1,dict(scene,boxes=scene['boxes'][1:]))
+        self.assertEqual(k.command.raw[104:3152],bytes(3152-104))
+        # The fake kernel advances frame metrics when status is mapped; publishing must leave them alone.
+        before=k.telemetry.raw;visual.publish(True,1,dict(scene,boxes=scene['boxes'][1:]));self.assertEqual(k.telemetry.raw,before)
+        visual.close();self.assertEqual(k.command.raw[56:3152],bytes(3152-56))
+
+    def test_surface_invalid_style_or_old_build_never_activates_controls(self):
+        scene=self.scene()
+        for version,build in ((3,421),(4,422)):
+            k=Kernel(version=version,build=build);visual=NativePreview(42,k,user=k);before=k.command.raw
+            for style in (-1,2,True,1.0,'solid'):
+                with self.assertRaises(ProtocolError):visual.publish(True,1,dict(scene,style=style))
+                self.assertEqual(k.command.raw,before)
+            if version==3:
+                with self.assertRaises(ReaderError):visual.publish(True,1,dict(scene,style=1))
+                self.assertEqual(k.command.raw,before)
+                with self.assertRaises(ReaderError):visual.session.publish(True,scene=dict(scene,style=1))
+                writer=Writer();policy=ControlPolicy(writer,visual)
+                state=policy.apply(dict(type='re4_control',armed=True,buttons=1,arm_id=1,preview=dict(scene,style=1)),{'state':'player'})
+                self.assertFalse(state['armed']);self.assertFalse(state['preview_state']['requested'])
+                self.assertEqual(writer.writes[-1],(False,0));self.assertFalse(state['surface_available'])
+            visual.close()
+        for version,build in ((4,421),(3,422)):
+            k=Kernel(version=version,build=build)
+            with self.assertRaises(ReaderError):NativePreview(42,k,user=k)
+
+    def test_surface_f8_requires_new_arm_and_restore_failure_blocks_rearm(self):
+        k=Kernel(version=4,build=422);visual=NativePreview(42,k,user=k);writer=Writer();policy=ControlPolicy(writer,visual)
+        frame=dict(type='re4_control',armed=True,buttons=1,arm_id=1,preview=dict(self.scene(),style=1))
+        self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);writer.stop_code=1
+        self.assertFalse(policy.apply(frame,{'state':'player'})['armed'])
+        self.assertEqual(struct.unpack_from('<I',k.command,76)[0],0);writer.stop_code=0
+        self.assertFalse(policy.apply(frame,{'state':'player'})['armed'])
+        frame=dict(frame,arm_id=2);self.assertTrue(policy.apply(frame,{'state':'player'})['armed'])
+        struct.pack_into('<I',k.telemetry,48,1)
+        self.assertFalse(policy.apply(frame,{'state':'player'})['armed'])
+        self.assertFalse(policy.apply(dict(frame,arm_id=3),{'state':'player'})['armed']);visual.close()
+
 if __name__=='__main__':unittest.main()

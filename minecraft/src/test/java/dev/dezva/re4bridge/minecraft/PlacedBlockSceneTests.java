@@ -64,6 +64,12 @@ class PlacedBlockSceneTests {
         assertFalse(put(scene,new BlockPos(2_000_000,0,0),state));assertEquals(1,scene.size());
         scene.clear();assertFalse(put(scene,BlockPos.ORIGIN,Blocks.AIR.getDefaultState()));assertFalse(scene.anchored());
     }
+    @Test void changingStylePreservesFixedGridAndClearResetsIt() {
+        var scene=new PlacedBlockScene();assertTrue(put(scene,BlockPos.ORIGIN,Blocks.STONE.getDefaultState()));scene.align(.25);
+        var before=scene.snapshot();scene.style(1);var after=scene.snapshot();
+        assertEquals(1,after.style());assertEquals(before.boxes(),after.boxes());assertEquals(before.x(),after.x());assertEquals(before.yaw(),after.yaw());
+        scene.style(0);assertEquals(0,scene.snapshot().style());scene.style(1);scene.clear();assertEquals(0,scene.style());assertNull(scene.snapshot());
+    }
     @Test void unloadedChunkIsNotMistakenForDestroyedBlock() {
         var scene=new PlacedBlockScene();var state=Blocks.STONE.getDefaultState();
         assertTrue(put(scene,BlockPos.ORIGIN,state));

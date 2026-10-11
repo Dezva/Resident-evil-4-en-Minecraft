@@ -1,3 +1,4 @@
+#include "block_surface.h"
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
  * All temporary COM references are released in this call; no persistent GPU resources. */
 static void cube_render_device(CubeDevice *f) {
@@ -21,17 +22,24 @@ static void cube_render_device(CubeDevice *f) {
     D3DVIEWPORT9 viewport;
     hr=device->lpVtbl->GetViewport(device,&viewport);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);return;}
-    BlockVertex vertices[24*CUBE_MAX_BOXES];unsigned count=0;
+    BlockVertex lines[24*CUBE_MAX_BOXES],*vertices=lines;unsigned count=0;
+    BlockSurfaceMesh *surface=NULL;
+    int solid=command.mode==2 && command.style==1;
     if (command.mode==2) {
         float scene_view[12];
-        if (!command.count || command.count>CUBE_MAX_BOXES || !block_scene_view(view,command.origin,scene_view)) {
+        if (!command.count || command.count>CUBE_MAX_BOXES || command.style>1 || !block_scene_view(view,command.origin,scene_view)) {
             cube_record(CUBE_CAMERA_REJECT,0);return;
         }
         // Validate the entire bounded snapshot before rendering any part of it.
         for (unsigned i=0;i<command.count;++i) if (!block_valid_shape_bounds(command.boxes[i])) {
             cube_record(CUBE_CAMERA_REJECT,0);return;
         }
-        for (unsigned i=0;i<command.count;++i)
+        if (solid) {
+            surface=HeapAlloc(GetProcessHeap(),0,sizeof(*surface));
+            if (!surface) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)E_OUTOFMEMORY);return;}
+            vertices=surface->vertices;
+            count=block_surfaces(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface);
+        } else for (unsigned i=0;i<command.count;++i)
             count+=block_lines(command.boxes[i],scene_view,fov,(float)viewport.Width,(float)viewport.Height,vertices+count);
     } else if (command.mode==1) {
         if (!block_valid_bounds(command.bounds)) {cube_record(CUBE_CAMERA_REJECT,0);return;}
@@ -51,11 +59,11 @@ static void cube_render_device(CubeDevice *f) {
         f->gate.anchored=1;
     }
     if (command.mode!=2) count=block_lines(f->gate.bounds,view,fov,(float)viewport.Width,(float)viewport.Height,vertices);
-    if (!count) {cube_record(CUBE_PASS_SKIP,0);return;}
+    if (!count) {if (surface) HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_PASS_SKIP,0);return;}
     for (unsigned i=0;i<count;++i) {vertices[i].x+=viewport.X;vertices[i].y+=viewport.Y;}
     IDirect3DStateBlock9 *backup=NULL;
     hr=device->lpVtbl->CreateStateBlock(device,D3DSBT_ALL,&backup);
-    if (FAILED(hr) || !backup) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)(FAILED(hr)?hr:E_FAIL));return;}
+    if (FAILED(hr) || !backup) {if (surface) HeapFree(GetProcessHeap(),0,surface);f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)(FAILED(hr)?hr:E_FAIL));return;}
     hr=backup->lpVtbl->Capture(backup);
     if (SUCCEEDED(hr)) {
         hr=device->lpVtbl->SetVertexShader(device,NULL);
@@ -74,11 +82,13 @@ static void cube_render_device(CubeDevice *f) {
             {D3DRS_COLORWRITEENABLE1,0},{D3DRS_COLORWRITEENABLE2,0},{D3DRS_COLORWRITEENABLE3,0}};
         for (unsigned i=0;SUCCEEDED(hr) && i<sizeof(states)/sizeof(states[0]);++i)
             hr=device->lpVtbl->SetRenderState(device,states[i].state,states[i].value);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,D3DPT_LINELIST,count/2,vertices,sizeof(BlockVertex));
+        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetRenderState(device,D3DRS_FILLMODE,D3DFILL_SOLID);
+        if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,solid?D3DPT_TRIANGLELIST:D3DPT_LINELIST,count/(solid?3:2),vertices,sizeof(BlockVertex));
         HRESULT restored=backup->lpVtbl->Apply(backup);
         if (FAILED(restored)) {f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);}
         else if (SUCCEEDED(hr)) cube_record(CUBE_DRAW,(uint32_t)hr);
     }
     backup->lpVtbl->Release(backup);
+    if (surface) HeapFree(GetProcessHeap(),0,surface);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);}
 }

@@ -1,11 +1,15 @@
 #include "test_cube_platform.h"
 #include "cube_policy.h"
-#include "block_geometry.h"
+#include "block_surface.h"
 typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;} CubeDevice;
 typedef struct {DWORD render[256],stage[2][8],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
 static unsigned create_fail,capture_fail,apply_fail,setter_fail,draw_fail,offscreen,camera_invalid,viewport_fail,back_fail;
+static unsigned allocations,frees,heap_fail;
+static void *GetProcessHeap(void) {return (void*)1;}
+static void *HeapAlloc(void *heap,unsigned flags,size_t size) {assert(heap==(void*)1 && !flags && size==sizeof(BlockSurfaceMesh));if(heap_fail)return NULL;allocations++;return malloc(size);}
+static int HeapFree(void *heap,unsigned flags,void *p) {assert(heap==(void*)1 && !flags && p && frees<allocations);frees++;free(p);return 1;}
 static unsigned f8;static uint32_t player_id=42;static uint32_t now=1000;static float shift;
 static unsigned last_vertices;
 static float first_x;
@@ -37,9 +41,9 @@ static HRESULT texture(IDirect3DDevice9 *d,DWORD stage,IDirect3DBaseTexture9 *t)
 static HRESULT stage(IDirect3DDevice9 *d,DWORD n,D3DTEXTURESTAGESTATETYPE type,DWORD value) {(void)d;assert(n<2 && type<8);current.stage[n][type]=value;return changed();}
 static HRESULT render(IDirect3DDevice9 *d,D3DRENDERSTATETYPE type,DWORD value) {(void)d;assert(type<256);current.render[type]=value;return changed();}
 static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride) {
-    (void)d;assert(type==D3DPT_LINELIST && count>0 && count<=12*CUBE_MAX_BOXES && stride==20);const BlockVertex *vertices=data;
-    last_vertices=count*2;first_x=vertices[0].x;
-    for(unsigned i=0;i<count*2;++i) assert(isfinite(vertices[i].x+vertices[i].y) && vertices[i].x>=10 && vertices[i].x<=650 && vertices[i].y>=20 && vertices[i].y<=500 && vertices[i].color==0xFF40FF40);
+    (void)d;assert((type==D3DPT_LINELIST || type==D3DPT_TRIANGLELIST) && count>0 && stride==20);assert(count<=(type==D3DPT_LINELIST?12*CUBE_MAX_BOXES:BLOCK_SURFACE_MAX_VERTICES/3));const BlockVertex *vertices=data;
+    last_vertices=count*(type==D3DPT_LINELIST?2:3);first_x=vertices[0].x;
+    for(unsigned i=0;i<last_vertices;++i) {assert(isfinite(vertices[i].x+vertices[i].y) && vertices[i].x>=10 && vertices[i].x<=650 && vertices[i].y>=20 && vertices[i].y<=500);if(type==D3DPT_LINELIST)assert(vertices[i].color==0xFF40FF40);else assert((vertices[i].color>>24)==255 && (vertices[i].color&255)==((vertices[i].color>>8)&255));}
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
 static IDirect3DDevice9Vtbl table={.GetRenderTarget=get_target,.GetBackBuffer=get_back,.GetViewport=get_view,
@@ -49,6 +53,7 @@ static IDirect3DDevice9 inner={&table};
 #include "cube_draw.h"
 static CubeDevice reset(void) {
     memset(events,0,sizeof(events));memset(&current,0x37,sizeof(current));original=current;
+    assert(allocations==frees);allocations=frees=heap_fail=0;
     surface_refs=backup_refs=creates=captures=applies=releases=setters=draws=0;
     create_fail=capture_fail=apply_fail=setter_fail=draw_fail=offscreen=camera_invalid=viewport_fail=back_fail=f8=0;
     shift=0;player_id=42;now=1000;command=(CubeCommand){.enabled=1,.epoch=7,.stamp=1000};
@@ -89,7 +94,7 @@ int main(void) {
     for (unsigned i=0;i<CUBE_MAX_BOXES;++i) memcpy(command.boxes[i],cube,sizeof(cube));
     cube_render_device(&f);assert(last_vertices==24*CUBE_MAX_BOXES && draws==1 && creates==1 && applies==1 && !surface_refs && !backup_refs);
     command.count=CUBE_MAX_BOXES+1;cube_render_device(&f);assert(draws==1);
-    for(unsigned failure=1;failure<=23;++failure) {
+    for(unsigned failure=1;failure<=24;++failure) {
         f=reset();setter_fail=failure;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
     }
     f=reset();draw_fail=1;cube_render_device(&f);assert(draws==1 && events[CUBE_FAILURE]==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
@@ -108,5 +113,31 @@ int main(void) {
     f=reset();back_fail=1;cube_render_device(&f);assert(!creates && !surface_refs);
     f=reset();camera_invalid=1;cube_render_device(&f);assert(!creates && events[CUBE_CAMERA_REJECT]==1 && !surface_refs);
     f=reset();viewport_fail=1;cube_render_device(&f);assert(!creates && events[CUBE_FAILURE]==1);
+    /* Filled path uses the same scene/state policy and releases scratch on every exit. */
+    f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;
+    memcpy(command.boxes[0],cube,sizeof(cube));cube_render_device(&f);
+    assert(draws==1 && last_vertices==6 && allocations==1 && frees==1 && setters==24 && !memcmp(&current,&original,sizeof(current)));
+    command.style=0;cube_render_device(&f);assert(draws==2 && last_vertices==24 && allocations==1 && frees==1);
+    for(unsigned failure=1;failure<=24;++failure) {
+        f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+        setter_fail=failure;cube_render_device(&f);
+        assert(!draws && applies==1 && allocations==1 && frees==1 && !memcmp(&current,&original,sizeof(current)));
+    }
+    for(unsigned failure=0;failure<6;++failure) {
+        f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+        if(failure==0)heap_fail=1;
+        if(failure==1)create_fail=1;
+        if(failure==2)capture_fail=1;
+        if(failure==3)draw_fail=1;
+        if(failure==4)apply_fail=1;
+        if(failure==5)command.origin[2]=600; // Behind camera: no state modification.
+        cube_render_device(&f);assert(allocations==frees && !surface_refs && !backup_refs);
+        if(failure!=4)assert(!memcmp(&current,&original,sizeof(current)));
+        if(failure==0 || failure==5)assert(!creates && !draws);
+        if(failure==4)assert(f.gate.fatal);
+    }
+    f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+    f8=1;cube_render_device(&f);assert(!allocations && !creates);f8=0;command.epoch++;cube_render_device(&f);assert(draws==1 && allocations==frees);
+    now=1500;cube_render_device(&f);assert(draws==1 && allocations==frees);
     puts("Cube rendering: all setter/draw failures restore full state, temporary resources balanced, restore-failure latch, F8/TTL, offscreen rejection and world anchor passed");
 }

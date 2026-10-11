@@ -10,11 +10,12 @@ MAX_BOXES=128
 def validate_preview(preview):
     if preview is None: return
     if not isinstance(preview,dict): raise ProtocolError('Invalid block preview')
-    scene=set(preview)=={'origin','boxes'}
+    scene=set(preview) in ({'origin','boxes'},{'origin','boxes','style'})
     if not scene and set(preview)!={'bounds'}: raise ProtocolError('Invalid block preview')
     boxes=preview['boxes'] if scene else [preview['bounds']]
     if not isinstance(boxes,list) or not 1<=len(boxes)<=MAX_BOXES: raise ProtocolError('Invalid scene size')
     if scene:
+        if type(preview.get('style',0)) is not int or preview.get('style',0) not in (0,1):raise ProtocolError('Invalid scene style')
         origin=preview['origin']
         if not isinstance(origin,list) or len(origin)!=4 or any(type(x) not in (int,float)
                 or not math.isfinite(x) or abs(x)> (math.pi if i==3 else 20000000) for i,x in enumerate(origin)):
@@ -32,35 +33,39 @@ class NativePreview:
     def __init__(self,pid,k=None,user=None):
         from re4_cube_test import CubeSession,read_cube_status
         self.session=None;self.key=None;self.baseline=None;self.generation=0;self.epoch_started=0
-        self.requested=False;self.bounds=None;self.origin=None;self.box_count=0
+        self.requested=False;self.bounds=None;self.origin=None;self.box_count=0;self.style=0
         kernel=k if k is not None else ctypes.WinDLL('kernel32',use_last_error=True)
         try:
             self.session=CubeSession(kernel,pid,user=user)
-            if self.session.version not in (2,3):
-                raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21; conserva los controles desactivados.')
+            if self.session.version not in (2,3,4):
+                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22; conserva los controles desactivados.')
             self.baseline=read_cube_status(kernel,pid)
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421)) or not self.baseline['live_devices']:
-                raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21 y dispositivo grafico activo.')
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422)) or not self.baseline['live_devices']:
+                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22 y dispositivo grafico activo.')
             if self.baseline['restore_failures'] or self.baseline['escaped_interfaces']:
                 raise ReaderError('Dibujo bloqueado; reinicia RE4 y envia CAPTURE-RE4-GRAPHICS.')
         except Exception:
             self.close();raise
 
     @property
-    def scene_available(self):return self.session.version==3
+    def scene_available(self):return self.session.version>=3
+
+    @property
+    def surface_available(self):return self.session.version==4
 
     def publish(self,enabled,generation,bounds=None):
         scene=bounds if isinstance(bounds,dict) else None
         if enabled:
             validate_preview(scene if scene is not None else {'bounds':bounds})
-            if scene is not None and not self.scene_available:raise ReaderError('Cuadricula requiere DLL0.4.21.')
+            if scene is not None and not self.scene_available:raise ReaderError('Cuadricula requiere DLL0.4.21 o0.4.22.')
+            if scene is not None and scene.get('style',0) and not self.surface_available:raise ReaderError('Caras rellenas requieren DLL0.4.22.')
             if type(generation) is not int or generation<=0:
                 raise ProtocolError('Bloque requiere arm explicito')
             if generation!=self.generation:
                 from re4_cube_test import read_cube_status
                 self.baseline=read_cube_status(self.session.k,self.session.pid)
                 self.generation=generation
-            key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes'])) if scene is not None else (generation,tuple(bounds))
+            key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes']),scene.get('style',0)) if scene is not None else (generation,tuple(bounds))
             if key!=self.key:
                 import secrets
                 self.session.epoch=secrets.randbits(32) or 1
@@ -73,6 +78,7 @@ class NativePreview:
         self.bounds=list(bounds) if enabled and scene is None else None
         self.origin=list(scene['origin']) if enabled and scene is not None else None
         self.box_count=len(scene['boxes']) if enabled and scene is not None else int(enabled)
+        self.style=scene.get('style',0) if enabled and scene is not None else 0
 
     def status(self):
         from re4_cube_test import read_cube_status
@@ -90,11 +96,11 @@ class NativePreview:
                 'last_hresult':int(snapshot['last_hresult'],16),
                 'reason':snapshot['reason'],'blocked':bool(blocked),
                 'stop_reason':snapshot['stop_reason'],'requested':self.requested,'bounds':self.bounds,
-                'origin':self.origin,'box_count':self.box_count,
+                'origin':self.origin,'box_count':self.box_count,'style':self.style,
                 'skipped_passes':snapshot['skipped_passes'],
                 'camera_rejections':snapshot['camera_rejections'],'lease_rejections':snapshot['lease_rejections']}
 
     def close(self):
         if self.session is not None:
             self.session.close();self.session=None
-        self.requested=False;self.bounds=None;self.origin=None;self.box_count=0
+        self.requested=False;self.bounds=None;self.origin=None;self.box_count=0;self.style=0

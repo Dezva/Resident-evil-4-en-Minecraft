@@ -5,8 +5,9 @@ import com.google.gson.JsonObject;
 import java.util.List;
 
 /** A fixed rigid grid. Bounds are in native units relative to its origin. */
-public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes) {
+public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes,int style) {
     public static final int MAX_BOXES=128;
+    public BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes) {this(x,y,z,yaw,boxes,0);}
     public record Bounds(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {
         public Bounds {
             double[] v={minX,minY,minZ,maxX,maxY,maxZ};
@@ -27,12 +28,14 @@ public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxe
         if (!Double.isFinite(yaw) || Math.abs(yaw)>Math.PI) throw new IllegalArgumentException("Invalid grid yaw");
         boxes=List.copyOf(boxes);
         if (boxes.isEmpty() || boxes.size()>MAX_BOXES) throw new IllegalArgumentException("Scene shape limit");
+        if (style<0 || style>1) throw new IllegalArgumentException("Invalid scene style");
     }
     public JsonObject toJson() {
         var result=new JsonObject();var origin=new JsonArray();
         for (double n:new double[]{x,y,z,yaw}) origin.add(n);
         result.add("origin",origin);var shapes=new JsonArray();
         for (var box:boxes) shapes.add(box.toJson());result.add("boxes",shapes);
+        result.addProperty("style",style);
         return result;
     }
 }

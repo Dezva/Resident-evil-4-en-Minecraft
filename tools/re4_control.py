@@ -70,6 +70,10 @@ class ControlPolicy:
         if frame["buttons"] & 64 and not (status.get("capabilities",0) & 4):
             self.armed = False
             reason = "DLL sin soporte de correr; instala 0.4.10"
+        box=frame.get('preview')
+        if box and box.get('style',0) and (self.preview is None or not getattr(self.preview,'surface_available',False)):
+            self.armed=False
+            reason='caras rellenas requieren DLL0.4.22; usa modo wire'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
         result = {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
@@ -80,6 +84,7 @@ class ControlPolicy:
         if self.preview is not None:
             result['preview_available']=True
             result['scene_available']=getattr(self.preview,'scene_available',False)
+            result['surface_available']=getattr(self.preview,'surface_available',False)
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
             result['preview_state']=self.preview.status()

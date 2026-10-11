@@ -586,3 +586,26 @@ nativo/vtable siguen sin alterarse. Las APIs simuladas no prueban driver,
 arranque real ni visibilidad de0.4.21. Usuario confirma0.4.20 con vídeo, pero
 0.4.21 todavía necesita prueba real. El suelo RE4 no se ha leído: height es un
 ajuste visual, y formas de colisión MC no son colisiones instaladas en RE4.
+
+## 0.4.22 — caras grises y evidencia de la cuadrícula anterior
+
+El usuario confirma 0.4.21 en Windows: colocó dos filas de tres piedras y una
+losa, rompió parte del conjunto y las restantes conservaron su sitio. La captura
+muestra cinco cajas. Esto verifica disposición y retirada visual, no física.
+
+En la nube pasan84 pruebas Python,20 bridge-core,16 Minecraft y4 suitesC.
+Siete fixtures de los helpers nativos reales pasan ASan/UBSan con APIs simuladas:
+import, instalación/rollback, factory, device, command reader, draw y superficies.
+La última valida recorte contra cinco planos, máximos, caras cubiertas, sombreado,
+orden por distancia, media losa, retirada y2000 escenas con cámara rotada.
+Draw cubre los24 fallos de setters en wire/solid, memoria temporal y referencias,
+Capture/Apply/CreateStateBlock/Draw/alloc fallidos, restauración, F8 y caducidad.
+TCP lleva estilo1/escena, retirada y cierre al mapping v4; versión anterior
+rechaza solid sin activar input. Se mantiene cobertura de rollback y pérdidas.
+
+JAR0.4.22 y DLL PE32 compilados con warnings como errores en C. DLL importa
+KERNEL32, msvcrt y USER32; no incluye detector de dispositivo retirado. Se
+verifican copia de partidas, hashes, no sobrescritura, retirada solo de DLL
+propia e interop de diagnóstico mediante fixtures PowerShell. El paquete debe
+incluir ambos mods, host, DLL y scripts completos. Apariencia y rendimiento de
+caras, arranque de RE4 y driver D3D9 reales requieren la prueba del usuario.

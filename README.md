@@ -5,23 +5,24 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.21: cuadrícula visual de varios bloques](docs/RE4-BLOCK-0.4.21.md).
-Hasta 64 bloques/128 cajas, referencia fija desde la primera colocación, retirada
-individual y formas reales de losas. Mod, host y DLL actualizados a 0.4.21;
-Fabric/API siguen iguales. Escala inicial provisional de 1000 unidades.
-El usuario confirmó colocar/retirar el cubo en 0.4.20, que se conserva como
-recuperación. La nueva escena necesita prueba en Windows. **0.4.13 está retirada.**
+**Estado actual:** [0.4.22: caras grises para la construcción](docs/RE4-BLOCK-0.4.22.md).
+Hasta 64 bloques/128 cajas, referencia fija, retirada individual y formas de losas.
+El usuario confirmó la disposición y retirada de varios bloques en 0.4.21.
+0.4.22 añade caras grises con sombreado y conserva aristas para comparar; mod,
+host y DLL actualizados. Su apariencia/rendimiento requieren prueba en Windows.
+Fabric/API siguen iguales y la escala inicial es provisional de 1000 unidades.
+0.4.21 queda como recuperación. **0.4.13 está retirada.**
 Incluye [ratón y cámara experimental](docs/RE4-MOUSE-CAMERA.md) y
-[controles nativos Minecraft -> RE4](docs/RE4-CONTROLS.md). Las formas de Minecraft
-se representan como aristas: todavía no hay superficies/texturas, terreno RE4
-importado, colisión física de esos bloques en RE4 ni daño cruzado.
+[controles nativos Minecraft -> RE4](docs/RE4-CONTROLS.md). Todavía faltan texturas,
+ocultación por el escenario RE4, importación de terreno, colisión física de
+bloques en RE4 y daño cruzado.
 El simulador sigue siendo un modo de diagnóstico separado.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | 0.4.21 |
+| RE4 Bridge | 0.4.22 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |
@@ -47,8 +48,8 @@ py -3 -m unittest discover -s tools -p "test_*.py" -v
 Para la prueba Java/Python en Windows, si no existe `python3` en PATH, configurar
 `$env:RE4BRIDGE_PYTHON` con la ruta de `python.exe` (sin argumentos).
 En Linux, usar `./gradlew` y `python3` en los mismos comandos.
-El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.21.jar`.
-Para control y construcción visual reales, sigue [la guía 0.4.21](docs/RE4-BLOCK-0.4.21.md).
+El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.22.jar`.
+Para control y construcción visual reales, sigue [la guía 0.4.22](docs/RE4-BLOCK-0.4.22.md).
 Compilar/probar el modulo y los instaladores:
 
 ```bash
@@ -63,7 +64,7 @@ El JAR `-sources` no se instala. El núcleo del puente se incluye en el JAR fina
 
 1. Crear una instancia/perfil de Minecraft separado, con Fabric 1.21.1. Usar un
    **mundo nuevo de prueba**, modo Creativo y terreno superplano.
-2. Copiar `re4bridge-0.4.21.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
+2. Copiar `re4bridge-0.4.22.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
    Retirar el JAR anterior para que quede una sola version de RE4 Bridge.
 3. Abrir Minecraft una vez. El mod crea `config/re4bridge.json` con un token local.
 4. Abrir PowerShell en la carpeta del proyecto/paquete y arrancar el simulador,

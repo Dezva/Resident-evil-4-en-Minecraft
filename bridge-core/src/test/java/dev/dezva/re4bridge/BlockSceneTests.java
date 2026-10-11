@@ -13,6 +13,13 @@ class BlockSceneTests {
         assertEquals(500,scene.toJson().getAsJsonArray("boxes").get(0).getAsJsonArray().get(4).getAsDouble());
         assertThrows(UnsupportedOperationException.class,()->scene.boxes().clear());
     }
+    @Test void styleIsStrictAndSerializedWithoutChangingBoxes() {
+        var box=new BlockScene.Bounds(0,0,0,1000,1000,1000);
+        var scene=new BlockScene(1,2,3,0,List.of(box),1);
+        assertEquals(1,scene.toJson().get("style").getAsInt());
+        assertThrows(IllegalArgumentException.class,()->new BlockScene(1,2,3,0,List.of(box),2));
+        assertThrows(IllegalArgumentException.class,()->new BlockScene(1,2,3,0,List.of(box),-1));
+    }
     @Test void rejectsMalformedAndUnboundedSceneBeforeTransmission() {
         var box=new BlockScene.Bounds(0,0,0,1000,1000,1000);
         assertThrows(IllegalArgumentException.class,()->new BlockScene(0,0,0,0,List.of()));

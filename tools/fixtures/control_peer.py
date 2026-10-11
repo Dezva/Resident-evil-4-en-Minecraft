@@ -26,13 +26,15 @@ args = parser.parse_args()
 config = load_config(args.config)
 class Preview:
     scene_available=True
-    def __init__(self): self.enabled=False;self.count=0
+    surface_available=True
+    def __init__(self): self.enabled=False;self.count=0;self.style=0
     def publish(self,enabled,generation,bounds=None):
         self.enabled=enabled
         self.count=(len(bounds['boxes']) if isinstance(bounds,dict) else 1) if enabled else 0
+        self.style=bounds.get('style',0) if enabled and isinstance(bounds,dict) else 0
         print(f'PREVIEW enabled={enabled} generation={generation} bounds={bounds}',flush=True)
     def status(self):return {'status':1,'frames':99,'draws':20,'failures':0,'last_hresult':0,
-                             'requested':self.enabled,'skipped_passes':12,'reason':'pase omitido','box_count':self.count}
+                             'requested':self.enabled,'skipped_passes':12,'reason':'pase omitido','box_count':self.count,'style':self.style}
 policy = ControlPolicy(Writer(),Preview())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))

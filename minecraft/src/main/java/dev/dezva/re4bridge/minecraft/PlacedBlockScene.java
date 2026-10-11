@@ -19,6 +19,7 @@ final class PlacedBlockScene {
     private BlockPreview nativeAnchor;
     private String dimension;
     private double yaw,height;
+    private int style;
 
     boolean put(BlockPlacementProbe.Placed placed,List<Box> shapes,double minecraftYaw) {
         if (shapes.isEmpty()) return false;
@@ -84,14 +85,16 @@ final class PlacedBlockScene {
         if (anchor==null) return null;
         var boxes=new ArrayList<BlockScene.Bounds>();
         for (var entry:blocks.entrySet()) boxes.addAll(convert(entry.getKey(),entry.getValue(),anchor,nativeAnchor.size()));
-        return boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes);
+        return boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes,style);
     }
     void height(double value) {
         if (!Double.isFinite(value) || Math.abs(value)>2500) throw new IllegalArgumentException("Invalid height adjustment");
         height=value;
     }
     int size() {return blocks.size();}
+    void style(int value) {if (value<0 || value>1) throw new IllegalArgumentException("Invalid scene style");style=value;}
+    int style() {return style;}
     boolean anchored() {return anchor!=null;}
     String dimension() {return dimension;}
-    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;}
+    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;}
 }

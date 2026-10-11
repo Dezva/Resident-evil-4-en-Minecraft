@@ -20,7 +20,7 @@ class Clock:
 class Kernel:
     def __init__(self,clock=None,wait=0,map_fail=None,busy=False,f8=False,fail_at=None,version=1,build=418):
         self.clock=clock or Clock();self.closed=[];self.unmapped=[];self.released=0;self.map_requests=[]
-        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,version,2,0,0,0,0,0)+bytes(3120 if version==3 else 24 if version==2 else 0))
+        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,version,2,0,0,0,0,0)+bytes(3120 if version in (3,4) else 24 if version==2 else 0))
         words=[0x52453455,1,3 if busy else 2,build,42]+[0]*18;words[5]=1;words[16]=1
         self.telemetry=ctypes.create_string_buffer(struct.pack('<23I',*words))
         def open_mapping(access,inherit,name):

@@ -40,9 +40,8 @@ static inline int block_clip_line(float *a,float *b,float width,float height) {
 }
 /* CAMERA.v_mat is a 3x4 rigid inverse; front is negative camera Z.
    Screen-space diagnostic lines have no depth/terrain occlusion. */
-static inline unsigned block_lines(const float *bounds,const float *view,float fovy,
-        float width,float height,BlockVertex *vertices) {
-    if (!block_valid_shape_bounds(bounds) || !isfinite(fovy) || fovy<5 || fovy>170
+static inline int block_valid_view(const float *view,float fovy,float width,float height) {
+    if (!isfinite(fovy) || fovy<5 || fovy>170
             || width<1 || height<1 || width>16384 || height>16384) return 0;
     for (unsigned i=0;i<12;++i) if (!isfinite(view[i]) || fabsf(view[i])>200000000.f) return 0;
     for (unsigned r=0;r<3;++r) {
@@ -53,6 +52,11 @@ static inline unsigned block_lines(const float *bounds,const float *view,float f
             if (fabsf(dot)>0.1f) return 0;
         }
     }
+    return 1;
+}
+static inline unsigned block_lines(const float *bounds,const float *view,float fovy,
+        float width,float height,BlockVertex *vertices) {
+    if (!block_valid_shape_bounds(bounds) || !block_valid_view(view,fovy,width,height)) return 0;
     float points[8][3];
     for (unsigned i=0;i<8;++i) for (unsigned r=0;r<3;++r) {
         points[i][r]=view[4*r+3];

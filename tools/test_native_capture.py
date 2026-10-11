@@ -22,6 +22,9 @@ class NativeCaptureTests(unittest.TestCase):
                 subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             except subprocess.CalledProcessError as error:self.fail(error.stdout+'\n'+error.stderr)
 
+    def test_filled_surface_clipping_ordering_and_bounds(self):
+        self.compile_run("test_block_surface.c")
+
     def test_bounded_import_lookup(self):
         self.compile_run('test_capture_import.c')
 

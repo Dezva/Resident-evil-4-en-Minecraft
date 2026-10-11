@@ -503,3 +503,24 @@ con vídeo `testeadocubo.mp4` e informe `cube-test-20261011-153629.json`.
 1.164 dibujos adicionales en 30,02 segundos, sin fallos nuevos de dibujo,
 restauración, Reset o Present. Anclaje observado en ese recorrido; causa del
 desplazamiento extraño previo sin determinar. Sin cambios de código o paquete.
+
+## 0.4.19 — un bloque colocado desde Minecraft
+
+Mod/JAR 0.4.19: `blocks on` observa intentos de BlockItem y confirma cambio de
+estado durante diez ticks. La última colocación crea una caja fija delante de
+Leon; romper/sustituir ese bloque o cambiar dimensión la retira. Solo una caja,
+sin correspondencia de cuadrícula, profundidad, texturas, colisiones o daño.
+blocktest manual usa tamaño inicial 100; estado/capacidad de dibujo actualizados.
+
+Host/control policy conecta NativePreview al mismo mutex/canal de cubo validado
+en 0.4.18. CubeCommand v2/56 bytes lleva modo 0 diagnóstico o 1 bounds explícitos;
+telemetría v1/92 y CaptureIPC v3 conservados con build 419. Límite/finito, TTL y F8,
+fallback de fábrica, referencias y restauración gráfica se conservan. Fallo de
+dibujo/pérdida/Reset durante activación desarma, nueva arm requerida; fallo de
+restauración exige reinicio. El host no abre el canal BlockPreview retirado.
+
+72 pruebas Python, 17 bridge-core, 5 Minecraft y 4 suites C pasan. Seis fixtures
+nativos ASan/UBSan pasan con APIs simuladas; intercambio TCP real con comandos
+en mappings Windows simulados. DLL/JAR compilados, respaldo/desinstalación propios
+verificados. La nueva colocación/retirada visual requiere prueba real en Windows.
+0.4.18 queda como recuperación y sus ZIP se conservan intactos.

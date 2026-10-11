@@ -78,9 +78,16 @@ class ControlPolicy:
                 "capabilities": status.get("capabilities", 0), "camera_active": status.get("camera_active", False),
                 "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
         if self.preview is not None:
+            result['preview_available']=True
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],box['bounds'] if box else None)
             result['preview_state']=self.preview.status()
+            if box is not None and self.armed and result['preview_state'].get('blocked',False):
+                self.armed=False
+                self.writer.publish(False,0)
+                self.preview.publish(False,frame['arm_id'])
+                result['armed']=False
+                result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
         return result
 
     def stop(self):

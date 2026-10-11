@@ -6,14 +6,14 @@ typedef struct {DWORD render[256],stage[2][8],fvf,vertex,pixel,texture,stream,de
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
 static unsigned create_fail,capture_fail,apply_fail,setter_fail,draw_fail,offscreen,camera_invalid,viewport_fail,back_fail;
-static unsigned f8;static uint32_t now=1000;static float shift;
+static unsigned f8;static uint32_t player_id=42;static uint32_t now=1000;static float shift;
 static CubeCommand command={.enabled=1,.epoch=7,.stamp=1000};
 static int cube_command_read(CubeCommand *out) {*out=command;return 1;}
 static DWORD GetTickCount(void) {return now;}
 static int GetAsyncKeyState(int key) {assert(key==VK_F8);return f8?0x8000:0;}
 static void cube_record(unsigned event,uint32_t value) {(void)value;events[event]++;}
 static int cube_camera(float *view,float *fov,uint32_t *player) {
-    float matrix[12]={1,0,0,0,0,1,0,0,0,0,1,0};memcpy(view,matrix,sizeof(matrix));view[3]=shift;*fov=90;*player=42;return !camera_invalid;
+    float matrix[12]={1,0,0,0,0,1,0,0,0,0,1,0};memcpy(view,matrix,sizeof(matrix));view[3]=shift;*fov=90;*player=player_id;return !camera_invalid;
 }
 static ULONG release_surface(IDirect3DSurface9 *s) {(void)s;assert(surface_refs);return --surface_refs;}
 static TestSurfaceVtbl surface_table={release_surface};
@@ -48,7 +48,7 @@ static CubeDevice reset(void) {
     memset(events,0,sizeof(events));memset(&current,0x37,sizeof(current));original=current;
     surface_refs=backup_refs=creates=captures=applies=releases=setters=draws=0;
     create_fail=capture_fail=apply_fail=setter_fail=draw_fail=offscreen=camera_invalid=viewport_fail=back_fail=f8=0;
-    shift=0;now=1000;command=(CubeCommand){.enabled=1,.epoch=7,.stamp=1000};
+    shift=0;player_id=42;now=1000;command=(CubeCommand){.enabled=1,.epoch=7,.stamp=1000};
     return (CubeDevice){.inner=&inner,.scene=1};
 }
 int main(void) {
@@ -57,6 +57,18 @@ int main(void) {
     assert(!memcmp(&current,&original,sizeof(current)) && f.gate.anchored && f.gate.bounds[2]==-650);
     float fixed[6];memcpy(fixed,f.gate.bounds,sizeof(fixed));shift=10;cube_render_device(&f);assert(!memcmp(fixed,f.gate.bounds,sizeof(fixed)));
     command.epoch=8;cube_render_device(&f);assert(f.gate.bounds[0]==-60);
+    /* Minecraft supplies explicit world bounds. Moving the camera or changing
+       the player pointer must not relocate them; a new placement replaces them. */
+    f=reset();command.mode=1;
+    float supplied[6]={-50,-50,-650,50,50,-550};memcpy(command.bounds,supplied,sizeof(supplied));
+    cube_render_device(&f);assert(draws==1 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
+    shift=10;player_id=99;cube_render_device(&f);assert(draws==2 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
+    command.enabled=0;cube_render_device(&f);assert(draws==2);
+    command.enabled=1;command.epoch++;command.bounds[0]+=10;command.bounds[3]+=10;
+    cube_render_device(&f);assert(draws==3 && f.gate.bounds[0]==-40);
+    unsigned prior_explicit=draws;command.bounds[3]=command.bounds[0];
+    cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==1);
+    command.bounds[3]=NAN;cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==2);
     for(unsigned failure=1;failure<=23;++failure) {
         f=reset();setter_fail=failure;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
     }

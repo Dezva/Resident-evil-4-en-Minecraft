@@ -18,10 +18,10 @@ class Clock:
     def sleep(self,amount):self.now+=amount
 
 class Kernel:
-    def __init__(self,clock=None,wait=0,map_fail=None,busy=False,f8=False,fail_at=None):
+    def __init__(self,clock=None,wait=0,map_fail=None,busy=False,f8=False,fail_at=None,version=1,build=418):
         self.clock=clock or Clock();self.closed=[];self.unmapped=[];self.released=0;self.map_requests=[]
-        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,1,2,0,0,0,0,0))
-        words=[0x52453455,1,3 if busy else 2,418,42]+[0]*18;words[5]=1;words[16]=1
+        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,version,2,0,0,0,0,0)+bytes(24 if version==2 else 0))
+        words=[0x52453455,1,3 if busy else 2,build,42]+[0]*18;words[5]=1;words[16]=1
         self.telemetry=ctypes.create_string_buffer(struct.pack('<23I',*words))
         def open_mapping(access,inherit,name):
             assert not inherit
@@ -36,7 +36,7 @@ class Kernel:
                     for field in ('frames','draws'):offset=(3+cube.FIELDS.index(field))*4;struct.pack_into('<I',self.telemetry,offset,struct.unpack_from('<I',self.telemetry,offset)[0]+1)
                     if fail_at and self.clock.now>=fail_at:struct.pack_into('<I',self.telemetry,44,1)
                 return ctypes.addressof(self.telemetry)
-            assert handle==11 and access==6 and size==32;return ctypes.addressof(self.command)
+            assert handle==11 and access==6 and size in (32,56);return ctypes.addressof(self.command)
         def mutex(attributes,owner,name):assert attributes is None and not owner and name=='Local\\RE4Bridge-CubeWriter-42';return 12
         def waiting(handle,timeout):assert handle==12 and timeout==0;return wait
         def release(handle):assert handle==12;self.released+=1;return 1

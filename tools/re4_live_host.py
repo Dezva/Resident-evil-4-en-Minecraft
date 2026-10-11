@@ -9,6 +9,7 @@ from fake_re4_host import ProtocolError, load_config, serve_peer
 from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locate_player_slot, sample_player
 from re4_control import NativeControl, ControlPolicy
 from re4_graphics_capture import read_capture
+from re4_block_preview import NativePreview
 
 
 def main():
@@ -19,6 +20,7 @@ def main():
     args = parser.parse_args()
     process = None
     native = None
+    preview = None
     try:
         config = load_config(args.game_dir / "config" / "re4bridge.json")
         pid = find_pid()
@@ -27,7 +29,8 @@ def main():
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             native = NativeControl(pid)
-            print('0.4.18: cubo solo mediante TEST-RE4-CUBE. No ejecutes blocktest; controles y camara disponibles.',flush=True)
+            preview = NativePreview(pid,process.k)
+            print('0.4.19: un bloque visual; usa /re4bridge blocks on y arm. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -54,7 +57,7 @@ def main():
             while True:
                 peer, _ = server.accept()
                 with peer:
-                    policy = ControlPolicy(native) if native is not None else None
+                    policy = ControlPolicy(native,preview) if native is not None else None
                     try:
                         serve_peer(peer, config["token"], {}, provider, policy.apply if policy else None)
                     except (ProtocolError, OSError) as error:
@@ -69,6 +72,8 @@ def main():
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     finally:
+        if preview is not None:
+            preview.close()
         if native is not None:
             native.close()
         if process is not None:

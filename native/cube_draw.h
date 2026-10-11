@@ -22,7 +22,11 @@ static void cube_render_device(CubeDevice *f) {
     hr=device->lpVtbl->GetViewport(device,&viewport);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);return;}
     BlockVertex vertices[24];
-    if (!f->gate.anchored) {
+    if (command.mode==1) {
+        if (!block_valid_bounds(command.bounds)) {cube_record(CUBE_CAMERA_REJECT,0);return;}
+        memcpy(f->gate.bounds,command.bounds,sizeof(f->gate.bounds));
+        f->gate.anchored=1;
+    } else if (!f->gate.anchored) {
         /* Invert the rigid view matrix and put the center 600 native units
            along negative camera Z. The anchor stays fixed until a new lease. */
         for (unsigned axis=0;axis<3;++axis) {

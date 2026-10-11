@@ -12,13 +12,15 @@ static void MemoryBarrier(void) {
 }
 /* ACTUAL_READER */
 int main(void) {
-    shared=(CubeCommand){.magic=0x52453454,.version=1,.sequence=2,.enabled=1,.epoch=7,.stamp=40};
+    shared=(CubeCommand){.magic=0x52453454,.version=2,.sequence=2,.enabled=1,.epoch=7,.stamp=40};
     CubeCommand out={0};CubeCommand before=shared;
     assert(cube_command_read(&out) && out.epoch==7 && !memcmp(&shared,&before,sizeof(shared)));
     mode=1;barriers=0;assert(cube_command_read(&out) && out.epoch==9 && out.stamp==41 && out.sequence==4 && barriers==4);
     mode=2;barriers=0;assert(!cube_command_read(&out) && barriers==6);
-    mode=0;shared.sequence=4;shared.reserved[0]=1;assert(!cube_command_read(&out));shared.reserved[0]=0;
-    shared.magic=0;assert(!cube_command_read(&out));shared.magic=0x52453454;shared.version=2;assert(!cube_command_read(&out));
+    mode=0;shared.sequence=4;shared.reserved=1;assert(!cube_command_read(&out));shared.reserved=0;
+    shared.magic=0;assert(!cube_command_read(&out));shared.magic=0x52453454;shared.version=1;assert(!cube_command_read(&out));
+    shared.version=2;shared.mode=2;assert(!cube_command_read(&out));
+    shared.mode=1;shared.bounds[0]=123;assert(cube_command_read(&out) && out.mode==1 && out.bounds[0]==123);
     cube_command=NULL;assert(!cube_command_read(&out));
     puts("Cube command reader: readonly complete snapshot, torn retry, odd/malformed rejection and no cached activation passed");
 }

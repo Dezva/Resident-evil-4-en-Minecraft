@@ -44,6 +44,8 @@ public final class BridgeConnection implements AutoCloseable {
     public String nativeReason() { return nativeReason; }
     public int nativeCapabilities() { return nativeCapabilities; }
     private volatile int previewStatus = -1;
+    private volatile boolean previewAvailable;
+    public boolean previewAvailable() { return previewAvailable; }
     private volatile long previewFrames, previewDraws;
     private volatile long previewFailures,previewHresult;
     public int previewStatus() { return previewStatus; }
@@ -187,6 +189,11 @@ public final class BridgeConnection implements AutoCloseable {
                             previewDraws=unsignedCounter(preview,"draws");
                             previewFailures=unsignedCounter(preview,"failures");
                             previewHresult=unsignedCounter(preview,"last_hresult");
+                        }
+                        if (state.has("preview_available")) {
+                            var available=state.getAsJsonPrimitive("preview_available");
+                            if (!available.isBoolean()) throw new IOException("Invalid preview capability");
+                            previewAvailable=available.getAsBoolean();
                         }
                         if (state.has("camera_active")) {
                             if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");

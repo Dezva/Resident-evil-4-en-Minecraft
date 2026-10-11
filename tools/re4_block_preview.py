@@ -1,6 +1,5 @@
 """One visual-only box, through a separate named mapping; no process-memory writes."""
 import ctypes
-from ctypes import wintypes as w
 import math
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
@@ -19,51 +18,59 @@ def validate_preview(preview):
 
 
 class NativePreview:
-    def __init__(self,pid):
-        self.k=ctypes.WinDLL('kernel32',use_last_error=True)
-        for name,args,result in [('OpenFileMappingW',[w.DWORD,w.BOOL,w.LPCWSTR],w.HANDLE),
-                ('MapViewOfFile',[w.HANDLE,w.DWORD,w.DWORD,w.DWORD,ctypes.c_size_t],ctypes.c_void_p),
-                ('UnmapViewOfFile',[ctypes.c_void_p],w.BOOL),('CloseHandle',[w.HANDLE],w.BOOL),('GetTickCount',[],w.DWORD)]:
-            fn=getattr(self.k,name);fn.argtypes=args;fn.restype=result
-        self.handle=self.k.OpenFileMappingW(0xF001F,False,f'Local\\RE4Bridge-BlockPreview-{pid}')
-        if not self.handle: raise ReaderError('DLL sin canal de bloque visual (requiere0.4.11).')
-        self.address=self.k.MapViewOfFile(self.handle,0xF001F,0,0,68)
-        if not self.address:
-            self.k.CloseHandle(self.handle);raise ReaderError('No se pudo abrir bloque visual.')
-        self.words=(ctypes.c_uint32*17).from_address(self.address)
-        if self.words[0]!=0x52453442 or self.words[1] not in (1,2,3):
-            self.k.UnmapViewOfFile(self.address);self.k.CloseHandle(self.handle)
-            raise ReaderError('Canal de bloque desconocido.')
-        if self.words[1] in (2,3):
-            version=self.words[1];size=92 if version==2 else 100
-            self.k.UnmapViewOfFile(self.address)
-            self.address=self.k.MapViewOfFile(self.handle,0xF001F,0,0,size)
-            if not self.address:
-                self.k.CloseHandle(self.handle);raise ReaderError('Canal de diagnostico de bloque incompleto.')
-            self.words=(ctypes.c_uint32*(size//4)).from_address(self.address)
-            if self.words[0]!=0x52453442 or self.words[1]!=version:
-                self.k.UnmapViewOfFile(self.address);self.k.CloseHandle(self.handle)
-                raise ReaderError('El canal de bloque cambio durante la apertura.')
+    """Single-writer cube lease using the creation-owned renderer, never the retired IPC."""
+    def __init__(self,pid,k=None,user=None):
+        from re4_cube_test import CubeSession,read_cube_status
+        self.session=None;self.key=None;self.baseline=None;self.generation=0;self.epoch_started=0
+        kernel=k if k is not None else ctypes.WinDLL('kernel32',use_last_error=True)
+        try:
+            self.session=CubeSession(kernel,pid,user=user)
+            if self.session.version!=2:
+                raise ReaderError('Bloques requieren DLL0.4.19; conserva los controles desactivados.')
+            self.baseline=read_cube_status(kernel,pid)
+            if self.baseline['build']!=419 or not self.baseline['live_devices']:
+                raise ReaderError('Bloques requieren DLL0.4.19 y dispositivo grafico activo.')
+            if self.baseline['restore_failures'] or self.baseline['escaped_interfaces']:
+                raise ReaderError('Dibujo bloqueado; reinicia RE4 y envia CAPTURE-RE4-GRAPHICS.')
+        except Exception:
+            self.close();raise
 
     def publish(self,enabled,generation,bounds=None):
-        if enabled: validate_preview({'bounds':bounds})
-        seq=(self.words[2]+1)|1
-        self.words[2]=seq&0xFFFFFFFF
-        self.words[3]=self.k.GetTickCount()
-        self.words[4]=int(enabled)
-        self.words[5]=generation
-        for i,x in enumerate(bounds if enabled else [0]*6):
-            ctypes.c_float.from_address(self.address+24+i*4).value=x
-        self.words[2]=(seq+1)&0xFFFFFFFF
+        if enabled:
+            validate_preview({'bounds':bounds})
+            if type(generation) is not int or generation<=0:
+                raise ProtocolError('Bloque requiere arm explicito')
+            if generation!=self.generation:
+                from re4_cube_test import read_cube_status
+                self.baseline=read_cube_status(self.session.k,self.session.pid)
+                self.generation=generation
+            key=(generation,tuple(bounds))
+            if key!=self.key:
+                import secrets
+                self.session.epoch=secrets.randbits(32) or 1
+                self.key=key
+                import time
+                self.epoch_started=time.monotonic()
+        # Retain the epoch through removal/disarm. A new arm or placement rearms it.
+        self.session.publish(enabled,bounds if enabled else None)
 
     def status(self):
-        result=dict(zip(['status','frames','draws','failures','last_hresult'],self.words[12:17]))
-        if len(self.words)>=23:
-            result['discovery']=dict(zip(['attempts','slots','tables','devices','window_rejected','roots'],self.words[17:23]))
-        if len(self.words)==25:
-            result['discovery'].update(factory_rejected=self.words[23],probe_valid=self.words[24])
-        return result
+        from re4_cube_test import read_cube_status
+        snapshot=read_cube_status(self.session.k,self.session.pid)
+        # Reset/Present may occur between attempts. An armed frame must not silently
+        # reactivate after a new device loss; require another explicit arm.
+        import time
+        blocked=(not snapshot['live_devices'] or snapshot['restore_failures'] or snapshot['escaped_interfaces']
+                 or (snapshot['stop_reason'] in (3,4,9) and time.monotonic()-self.epoch_started>.5)
+                 or any(snapshot[field]>self.baseline[field] for field in
+                        ('failures','present_failures','reset_calls','reset_failures')))
+        return {'status':3 if not snapshot['live_devices'] else 2 if blocked else 1,
+                'frames':snapshot['frames'],'draws':snapshot['draws'],
+                'failures':snapshot['failures']+snapshot['restore_failures'],
+                'last_hresult':int(snapshot['last_hresult'],16),
+                'reason':snapshot['reason'],'blocked':bool(blocked),
+                'stop_reason':snapshot['stop_reason']}
 
     def close(self):
-        self.publish(False,0)
-        self.k.UnmapViewOfFile(self.address);self.k.CloseHandle(self.handle)
+        if self.session is not None:
+            self.session.close();self.session=None

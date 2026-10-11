@@ -512,3 +512,29 @@ que no identifica por sí solo la causa de cada omisión.
 Evidencia de anclaje durante el recorrido, sin resolver la causa del desplazamiento
 extraño referido anteriormente ni acreditar precisión de proyección, estabilidad
 prolongada o recuperación de dispositivo. No cambia el código ni el paquete.
+
+## 0.4.19 — colocación y retirada del último bloque
+
+72 pruebas Python pasan, incluyendo TCP autenticado real -> ControlPolicy ->
+NativePreview/CubeSession con mappings Windows simulados. Se comprueba publicación
+de bounds/mode, retirada al omitir caja, parada F8 sin rearm automático, nueva arm
+y desactivación al cerrar conexión. Apertura v2 y permisos separados comando6 /
+telemetría4, cabeceras/build antiguos rechazados sin activación, mutex excluyente,
+epoch fijo/renovación y telemetría conservada. Fallo de dibujo desarma ambas
+órdenes y necesita nueva arm; contador de restauración impide nuevas activaciones.
+Una razón antigua de la última escena no rechaza de inmediato el nuevo epoch.
+
+17 pruebas bridge-core y 5 de Minecraft pasan con JDK21/Fabric Loader JUnit:
+capacidad de preview recibida por el cliente, protocolo de control existente,
+BlockPlacementProbe confirma una sola colocación por cambio del bloque esperado,
+conserva caja nativa fija, rechaza intento sin cambios/bloque incorrecto/expirado
+y cancela al cambiar dimensión. Las pruebas de formas de losas/fence se conservan.
+La interacción gráfica del callback en un cliente real sigue pendiente de Windows.
+
+4 suites C portátiles y compilación MinGW PE32 -Werror pasan. Seis fixtures nativos
+ASan/UBSan pasan; el renderer real recibe bounds explícitos, los mantiene al
+cambiar cámara/personaje, actualiza ante otra caja y retira al desactivar.
+Cajas invertidas/NaN no dibujan; snapshot v2 real rechaza reservado, modo,
+versiones y publicaciones incompletas. Restauración/refs/Reset/fallback mantienen
+su cobertura anterior. Instalador/desinstalador verifica backups/hash y no pisa
+DLL ajena. APIs simuladas no acreditan driver o visibilidad de esta integración.

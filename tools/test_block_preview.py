@@ -17,41 +17,58 @@ class PreviewTests(unittest.TestCase):
                     {'bounds':[0,0,0,3000,1000,1000]}, {'bounds':self.bounds,'path':'x'}]:
             with self.assertRaises(ProtocolError): validate_preview(bad)
 
-    def test_publication_preserves_render_counters(self):
-        preview=NativePreview.__new__(NativePreview)
-        backing=(ctypes.c_uint32*17)();preview.words=backing;preview.address=ctypes.addressof(backing)
-        class Kernel:
-            def GetTickCount(self):return 100
-        preview.k=Kernel();backing[12]=1;backing[13]=99;backing[14]=20
+    def test_new_channel_publication_preserves_telemetry_and_fixed_epoch(self):
+        from test_cube_test import Kernel
+        import struct
+        kernel=Kernel(version=2,build=419)
+        preview=NativePreview(42,kernel,user=kernel)
+        before=kernel.telemetry.raw
         preview.publish(True,7,self.bounds)
-        self.assertEqual(backing[2]&1,0);self.assertEqual(backing[4],1);self.assertEqual(backing[5],7)
-        self.assertEqual(list((ctypes.c_float*6).from_address(preview.address+24)),self.bounds)
-        preview.publish(False,7)
-        self.assertEqual(backing[4],0);self.assertEqual(preview.status()['frames'],99)
-        self.assertEqual(preview.status()['draws'],20)
+        epoch=preview.session.epoch
+        words=struct.unpack('<8I6f',kernel.command.raw[:56])
+        self.assertFalse(words[2]&1);self.assertEqual(words[4:8],(1,epoch,1,0))
+        self.assertEqual(list(words[8:]),self.bounds)
+        self.assertEqual(kernel.telemetry.raw,before)
+        preview.publish(True,7,self.bounds);self.assertEqual(preview.session.epoch,epoch)
+        preview.publish(False,7);self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        preview.publish(True,7,self.bounds);self.assertEqual(preview.session.epoch,epoch)
+        # A new placement updates the immutable world bounds, not the camera anchor.
+        changed=[x+100 for x in self.bounds]
+        with patch('secrets.randbits',return_value=epoch+1):preview.publish(True,7,changed)
+        self.assertEqual(preview.session.epoch,epoch+1)
+        with patch('secrets.randbits',return_value=epoch+2):preview.publish(True,8,changed)
+        self.assertEqual(preview.session.epoch,epoch+2)
+        preview.close();preview.close()
+        self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        self.assertEqual(kernel.released,1)
+        self.assertIn((11,6,56),kernel.map_requests)
 
-    def test_versioned_mapping_and_discovery_counters(self):
-        for version,size in [(1,17),(2,23),(3,25),(99,17)]:
-            backing=(ctypes.c_uint32*size)();backing[0]=0x52453442;backing[1]=version
-            for i in range(12,size):backing[i]=i*10
-            kernel=Mock();kernel.OpenFileMappingW.return_value=99
-            kernel.MapViewOfFile.return_value=ctypes.addressof(backing);kernel.GetTickCount.return_value=100
-            with patch('ctypes.WinDLL',return_value=kernel,create=True):
-                if version==99:
-                    with self.assertRaises(ReaderError): NativePreview(42)
-                    kernel.UnmapViewOfFile.assert_called_once();kernel.CloseHandle.assert_called_once_with(99)
-                    continue
-                preview=NativePreview(42);before=list(backing[12:])
-                preview.publish(True,7,self.bounds)
-                status=preview.status();preview.close()
-                self.assertEqual(list(backing[12:]),before)
-                sizes=[call.args[-1] for call in kernel.MapViewOfFile.call_args_list]
-                self.assertEqual(sizes,[68] if version==1 else [68,92 if version==2 else 100])
-                if version>=2:self.assertEqual(status['discovery']['roots'],220)
-                else:self.assertNotIn('discovery',status)
-                if version==3:
-                    self.assertEqual(status['discovery']['factory_rejected'],230)
-                    self.assertEqual(status['discovery']['probe_valid'],240)
+    def test_rejects_old_mapping_wrong_build_and_second_writer_without_activation(self):
+        from test_cube_test import Kernel
+        for kernel in [Kernel(),Kernel(version=2,build=418),Kernel(version=2,build=419,wait=0x102)]:
+            before=kernel.command.raw
+            with self.assertRaises(ReaderError):NativePreview(42,kernel,user=kernel)
+            self.assertEqual(kernel.command.raw,before)
+            self.assertIn(12,kernel.closed)
+
+    def test_graphics_failure_disarms_and_needs_new_arm(self):
+        from test_cube_test import Kernel
+        import struct
+        kernel=Kernel(version=2,build=419);visual=NativePreview(42,kernel,user=kernel)
+        writer=Writer();policy=ControlPolicy(writer,visual);sample={'state':'player'}
+        frame=self.frame();result=policy.apply(frame,sample);self.assertTrue(result['armed'])
+        # The renderer's failed draw must release native input as well as the visual lease.
+        struct.pack_into('<I',kernel.telemetry,44,1)
+        struct.pack_into('<I',kernel.telemetry,64,9)
+        result=policy.apply(frame,sample);self.assertFalse(result['armed'])
+        self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        self.assertFalse(policy.apply(frame,sample)['armed'])
+        # A stale reason from the last scene cannot reject a newly requested epoch.
+        result=policy.apply(dict(frame,arm_id=2),sample);self.assertTrue(result['armed'])
+        struct.pack_into('<I',kernel.telemetry,48,1)
+        result=policy.apply(dict(frame,arm_id=2),sample);self.assertFalse(result['armed'])
+        self.assertFalse(policy.apply(dict(frame,arm_id=3),sample)['armed'])
+        visual.close()
 
     def test_stop_disarm_and_removed_preview_disable_the_visual_channel(self):
         class Preview:

@@ -136,7 +136,37 @@ versión real 1.1.0, junto con sus matrices y el campo de visión.
 
 ## Colisión
 
-### Prueba visual0.4.11
+### Bloque visual 0.4.19
+
+El frame `re4_control` incluye opcionalmente `preview: {bounds:[minX,minY,minZ,maxX,maxY,maxZ]}`,
+con los mismos límites de caja 40..2500 y coordenadas finitas ±20000000.
+`blocks on` captura la última colocación confirmada de BlockItem en el mundo local;
+la caja queda delante de Leon, sin mapear todavía la cuadrícula Minecraft.
+Romper/sustituir el bloque o cambiar de dimensión elimina la selección. Un intento
+sin cambio de estado no crea caja. `blocktest` permite seleccionarla manualmente.
+
+El host anuncia `control_state.preview_available: true` y devuelve `preview_state`
+con status (1=canal listo, 2=dibujo detenido, 3=sin dispositivo), contadores uint32,
+HRESULT y motivo. Listo no implica un dibujo visible ni una autorización vigente.
+Los clientes anteriores pueden ignorar la capacidad adicional; el mod 0.4.19
+requiere esa capacidad para activar blocks/blocktest.
+
+El host escribe **CubeCommand v2, 56 bytes**, en `Local\RE4Bridge-CubeCommand-PID`:
+8 uint32 `magic=0x52453454, version=2, sequence, stamp, enabled, epoch, mode, reserved`,
+seguidos por 6 float bounds. `mode=0` es el cubo diagnóstico anclado a la cámara;
+`mode=1` usa bounds explícitos fijos. `reserved=0`, enabled 0/1, epoch no nulo al
+activar. Secuencia impar/par, snapshot consistente, TTL 500 ms y F8 tienen prioridad.
+El mutex `Local\RE4Bridge-CubeWriter-PID` excluye host/prueba simultáneos. Nueva arm
+o cambio de bounds cambia epoch; quitar/rearmar la misma selección no recalcula sus bounds.
+Un fallo gráfico desarma; fallo de restauración bloquea hasta reiniciar RE4.
+
+CubeTelemetry conserva version 1, 92 bytes, build 419 y solo lectura desde el host;
+CaptureIPC conserva v3, 3296 bytes. El control de teclas mantiene IPC v2/80 bytes.
+El dispositivo proviene de CreateDevice y se envuelve sin alterar su objeto o tabla
+nativos. Se conserva el dibujo/restauración de estados de 0.4.18. El canal retirado
+BlockPreview-PID no se abre ni se utiliza en esta versión.
+
+### Prueba visual 0.4.11 — retirada, contrato histórico
 
 El frame `re4_control` puede incluir `preview: {bounds:[minX,minY,minZ,maxX,maxY,maxZ]}`.
 Es una única caja en unidades nativas RE4, finita, dentro de±20000000 y con

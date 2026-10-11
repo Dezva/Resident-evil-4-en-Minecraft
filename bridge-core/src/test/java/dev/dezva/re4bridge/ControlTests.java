@@ -23,6 +23,7 @@ class ControlTests {
             await(() -> { try { return Files.readString(log).contains("READY"); } catch (Exception e) { return false; } });
             bridge.start();
             await(() -> bridge.nativeTicks() == 123);
+            await(bridge::previewAvailable);
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(true, 5, 1);
             await(bridge::nativeArmed);

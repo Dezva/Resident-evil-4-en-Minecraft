@@ -27,8 +27,8 @@ INSTALL_REASONS={0:'sin intento',1:'importacion instalada',2:'cabecera DOS no va
 def layout(data,pid):
     if len(data)<24:raise ReaderError('Cabecera de captura incompleta.')
     magic,version,_,build,owner=struct.unpack_from('<5I',data)
-    if magic!=MAGIC or (version,build) not in {(1,415),(2,416),(3,417),(3,418)} or owner!=pid:
-        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL0.4.15 a0.4.18.')
+    if magic!=MAGIC or (version,build) not in {(1,415),(2,416),(3,417),(3,418),(3,419)} or owner!=pid:
+        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL0.4.15 a0.4.19.')
     return version,SIZES[version],f'0.4.{build-400}'
 
 
@@ -47,7 +47,7 @@ def decode_capture(data,pid):
                 width=words[20],height=words[21],focus_window=f'0x{words[22]:08x}',
                 escaped_interfaces=words[23],creation_observed=words[11]>0,
                 address_semantics='Historical API return values; no current device lifetime is asserted.',
-                rendering_enabled=None if build=='0.4.18' else False)
+                rendering_enabled=None if build in ('0.4.18','0.4.19') else False)
     if version>=2:
         phases={0:'sin intento',1:'DLL_PROCESS_ATTACH',2:'DirectInput8Create'}
         if words[24] not in phases or words[25]>2:raise ReaderError('Fase/intentos de captura no validos.')
@@ -108,7 +108,7 @@ def main(argv=None):
     parser.add_argument('--game-exe',default=DEFAULT_EXE)
     parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1])
     args=parser.parse_args(argv)
-    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.18',
+    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.19',
                          'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     result=0
     try:
@@ -116,13 +116,13 @@ def main(argv=None):
         report['capture']=read_capture(process.k,pid)
         state=report['capture']
         print(f"Captura grafica: {state['hook_description']}; creaciones correctas={state['device_success']}.")
-        if state['build']=='0.4.18':
+        if state['build'] in ('0.4.18','0.4.19'):
             from re4_cube_test import read_cube_status
             try:
                 state['cube']=read_cube_status(process.k,pid)
                 print(f"Prueba de cubo: dispositivos={state['cube']['live_devices']}; frames={state['cube']['frames']}; dibujos={state['cube']['draws']}; {state['cube']['reason']}")
             except ReaderError as error:state['cube_error']=str(error)
-            state['activation']='Only TEST-RE4-CUBE publishes an explicit live lease; this reader does not enable drawing.'
+            state['activation']='TEST-RE4-CUBE or the 0.4.19 armed block host publishes an explicit lease; this reader does not enable drawing.'
         if 'installation' in state:
             journal=state['installation']
             print(f"Inicio: {journal['initial']['reason']}; ultimo intento: {journal['latest']['reason']}; fase={journal['phase']}")

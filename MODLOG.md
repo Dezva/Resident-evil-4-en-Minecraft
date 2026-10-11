@@ -147,3 +147,15 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   negativo y rechazo de opcode/destino/rango invalidos.
 - Se conserva el mod Minecraft 0.3.0. DLL nueva requiere retirar la anterior
   con su desinstalador y reinstalar/reiniciar RE4. Ejecucion real pendiente.
+
+## 0.3.5: armado al cerrar chat e indicador de control
+
+- Usuario confirma estado nativo 1/ticks crecientes pero no movimiento;
+  chat confirma comando arm y consola muestra desarmado, sin causa precisa.
+- El cliente espera cerrar el chat antes de activar/contar confirmacion.
+- Indicador en actionbar muestra motivos de desarmado, teclas solicitadas,
+  armado del host y mascara aplicada realmente por la DLL. No requiere alt-tab.
+- Nuevo host devuelve motivo, mascara solicitada y mascara nativa en ACK.
+- Se mantiene DLL 0.3.4; actualizacion requiere solo mod 0.3.5 y host nuevo.
+- Se mantienen cortes por foco/menu/pausa/muestra antigua y rearme explicito.
+  Pruebas sinteticas de la secuencia no sustituyen movimiento real en Windows.

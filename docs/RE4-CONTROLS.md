@@ -1,4 +1,31 @@
-# Paquete 0.3.4: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0)
+# Paquete/mod 0.3.5: controles Minecraft -> RE4 UHD 1.1.0 (DLL 0.3.4)
+
+## Actualizacion del armado y estado visible 0.3.5
+
+Con la DLL 0.3.4 ya instalada (estado 1/ticks), no reinstales el componente
+nativo. Cierra Minecraft y el host Python, extrae el paquete nuevo en otra
+carpeta, retira `re4bridge-0.3.0.jar` de mods y coloca `re4bridge-0.3.5.jar`.
+Conserva Fabric API y la DLL de RE4. Arranca el nuevo host como antes.
+
+El comando arm deja el control pendiente hasta cerrar el chat. Solo entonces
+se envian entradas armadas y empieza el plazo de confirmacion del host.
+Abrir otro menu/chat, perder foco, perder muestras o pausar siguen desarmando;
+no se reactiva automaticamente. Espectador, Creativo y Survival admiten
+esta prueba de teclas. El armado no convierte ni sincroniza los personajes.
+
+El indicador sobre la barra de items muestra:
+
+- Estado local: esperando chat, solicitando, activo o motivo de desarmado.
+- `teclas`: mascara enviada (W=1, S=2, D=4, A=8 con teclas configuradas).
+- `nativo`: confirmacion de armado del host.
+- `aplicado`: mascara de input que la DLL aplico en su ultimo tick.
+- `host`: activo, cliente desarmado, sin personaje, sin ticks o parada.
+
+Ejecuta controller, espera conexion, arm, cierra chat y pulsa W un segundo.
+Observa el indicador sin abrir status ni cambiar de ventana. Envia su texto
+o captura si no se mueve. El host incluye el mismo detalle en su consola.
+Las pruebas cloud verifican la secuencia y los campos con IPC sintetico;
+el movimiento real con esta actualizacion sigue pendiente de prueba.
 
 ## Correccion del salto nativo 0.3.4
 
@@ -72,7 +99,7 @@ compartida, bloques con colision nativa ni dano cruzado.
 
 1. Cierra Minecraft y RE4. Extrae todo el ZIP fuera de la carpeta del juego.
 2. En `%APPDATA%\.minecraft\mods` retira el JAR anterior y coloca
-   `re4bridge-0.3.0.jar` de la carpeta `mods` del ZIP. Solo un JAR de RE4 Bridge.
+   `re4bridge-0.3.5.jar` de la carpeta `mods` del ZIP. Solo un JAR de RE4 Bridge.
    Conserva Fabric API y Minecraft/Fabric 1.21.1.
 3. Ejecuta `INSTALL-RE4-CONTROLS.bat` y lee su resultado. Antes de instalar,
    copia y verifica por SHA256 tus partidas de:

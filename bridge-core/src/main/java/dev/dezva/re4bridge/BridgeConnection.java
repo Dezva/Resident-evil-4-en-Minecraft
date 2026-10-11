@@ -19,6 +19,8 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile boolean nativeArmed;
     private volatile int nativeStop;
     private volatile long nativeTicks;
+    private volatile int nativeButtons;
+    private volatile String nativeReason = "sin detalle";
     private volatile Re4Sample re4Sample;
     private final AtomicReference<JsonObject> pose = new AtomicReference<>();
     private final AtomicReference<JsonObject> collision = new AtomicReference<>();
@@ -35,6 +37,8 @@ public final class BridgeConnection implements AutoCloseable {
     public boolean nativeArmed() { return nativeArmed; }
     public int nativeStop() { return nativeStop; }
     public long nativeTicks() { return nativeTicks; }
+    public int nativeButtons() { return nativeButtons; }
+    public String nativeReason() { return nativeReason; }
     public void publishControl(boolean armed, int buttons, int generation) {
         if (buttons < 0 || buttons > 15 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
@@ -135,6 +139,19 @@ public final class BridgeConnection implements AutoCloseable {
                         if (!state.get("stop").getAsString().equals(Integer.toString(nativeStop))
                                 || !state.get("hook_ticks").getAsString().equals(Long.toString(nativeTicks)))
                             throw new IOException("Non integral native status");
+                        if (state.has("native_buttons")) {
+                            var value = state.getAsJsonPrimitive("native_buttons");
+                            nativeButtons = value.getAsInt();
+                            if (!value.isNumber() || nativeButtons < 0 || nativeButtons > 15
+                                    || !value.getAsString().equals(Integer.toString(nativeButtons)))
+                                throw new IOException("Invalid native button status");
+                        }
+                        if (state.has("reason")) {
+                            var value = state.getAsJsonPrimitive("reason");
+                            if (!value.isString() || value.getAsString().length() > 160)
+                                throw new IOException("Invalid native reason");
+                            nativeReason = value.getAsString();
+                        }
                     }
                 }
                 status = new Status(true, modeMessage, sequence);

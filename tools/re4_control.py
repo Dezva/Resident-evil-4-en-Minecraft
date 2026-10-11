@@ -29,7 +29,9 @@ class ControlPolicy:
 
     def apply(self, frame, sample):
         validate_control(frame)
+        reason = "requiere otro arm"
         if not frame["armed"] or sample.get("state") != "player":
+            reason = "cliente desarmado" if not frame["armed"] else "sin personaje RE4"
             self.armed = False
             self.writer.publish(False, 0)
         elif frame["arm_id"] != self.generation:
@@ -41,8 +43,11 @@ class ControlPolicy:
         status = self.writer.status()
         if status["stop"] or not status["ticking"]:
             self.armed = False
+            reason = "parada nativa" if status["stop"] else "modulo sin ticks recientes"
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0)
-        return {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"]}
+        return {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
+                "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
+                "reason": "activo" if self.armed else reason}
 
     def stop(self):
         self.armed = False
@@ -92,6 +97,7 @@ class NativeControl:
             self.last_ticks = ticks
             self.last_tick_time = time.monotonic()
         return {"stop": self.words[6], "hook_ticks": ticks,
+                "native_buttons": self.words[9],
                 "ticking": ticks != 0 and time.monotonic() - self.last_tick_time < 0.5}
 
     def reset_stop(self):

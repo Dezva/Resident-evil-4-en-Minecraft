@@ -26,6 +26,8 @@ class ControlTests {
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(true, 5, 1);
             await(bridge::nativeArmed);
+            await(() -> bridge.nativeButtons() == 5);
+            assertEquals("activo", bridge.nativeReason());
             assertTrue(Files.readString(log).contains("INPUT armed=True buttons=5"));
             // The network worker remains running; absence of new client ticks must still stop input.
             await(() -> !bridge.nativeArmed());

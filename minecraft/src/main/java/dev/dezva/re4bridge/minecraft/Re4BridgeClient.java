@@ -14,6 +14,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import dev.dezva.re4bridge.ControlArming;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
 import net.minecraft.server.MinecraftServer;
@@ -42,9 +44,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private double unitsPerBlock = 100;
     private int ySign = -1;
     private int turnSign = 1;
-    private boolean driving;
-    private int armGeneration;
-    private long armRequestedNs;
+    private final ControlArming controlArming = new ControlArming();
+    private int controlHudTicks;
 
     @Override public void onInitializeClient() {
         try {
@@ -67,11 +68,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         return 0;
                     }
                     following = false;
-                    driving = true;
-                    ++armGeneration;
-                    armRequestedNs = System.nanoTime();
-                    current.publishControl(true, 0, armGeneration);
-                    say(ctx.getSource().getClient(), "Control solicitado. W/S avanzar/retroceder; A/D girar. F8 o /re4bridge stop detienen.");
+                    controlArming.request(System.nanoTime());
+                    current.publishControl(false, 0, controlArming.generation());
+                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Mira el indicador sobre la barra de items. F8 detiene.");
                     return 1;
                 }))
                 .then(literal("stop").executes(ctx -> {
@@ -121,7 +120,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             + "; mensajes confirmados: " + bridge.status().acknowledgedSequence();
                     ctx.getSource().sendFeedback(Text.literal("RE4 Bridge: " + state));
                     if (bridge != null && bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
-                        "Control: solicitado=" + driving + "; nativo=" + bridge.nativeArmed() + "; parada="
+                        "Control: solicitado=" + controlArming.active() + "; causa=" + controlArming.reason() + "; nativo=" + bridge.nativeArmed() + "; parada="
                         + bridge.nativeStop() + "; ticks=" + bridge.nativeTicks()));
                     if (bridge != null && bridge.readerMode()) {
                         var sample = bridge.re4Sample();
@@ -170,7 +169,6 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private int connectController(MinecraftClient client) {
-        armGeneration = 0;
         int result = connect(client, BridgeConnection.Mode.CONTROL);
         if (result == 0) return 0;
         say(client, "Conectando a controles RE4. Estado inicial desarmado; luego /re4bridge arm.");
@@ -178,8 +176,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void stopDriving() {
-        driving = false;
-        if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, armGeneration);
+        controlArming.stop("desarmado");
+        if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, controlArming.generation());
     }
 
     private int calibrate(MinecraftClient client) {
@@ -220,18 +218,23 @@ public final class Re4BridgeClient implements ClientModInitializer {
         }
         if (current.controllerMode()) {
             var sample = current.re4Sample();
-            if (client.isPaused() || client.currentScreen != null || !client.isWindowFocused()
-                    || sample == null || !sample.fresh(System.nanoTime())
-                    || (driving && System.nanoTime() - armRequestedNs >= 500_000_000L
-                        && (current.nativeStop() != 0 || !current.nativeArmed()))) stopDriving();
+            long now = System.nanoTime();
+            var screen = client.currentScreen == null ? ControlArming.Screen.NONE
+                : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : ControlArming.Screen.OTHER;
+            controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
+                sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
             int buttons = 0;
-            if (driving) {
+            if (controlArming.active()) {
                 if (client.options.forwardKey.isPressed()) buttons |= 1;
                 if (client.options.backKey.isPressed()) buttons |= 2;
                 if (client.options.rightKey.isPressed()) buttons |= 4;
                 if (client.options.leftKey.isPressed()) buttons |= 8;
             }
-            current.publishControl(driving, buttons, armGeneration);
+            current.publishControl(controlArming.active(), buttons, controlArming.generation());
+            if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
+                "RE4: " + controlArming.reason() + " | teclas=" + buttons
+                + " | nativo=" + current.nativeArmed() + " | aplicado=" + current.nativeButtons()
+                + " | host: " + current.nativeReason()), true);
         }
         if (client.isPaused()) return;
         if (current.readerMode()) {

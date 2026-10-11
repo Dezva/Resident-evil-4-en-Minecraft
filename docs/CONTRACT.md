@@ -1,6 +1,6 @@
 # Puente v1: contrato del prototipo
 
-## Control nativo (mod 0.3.0)
+## Control nativo (mod 0.3.5; compatible con host anterior)
 
 Modo separado `re4_control`, solicitado con `/re4bridge controller` y host
 `--control`. Solo acepta `type: re4_control` con `armed` booleano, `buttons`
@@ -9,6 +9,11 @@ Armado requiere arm_id >0 y una nueva generacion para rearmar tras parar. Bits
 1/2/4/8 = forward/back/right/left nativos; no se permiten ataques u otros bits.
 `ack` incluye re4_sample y control_state {armed,stop,hook_ticks}. Stop 1=F8,
 2=TTL expirado. La sesion arranca desarmada y desarma al cerrar o fallar.
+
+El host 0.3.5 agrega reason, requested_buttons y native_buttons como campos
+opcionales para observar solicitud y aplicacion. native_buttons es mascara
+0..15 y reason texto de hasta 160 caracteres. El mod tolera su ausencia en
+hosts previos, pero necesita el nuevo host para el detalle del indicador.
 
 MC publica teclas hasta 20 Hz solo al activar `/re4bridge arm`, con mundo local,
 ventana enfocada, sin UI/pausa y con muestra RE4 reciente. El worker nunca

@@ -54,5 +54,22 @@ class ControlTests(unittest.TestCase):
             self.assertEqual(writer.writes, [])
         validate_control(self.frame(generation=0, armed=False, buttons=0))
 
+    def test_diagnostics_distinguish_request_stop_and_applied_native_input(self):
+        writer = Writer()
+        original_status = writer.status
+        writer.status = lambda: dict(original_status(), native_buttons=8)
+        policy = ControlPolicy(writer)
+        sample = {"state": "player"}
+        status = policy.apply(self.frame(buttons=1), sample)
+        self.assertEqual(status['reason'], 'activo')
+        self.assertEqual(status['requested_buttons'], 1)
+        self.assertEqual(status['native_buttons'], 8)
+        status = policy.apply(self.frame(armed=False), sample)
+        self.assertEqual(status['reason'], 'cliente desarmado')
+        writer.ticking = False
+        status = policy.apply(self.frame(generation=2), sample)
+        self.assertEqual(status['reason'], 'modulo sin ticks recientes')
+        self.assertFalse(status['armed'])
+
 
 if __name__ == "__main__": unittest.main()

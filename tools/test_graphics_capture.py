@@ -40,6 +40,29 @@ def snapshot():
 
 
 class GraphicsCaptureTests(unittest.TestCase):
+    def test_v3_paths_snapshot_and_validation(self):
+        data=bytearray(capture.SIZES[3])
+        words=snapshot();words[1]=3;words[3]=417
+        struct.pack_into('<24I',data,0,*words)
+        struct.pack_into('<18I',data,96,1,1,1,1,0,0x700,0x2000,0x2000,0x80,65536,
+                         1,1,0,0x700,0x2000,0x2000,0x80,65536)
+        paths=['C:\\WINDOWS\\System32\\d3d9.dll','C:\\Windows\\SysWOW64\\d3d9.dll','C:\\Windows\\System32\\d3d9.dll']
+        for index in range(2):
+            start=168+index*1564;struct.pack_into('<I',data,start,2)
+            for n,value in enumerate(paths):
+                encoded=(value+'\0').encode('utf-16-le');offset=start+4+n*520
+                data[offset:offset+len(encoded)]=encoded
+        kernel=Kernel(struct.unpack('<824I',data));before=kernel.buffer.raw
+        report=capture.read_capture(kernel,42)
+        self.assertEqual(report['build'],'0.4.17')
+        self.assertEqual(report['installation']['latest']['paths']['loaded'],paths[0])
+        self.assertEqual(report['installation']['initial']['paths']['matched'],'SystemDirectory')
+        self.assertEqual(kernel.buffer.raw,before)
+        self.assertEqual((kernel.viewed,kernel.unmapped,kernel.closed),(2,2,1))
+        for offset,replacement in [(168,b'\3\0\0\0'),(172,b'x\0'*260),(172,b'\0\xd8')]:
+            invalid=bytearray(data);invalid[offset:offset+len(replacement)]=replacement
+            with self.assertRaises(ReaderError):capture.decode_capture(bytes(invalid),42)
+
     def test_v2_installer_journal_and_readonly_remap(self):
         words=snapshot();words[1]=2;words[3]=416
         words += [2,2,3,15,0,0x700,0x800,0x20002000,0x80,65536,

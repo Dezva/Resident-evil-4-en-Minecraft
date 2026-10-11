@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <wchar.h>
+#include <wctype.h>
 #include "capture_import.h"
 #define WINAPI
 #define MAX_PATH 260
@@ -16,8 +17,10 @@ typedef struct IDirect3D9 {unsigned unused;} IDirect3D9;
 static unsigned char image[65536];
 static unsigned missing,foreign,protect_calls,protect_fail,restore_fail,cas_changed;
 static unsigned native_system,query_fail;
+static unsigned loaded_system,case_variant,truncated,system_fail,wow64_too_long;
 static DWORD last_error,protection;
-static struct {unsigned hook_status,phase,attempts;CaptureAttempt initial,latest;} capture_metrics;
+typedef struct {uint32_t matched;wchar_t loaded[MAX_PATH],wow64[MAX_PATH],system[MAX_PATH];} CapturePaths;
+static struct {unsigned hook_status,phase,attempts;CaptureAttempt initial,latest;CapturePaths initial_paths,latest_paths;} capture_metrics;
 static unsigned capture_lock,lock_depth;
 static void AcquireSRWLockExclusive(unsigned *lock) {assert(lock==&capture_lock && !lock_depth);lock_depth=1;}
 static void ReleaseSRWLockExclusive(unsigned *lock) {assert(lock==&capture_lock && lock_depth==1);lock_depth=0;}
@@ -37,15 +40,20 @@ static HMODULE GetModuleHandleW(const wchar_t *name) {
 }
 static DWORD GetModuleFileNameW(HMODULE module,wchar_t *out,DWORD n) {
     assert(module==(void *)42 && n==MAX_PATH);
-    wcscpy(out,foreign?L"D:\\Games\\d3d9.dll":native_system==1?L"C:\\Windows\\System32\\d3d9.dll":L"C:\\Windows\\SysWOW64\\d3d9.dll");return (DWORD)wcslen(out);
+    wcscpy(out,foreign==1?L"D:\\Games\\d3d9.dll":foreign==2?L"C:\\Windows\\System32\\other\\d3d9.dll":(native_system==1 || loaded_system)?L"C:\\Windows\\System32\\d3d9.dll":L"C:\\Windows\\SysWOW64\\d3d9.dll");
+    if (case_variant) for (unsigned i=0;out[i];++i) out[i]=(wchar_t)towupper(out[i]);
+    return truncated?MAX_PATH:(DWORD)wcslen(out);
 }
 static UINT GetSystemWow64DirectoryW(wchar_t *out,UINT n) {
-    assert(n==MAX_PATH);if (native_system) return 0;wcscpy(out,L"C:\\Windows\\SysWOW64");return (UINT)wcslen(out);
+    assert(n==MAX_PATH);if (native_system) return 0;wcscpy(out,L"C:\\Windows\\SysWOW64");return wow64_too_long?MAX_PATH:(UINT)wcslen(out);
 }
 static UINT GetSystemDirectoryW(wchar_t *out,UINT n) {
-    assert(n==MAX_PATH);wcscpy(out,L"C:\\Windows\\System32");return (UINT)wcslen(out);
+    assert(n==MAX_PATH);if (system_fail) return 0;wcscpy(out,L"C:\\Windows\\System32");return (UINT)wcslen(out);
 }
-static int lstrcmpiW(const wchar_t *a,const wchar_t *b) {return wcscmp(a,b);}
+static int lstrcmpiW(const wchar_t *a,const wchar_t *b) {
+    for (;*a && *b;++a,++b) if (towlower(*a)!=towlower(*b)) return 1;
+    return *a!=*b;
+}
 static FARPROC GetProcAddress(HMODULE module,const char *name) {
     assert(module==(void *)42 && !strcmp(name,"Direct3DCreate9"));return (FARPROC)original_create;
 }
@@ -69,6 +77,7 @@ static void dword(uint32_t offset,uint32_t n) {memcpy(image+offset,&n,4);}
 static void setup(void) {
     memset(image,0,sizeof(image));missing=foreign=protect_calls=protect_fail=restore_fail=cas_changed=0;
     native_system=query_fail=0;
+    loaded_system=case_variant=truncated=system_fail=wow64_too_long=0;
     capture_original_create9=NULL;memset(&capture_metrics,0,sizeof(capture_metrics));capture_retry_called=0;lock_depth=0;last_error=777;protection=2;
     word(0,0x5a4d);dword(0x3c,0x80);dword(0x80,0x4550);word(0x84,0x14c);word(0x94,224);word(0x98,0x10b);
     dword(0xd0,sizeof(image));dword(0xf4,16);dword(0x100,0x400);dword(0x104,40);
@@ -79,8 +88,16 @@ int main(void) {
     setup();capture_install_import(1);
     assert(capture_metrics.hook_status==1 && capture_u32(image+0x700)==(uint32_t)(uintptr_t)capture_create9);
     assert(capture_original_create9==original_create && protection==2 && last_error==777);
+    assert(capture_metrics.initial_paths.matched==1 && !wcscmp(capture_metrics.initial_paths.loaded,L"C:\\Windows\\SysWOW64\\d3d9.dll"));
+    setup();loaded_system=1;capture_install_import(1);assert(capture_metrics.hook_status==1 && capture_metrics.initial_paths.matched==2);
+    setup();loaded_system=case_variant=1;capture_install_import(1);assert(capture_metrics.hook_status==1 && capture_metrics.latest_paths.matched==2);
+    setup();truncated=1;capture_install_import(1);assert(capture_metrics.latest.reason==6 && !protect_calls);
+    setup();wow64_too_long=loaded_system=1;capture_install_import(1);assert(capture_metrics.hook_status==1 && capture_metrics.latest_paths.wow64[0]==0);
+    setup();native_system=system_fail=1;capture_install_import(1);assert(capture_metrics.latest.reason==6 && !protect_calls);
     setup();missing=1;capture_install_import(1);assert(capture_metrics.hook_status==2 && !protect_calls && last_error==777);
-    setup();foreign=1;capture_install_import(1);assert(capture_metrics.hook_status==3 && !protect_calls);
+    setup();foreign=1;capture_install_import(1);assert(capture_metrics.hook_status==3 && !protect_calls && capture_metrics.initial_paths.matched==0);
+    assert(!wcscmp(capture_metrics.initial_paths.loaded,L"D:\\Games\\d3d9.dll"));
+    setup();foreign=2;capture_install_import(1);assert(capture_metrics.latest.reason==7 && !protect_calls);
     setup();dword(0x700,42);capture_install_import(1);assert(capture_metrics.hook_status==3 && !protect_calls);
     setup();dword(0x3c,0xfffffff0);capture_install_import(1);assert(capture_metrics.hook_status==3 && !protect_calls);
     setup();protect_fail=1;capture_install_import(1);assert(capture_metrics.hook_status==4 && capture_u32(image+0x700)==(uint32_t)(uintptr_t)original_create);

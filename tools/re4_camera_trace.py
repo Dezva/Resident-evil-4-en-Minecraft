@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "f431b22d52cf04eb7da4ef72bda81c0b2da16f59946bef1a34f1cc3021857f20": "0.4.17 (system paths capture, drawing disabled)",
     "2e6f7c21d30ed62e09eff9e6e5b17cd5418e2b59b87cfd6739fb3a834a16cfb8": "0.4.16 (creation retry, drawing disabled)",
     "0a79c56b94aa83ddcdc40e78998956c43b27cc8f63eb81fc3fa9a6032e8b3052": "0.4.13 (withdrawn)",
     "a88a40e7ab0df1aaf126a1614943f9cf50b2f6083ed59a0f63ff600026a56ace": "0.4.14 (graphics disabled)",

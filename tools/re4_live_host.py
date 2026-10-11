@@ -27,7 +27,7 @@ def main():
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             native = NativeControl(pid)
-            print('0.4.16: captura de creacion grafica, dibujo DESACTIVADO. No ejecutes blocktest; controles y camara disponibles.',flush=True)
+            print('0.4.17: captura de creacion grafica, dibujo DESACTIVADO. No ejecutes blocktest; controles y camara disponibles.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

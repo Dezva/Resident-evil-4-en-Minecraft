@@ -4,6 +4,11 @@
 #include <d3d9.h>
 #include "capture_import.h"
 typedef struct {
+    uint32_t matched;
+    wchar_t loaded[MAX_PATH],wow64[MAX_PATH],system[MAX_PATH];
+} CapturePaths;
+_Static_assert(sizeof(CapturePaths)==1564,"Capture paths use Windows UTF-16");
+typedef struct {
     uint32_t magic,version;
     volatile LONG sequence;
     uint32_t build,pid,hook_status,factory_calls,factory_success,wrappers_live,wrap_failures;
@@ -11,9 +16,10 @@ typedef struct {
     uint32_t adapter,device_type,behavior_flags,windowed,width,height,focus_window,escaped_interfaces;
     uint32_t phase,attempts;
     CaptureAttempt initial,latest;
+    CapturePaths initial_paths,latest_paths;
 } CaptureShared;
-_Static_assert(sizeof(CaptureShared)==168,"Capture diagnostic IPC v2");
-static CaptureShared capture_metrics={.magic=0x52453447,.version=2,.build=416};
+_Static_assert(sizeof(CaptureShared)==3296,"Capture diagnostic IPC v3");
+static CaptureShared capture_metrics={.magic=0x52453447,.version=3,.build=417};
 static CaptureShared *capture_shared;
 static HANDLE capture_mapping;
 static SRWLOCK capture_lock=SRWLOCK_INIT;
@@ -87,9 +93,15 @@ static const unsigned char *capture_image_read(void *base,uint32_t offset,size_t
     unsigned char *p=(unsigned char *)base+offset;
     return readable(p,length)?p:NULL;
 }
+static int capture_system_path(wchar_t *path,UINT length) {
+    if (!length || length>MAX_PATH-12) {path[0]=0;return 0;}
+    memcpy(path+length,L"\\d3d9.dll",sizeof(L"\\d3d9.dll"));
+    return 1;
+}
 static void capture_install_import(unsigned phase) {
     DWORD saved_error=GetLastError();
     CaptureAttempt attempt={.status=3};
+    CapturePaths paths={0};
     unsigned char *base=(unsigned char *)GetModuleHandleW(NULL);
     if (!readable(base,64) || capture_u16(base)!=0x5a4d) {attempt.reason=2;goto done;}
     uint32_t pe=capture_u32(base+0x3c);
@@ -101,13 +113,17 @@ static void capture_install_import(unsigned phase) {
     HMODULE d3d9=GetModuleHandleW(L"d3d9.dll");
     if (!d3d9) {attempt.status=2;attempt.reason=5;goto done;}
     /* Refuse local proxies/wrappers. Do not load or initialize any library here. */
-    wchar_t loaded[MAX_PATH],expected[MAX_PATH];
-    DWORD length=GetModuleFileNameW(d3d9,loaded,MAX_PATH);
-    UINT directory=GetSystemWow64DirectoryW(expected,MAX_PATH);
-    if (!directory) directory=GetSystemDirectoryW(expected,MAX_PATH);
-    if (!length || length>=MAX_PATH || !directory || directory>MAX_PATH-12) {attempt.reason=6;goto done;}
-    memcpy(expected+directory,L"\\d3d9.dll",sizeof(L"\\d3d9.dll"));
-    if (lstrcmpiW(loaded,expected)) {attempt.reason=7;goto done;}
+    DWORD length=GetModuleFileNameW(d3d9,paths.loaded,MAX_PATH);
+    if (!length || length>=MAX_PATH) {paths.loaded[MAX_PATH-1]=0;attempt.reason=6;goto done;}
+    int wow64=capture_system_path(paths.wow64,GetSystemWow64DirectoryW(paths.wow64,MAX_PATH));
+    int system=capture_system_path(paths.system,GetSystemDirectoryW(paths.system,MAX_PATH));
+    if (!wow64 && !system) {attempt.reason=6;goto done;}
+    /* GetModuleFileName preserves the loader's spelling. On WOW64, an import
+       loaded via System32 can refer to the redirected SysWOW64 DLL. Both exact
+       OS-provided paths are valid; local/proxy/arbitrary paths remain refused. */
+    if (wow64 && !lstrcmpiW(paths.loaded,paths.wow64)) paths.matched=1;
+    else if (system && !lstrcmpiW(paths.loaded,paths.system)) paths.matched=2;
+    else {attempt.reason=7;goto done;}
     FARPROC original=GetProcAddress(d3d9,"Direct3DCreate9");
     if (!original) {attempt.reason=8;goto done;}
     uint32_t slot=0;
@@ -137,8 +153,8 @@ static void capture_install_import(unsigned phase) {
 done:
     AcquireSRWLockExclusive(&capture_lock);
     capture_metrics.hook_status=attempt.status;capture_metrics.phase=phase;capture_metrics.attempts++;
-    if (phase==1) capture_metrics.initial=attempt;
-    capture_metrics.latest=attempt;capture_publish_locked();
+    if (phase==1) {capture_metrics.initial=attempt;capture_metrics.initial_paths=paths;}
+    capture_metrics.latest=attempt;capture_metrics.latest_paths=paths;capture_publish_locked();
     ReleaseSRWLockExclusive(&capture_lock);
     SetLastError(saved_error);
 }

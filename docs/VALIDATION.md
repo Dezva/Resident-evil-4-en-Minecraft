@@ -409,3 +409,25 @@ de build/PID/motivos, snapshots completos, dos vistas de lectura y cierre ante
 fallo del remapeo extendido.61 pruebas Python y4 suites C pasan; compilación
 PE32 con -Werror e instalador/desinstalador respaldos/hash propio verificados.
 Mod/API se reutilizan sin cambios. Arranque y captura0.4.16 pendientes de Windows.
+
+## 0.4.17 — rechazo de ruta identificado, corrección por probar
+
+graphics-capture-20261011-141909.json contiene build416, fase DirectInput8Create,
+dos intentos, motivo7 en inicial/último y contadores gráficos cero. No demuestra
+problema de carpeta ni fallo de CreateDevice: no se llegó a observar esa llamada.
+Se identifica la comparación de ruta como bloqueo; no se conocen las cadenas.
+
+Fixture ejecuta el instalador real con ambas APIs disponibles y ruta cargada
+System32; caso antes rechazado y ahora aceptado. Verifica SysWOW64, Windows32,
+case-insensitivity, buffers truncados, rutas/API ausentes y longitud excesiva.
+DLL en carpeta del juego y subdirectorio de sistema se rechazan sin escritura.
+Conserva pruebas de import/CAS/protección/rollback/LastError/reintento único.
+La fachada no cambia;3 fixtures de captura pasan ASan/UBSan.
+
+LectorIPC3296/v3 acepta también96/v1 y168/v2, reconoce exclusivamente los builds
+correspondientes y valida rutasUTF-16 con terminador/matched. Fixture conserva
+bytes, devuelve las rutas de los dos intentos y rechaza UTF-16 inválido, falta de
+terminador o identidad desconocida; cleanup y permisos de lectura conservados.
+62 pruebas Python/4 suites C pasan, compilaciónPE32 -Werror e instalación/hash
+propio comprobados. Mods/API no cambian. Falta Windows para comprobar rutas
+reales, arranque y creación observada; ningún dibujo de bloques está habilitado.

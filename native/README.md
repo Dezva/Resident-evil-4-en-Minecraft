@@ -1,11 +1,19 @@
-# Native RE4 movement, optional look and creation capture, 0.4.16
+# Native RE4 movement, optional look and creation capture, 0.4.17
+
+0.4.17 compares the loaded D3D9 spelling with both exact paths derived from
+GetSystemDirectoryW/GetSystemWow64DirectoryW. A 32-bit DLL loaded through the
+System32 spelling can be redirected to SysWOW64 while GetModuleFileNameW retains
+the spelling used at load. Local/proxy paths and subdirectories remain refused;
+the unique named import must still match the loaded system export. Both attempts
+record loaded/WOW64/system paths and the matched form, in IPCv3/3296bytes.
+The reader retains v1/v2 compatibility. [Instructions](../docs/RE4-CAPTURE-0.4.17.md).
 
 0.4.16 records the initial installation reason and performs at most one retry
 before the first forwarded DirectInput8Create, only if the initial import was
 unavailable/rejected. Identical PE32/system-export filters apply; a ready or
 protection-failed hook is never retried. IPC v2 is168bytes with initial/latest
 attempts; the reader also accepts v1 from0.4.15. No device recreation or search.
-[Windows instructions](../docs/RE4-CAPTURE-0.4.16.md).
+[Historical0.4.16 instructions](../docs/RE4-CAPTURE-0.4.16.md).
 
 0.4.15 introduced the creation-only diagnostic.
 DllMain now redirects one validated PE32 Direct3DCreate9 import; it does not call

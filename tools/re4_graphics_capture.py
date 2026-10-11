@@ -10,7 +10,7 @@ from re4_reader import DEFAULT_EXE,ReaderError,WindowsProcess,find_pid
 
 MAGIC=0x52453447
 SIZE=96
-SIZES={1:96,2:168}
+SIZES={1:96,2:168,3:3296}
 HOOK_STATES={0:'no intentado',1:'importacion interceptada',2:'importacion no disponible',
              3:'incompatible o modificada',4:'fallo de proteccion; captura rechazada'}
 INSTALL_REASONS={0:'sin intento',1:'importacion instalada',2:'cabecera DOS no valida',
@@ -27,8 +27,8 @@ INSTALL_REASONS={0:'sin intento',1:'importacion instalada',2:'cabecera DOS no va
 def layout(data,pid):
     if len(data)<24:raise ReaderError('Cabecera de captura incompleta.')
     magic,version,_,build,owner=struct.unpack_from('<5I',data)
-    if magic!=MAGIC or (version,build) not in {(1,415),(2,416)} or owner!=pid:
-        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL 0.4.15 o 0.4.16.')
+    if magic!=MAGIC or (version,build) not in {(1,415),(2,416),(3,417)} or owner!=pid:
+        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL 0.4.15, 0.4.16 o 0.4.17.')
     return version,SIZES[version],f'0.4.{build-400}'
 
 
@@ -48,7 +48,7 @@ def decode_capture(data,pid):
                 escaped_interfaces=words[23],creation_observed=words[11]>0,
                 address_semantics='Historical API return values; no current device lifetime is asserted.',
                 rendering_enabled=False)
-    if version==2:
+    if version>=2:
         phases={0:'sin intento',1:'DLL_PROCESS_ATTACH',2:'DirectInput8Create'}
         if words[24] not in phases or words[25]>2:raise ReaderError('Fase/intentos de captura no validos.')
         report['installation']={'phase':phases[words[24]],'attempts':words[25]}
@@ -58,6 +58,20 @@ def decode_capture(data,pid):
             report['installation'][name]={'status':status,'reason_code':reason,'reason':INSTALL_REASONS[reason],
                 'windows_error':error,'slot_rva':hex(slot),'observed':hex(observed),'expected':hex(expected),
                 'pe_rva':hex(pe),'image_size':image}
+    if version==3:
+        matches={0:'none',1:'SysWOW64',2:'SystemDirectory'}
+        for index,name in enumerate(['initial','latest']):
+            start=168+index*1564
+            matched=struct.unpack_from('<I',data,start)[0]
+            if matched not in matches:raise ReaderError('Identidad de ruta desconocida.')
+            paths={'matched':matches[matched]}
+            for field_index,field in enumerate(['loaded','wow64','system']):
+                offset=start+4+field_index*520
+                try:value=data[offset:offset+520].decode('utf-16-le')
+                except UnicodeDecodeError as error:raise ReaderError('Ruta UTF-16 no valida.') from error
+                if '\0' not in value:raise ReaderError('Ruta sin terminador.')
+                paths[field]=value.split('\0',1)[0]
+            report['installation'][name]['paths']=paths
     return report
 
 
@@ -67,7 +81,7 @@ def read_capture(k,pid):
     k.UnmapViewOfFile.argtypes=[ctypes.c_void_p];k.UnmapViewOfFile.restype=w.BOOL
     k.CloseHandle.argtypes=[w.HANDLE];k.CloseHandle.restype=w.BOOL
     handle=k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-GraphicsCapture-{pid}')
-    if not handle:raise ReaderError('Canal de captura ausente. Abre RE4 con la DLL 0.4.15 o 0.4.16; usa los mismos permisos que el juego.')
+    if not handle:raise ReaderError('Canal de captura ausente. Abre RE4 con la DLL de captura; usa los mismos permisos que el juego.')
     view=None
     try:
         view=k.MapViewOfFile(handle,4,0,0,SIZE)
@@ -94,7 +108,7 @@ def main(argv=None):
     parser.add_argument('--game-exe',default=DEFAULT_EXE)
     parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1])
     args=parser.parse_args(argv)
-    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.16',
+    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.17',
                          'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     result=0
     try:

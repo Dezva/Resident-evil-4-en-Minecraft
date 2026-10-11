@@ -431,3 +431,21 @@ v1/0.4.15. Paquete completo incluye auditor y los mismos JAR0.4.11/API. Algoritm
 de control/cámara/correr permanecen iguales.61 Python/4 C y3 fixtures ASan/UBSan
 pasan; instalación/respaldo/hash propio verificados. Arranque y creación real de
 0.4.16 pendientes de Windows;0.4.14 conserva su papel de recuperación confirmada.
+
+## 0.4.17 — rutas oficiales bajo WOW64
+
+El informe graphics-capture-20261011-141909.json identifica motivo7 tanto en
+DllMain como en DirectInput8Create, build416, dos intentos y cero llamadas.
+La comparación previa exigía SysWOW64 siempre que su API respondiese y excluía
+System32, aunque GetModuleFileName conserva la ruta usada al cargar, incluso
+con redirección WOW64. Se aceptan únicamente ambas rutas exactas derivadas de
+las APIs de Windows; se mantienen exportación/importación únicas, CAS/protección
+y rechazo de proxies/locales/subdirectorios. No se confirma que esa diferencia
+sea la ruta concreta del usuario hasta obtener el nuevo registro.
+
+IPCv3/build417/3296bytes registra rutas loaded/wow64/system y matched de cada
+intento. Lector read-only compatible con v1/v2; algoritmos de controles/cámara
+y fachada COM sin cambios, renderer desactivado.62 Python/4 C y3 fixtures de
+captura ASan/UBSan pasan; instalador y hash propio verificados. Paquete completo,
+mods/API idénticos, se permite reutilizar carpeta tras desinstalar con el paquete
+anterior y retirar sus archivos. Prueba real de arranque/captura pendiente.

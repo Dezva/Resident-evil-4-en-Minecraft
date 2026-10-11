@@ -629,3 +629,29 @@ KERNEL32/msvcrt/USER32. Instaladores y diagnósticos validados con archivos/APIs
 simuladas. Se conservan la creación/interceptación D3D9 y hooks de entrada/cámara.
 Apariencia/rendimiento/arranque real de textura requieren Windows/RE4/driver.
 No se distribuyen imágenes originales de Minecraft; patrón generado por código.
+
+## 0.4.24 — materiales y primera barrera
+
+El usuario confirma la adherencia de textura0.4.23 al moverse, con captura.
+Se solicitan materiales por bloque y colisiones. Se añade extracción local de
+recursos/modelos, paleta/UV/tintes/alpha y barrera horizontal experimental de Leon.
+
+97Python,21bridge-core,20Minecraft y4suitesC pasan.9fixturesnativosASan/UBSan.
+TestsMinecraft verifican PNG/ARGB/tinte/composición, imágenes inválidas/dimensiones,
+UV afines y media losa; no arrancan MinecraftClient ni su renderer de modelos real.
+TCP autenticado transporta dos tiles de colores/alpha, caras y flag físico hasta
+mappingv6, retira individualmente y desactiva al parar. Schema y versiones,
+límites/torn/cleanup y ACK validados. Las imágenes reales no se distribuyen.
+
+GPU simulado prueba atlas/pitch/bordes/alpha y43fallos de setters; conserva cobertura
+de recursos/estado/lifetime. CPU física prueba paredes/barrido/slide/esquinas,
+altura, rotación, salida y10000casos. Callback real simulado verifica F8/TTL/gen,
+render habilitado, pausa/teleport, no Y/otros campos, puntero/pose cambiantes,
+reentrada, y no escritura bajo rechazo. No verifica el comportamiento de la
+física RE4 ni la llamada/orden reales de callbacks en Windows.
+
+DLL/JAR compilados y PE32/imports inspeccionados; instalación/respaldo verificado/
+no-overwrite/own-onlyremoval/diagnóstico pasan. Extracción de modelos activos,
+arranque, apariencia, rendimiento y estabilidad física requieren prueba real.
+Apoyo encima/gravedad/saltos, enemigos/Ashley/proyectiles, oclusión/terreno siguen
+pendientes; no se considera completada la integración física del motor.

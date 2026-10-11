@@ -26,10 +26,11 @@ static void cube_render_device(CubeDevice *f) {
     BlockVertex lines[24*CUBE_MAX_BOXES];void *vertices=lines;unsigned count=0;
     BlockSurfaceMesh *surface=NULL;
     int solid=command.mode==2 && command.style!=0;
-    int textured=solid && command.style==2;
+    int textured=solid && command.style>=2;
+    int atlas=solid && command.style==3;
     if (command.mode==2) {
         float scene_view[12];
-        if (!command.count || command.count>CUBE_MAX_BOXES || command.style>2 || !block_scene_view(view,command.origin,scene_view)) {
+        if (!command.count || command.count>CUBE_MAX_BOXES || command.style>3 || !block_scene_view(view,command.origin,scene_view)) {
             cube_record(CUBE_CAMERA_REJECT,0);return;
         }
         // Validate the entire bounded snapshot before rendering any part of it.
@@ -39,8 +40,15 @@ static void cube_render_device(CubeDevice *f) {
         if (solid) {
             surface=HeapAlloc(GetProcessHeap(),0,sizeof(*surface));
             if (!surface) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)E_OUTOFMEMORY);return;}
+            if(atlas) {
+                if(!command.tile_count || command.tile_count>BLOCK_MAX_TILES){HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;}
+                for(unsigned i=0;i<command.count;++i)for(unsigned j=0;j<6;++j) {
+                    if(command.materials[i][j].tile>=command.tile_count){HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;}
+                    for(unsigned k=0;k<8;++k)if(!isfinite(command.materials[i][j].uv[k]) || command.materials[i][j].uv[k]<0 || command.materials[i][j].uv[k]>1){HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;}
+                }
+            }
             vertices=surface->vertices;
-            count=block_surfaces(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface);
+            count=block_surfaces_materials(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL);
         } else for (unsigned i=0;i<command.count;++i)
             count+=block_lines(command.boxes[i],scene_view,fov,(float)viewport.Width,(float)viewport.Height,lines+count);
     } else if (command.mode==1) {
@@ -74,20 +82,26 @@ static void cube_render_device(CubeDevice *f) {
     IDirect3DTexture9 *stone=NULL;
     hr=backup->lpVtbl->Capture(backup);
     if (SUCCEEDED(hr)) {
-        if (textured) hr=block_texture_create(device,&stone);
+        if (atlas) hr=block_texture_create_with_tiles(device,&stone,&command);
+        else if (textured) hr=block_texture_create(device,&stone);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetVertexShader(device,NULL);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetPixelShader(device,NULL);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetFVF(device,D3DFVF_XYZRHW|D3DFVF_DIFFUSE|(textured?D3DFVF_TEX1:0));
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTexture(device,0,(IDirect3DBaseTexture9*)stone);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLOROP,textured?D3DTOP_MODULATE:D3DTOP_SELECTARG1);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLORARG1,textured?D3DTA_TEXTURE:D3DTA_DIFFUSE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAARG1,D3DTA_DIFFUSE);
+        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAOP,atlas?D3DTOP_MODULATE:D3DTOP_SELECTARG1);
+        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAARG1,atlas?D3DTA_TEXTURE:D3DTA_DIFFUSE);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,1,D3DTSS_COLOROP,D3DTOP_DISABLE);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLORARG2,D3DTA_DIFFUSE);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_TEXCOORDINDEX,0);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_TEXTURETRANSFORMFLAGS,D3DTTFF_DISABLE);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_RESULTARG,D3DTA_CURRENT);
+        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAARG2,D3DTA_DIFFUSE);
+        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_SRCBLEND,D3DBLEND_SRCALPHA);
+        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_DESTBLEND,D3DBLEND_INVSRCALPHA);
+        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_BLENDOP,D3DBLENDOP_ADD);
+        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_SEPARATEALPHABLENDENABLE,FALSE);
         static const struct {D3DSAMPLERSTATETYPE state;DWORD value;} samplers[]={
             {D3DSAMP_ADDRESSU,D3DTADDRESS_CLAMP},{D3DSAMP_ADDRESSV,D3DTADDRESS_CLAMP},
             {D3DSAMP_MINFILTER,D3DTEXF_POINT},{D3DSAMP_MAGFILTER,D3DTEXF_POINT},{D3DSAMP_MIPFILTER,D3DTEXF_NONE},
@@ -101,7 +115,7 @@ static void cube_render_device(CubeDevice *f) {
             {D3DRS_CULLMODE,D3DCULL_NONE},{D3DRS_SRGBWRITEENABLE,FALSE},{D3DRS_STENCILENABLE,FALSE},
             {D3DRS_COLORWRITEENABLE1,0},{D3DRS_COLORWRITEENABLE2,0},{D3DRS_COLORWRITEENABLE3,0}};
         for (unsigned i=0;SUCCEEDED(hr) && i<sizeof(states)/sizeof(states[0]);++i)
-            hr=device->lpVtbl->SetRenderState(device,states[i].state,states[i].value);
+            hr=device->lpVtbl->SetRenderState(device,states[i].state,atlas && states[i].state==D3DRS_ALPHABLENDENABLE?1:states[i].value);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->SetRenderState(device,D3DRS_FILLMODE,D3DFILL_SOLID);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,solid?D3DPT_TRIANGLELIST:D3DPT_LINELIST,count/(solid?3:2),vertices,solid?sizeof(BlockSurfaceVertex):sizeof(BlockVertex));
         HRESULT restored=backup->lpVtbl->Apply(backup);

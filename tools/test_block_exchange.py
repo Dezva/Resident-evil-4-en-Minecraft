@@ -24,6 +24,9 @@ class BlockExchangeTests(unittest.TestCase):
     def test_texture_tcp_style_and_individual_removal_stop(self):
         self.exchange(5,423)
 
+    def test_material_palette_tcp_collision_arm_remove_and_stop(self):
+        self.exchange(6,424)
+
     def exchange(self,version,build):
         kernel=Kernel(version=version,build=build)
         visual=NativePreview(42,kernel,user=kernel)
@@ -32,6 +35,9 @@ class BlockExchangeTests(unittest.TestCase):
         bounds=[-50,-50,-650,50,50,-550]
         payload={'origin':[100,200,300,.25],'boxes':[bounds,[50,-50,-650,150,0,-550]]} if version>=3 else {'bounds':bounds}
         if version>=4:payload['style']=version-3
+        if version==6:
+            from test_block_materials import material_scene
+            payload=material_scene(True);bounds=payload['boxes'][0]
         with socket.socket() as listener:
             listener.bind(('127.0.0.1',0));listener.listen(1);listener.settimeout(3)
             def serve():
@@ -61,13 +67,17 @@ class BlockExchangeTests(unittest.TestCase):
                     self.assertFalse(send(False,0,None)['armed'])
                     state=send(True,1,payload);self.assertTrue(state['armed'])
                     self.assertEqual(state['surface_available'],version>=4)
-                    self.assertEqual(state['texture_available'],version==5)
+                    self.assertEqual(state['texture_available'],version>=5)
+                    self.assertEqual(state['materials_available'],version==6)
+                    self.assertEqual(state['collision_available'],version==6)
                     words=struct.unpack('<8I6f',kernel.command.raw[:56])
                     self.assertEqual(words[4],1);self.assertEqual(words[6],2 if version>=3 else 1)
                     if version>=3:
-                        self.assertEqual(struct.unpack_from('<4f2I',kernel.command,56),(100,200,300,.25,2,max(0,version-3)))
+                        self.assertEqual(struct.unpack_from('<4f2I',kernel.command,56),tuple(payload['origin'])+(2,max(0,version-3)))
                         self.assertEqual(list(struct.unpack_from('<6f',kernel.command,80)),bounds)
+                        if version==6:self.assertEqual(struct.unpack_from('<4I',kernel.command,3152),(1,1,2,0))
                         smaller=dict(payload,boxes=payload['boxes'][1:])
+                        if version==6:smaller['faces']=payload['faces'][1:]
                         state=send(True,1,smaller);self.assertEqual(state['preview_state']['box_count'],1)
                         self.assertEqual(list(struct.unpack_from('<6f',kernel.command,80)),payload['boxes'][1])
                     else:self.assertEqual(list(words[8:]),bounds)

@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4": "0.4.24 (local block materials and horizontal collision)",
     "20cf5143e37054031b10ce925c82c73cb2e81565cfda7fbc5c40a9fc7f57dbdc": "0.4.23 (procedural stone texture)",
     "80ea2448268e72492bf1421a7f232b44031e5cfd927ba14e08ebfc8565a0e885": "0.4.19 (single placed block)",
     "4decaf42a3b6dc99b9846522ccc234de2cf621dd7b7bd43a0d48abc32b458c2e": "0.4.22 (grey shaded block faces)",

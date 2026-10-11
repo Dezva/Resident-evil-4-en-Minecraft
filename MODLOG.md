@@ -626,3 +626,38 @@ Instaladores/copias/hashes/desinstalación/diagnóstico propios pasan simulados.
 DLL PE32 importaKERNEL32/msvcrt/USER32; SHA256:
 20cf5143e37054031b10ce925c82c73cb2e81565cfda7fbc5c40a9fc7f57dbdc.
 0.4.22 se conserva intacta. Prueba real de arranque/textura/rendimiento pendiente.
+
+## 0.4.24 — recursos locales por cara y barrera horizontal de Leon
+
+Usuario confirma0.4.23 con movimiento y textura adherida. Solicita textura del
+bloque y colisiones. Se implementan materiales reales locales desde modelos
+BakedQuad/PNG activos, semilla por posición, UV afines/crop, tintes y capas alpha,
+primer frame de animación, reducción16×16. Paleta64teselas con fallback magenta;
+recarga de modelos invalida paleta antes del snapshot. No se publican imágenes.
+Modelos especiales siguen aproximados por cajas, sin fidelidad de malla completa.
+
+Atlas256×256,64celdas32×32 con imagen16×16 y bordes replicados, point/clamp,
+alpha SRC/INV_SRC. Se conservan caras interiores para verlas tras transparencia;
+orden de caras aproximado y sin profundidad RE4. Una llamada de dibujo,43setters
+restaurados para atlas. Recursos transitorios; sin cache GPU permanente.
+
+Barrera opt-in de Leon: huella cuadrada radio250, altura1600, barrido horizontal,
+deslizamiento/esquinas, salida si aparece una caja encima. Se corrige X/Z en los
+callbacks existentes de pad/cámara primaria después de validar jugador/pose;
+Y/velocidad/animación/inventario sin modificar. F8/TTL/gen/desarmado/renderer,
+reentrada, movimiento>500 y pausa>100ms gestionados. No apoyo encima/gravedad,
+saltos, enemigos/Ashley/proyectiles ni objetos de colisión del motor. Métricas
+separadas48bytes con generación y contactos/correcciones; fallos actuales desarman.
+
+CubeCommandv6/96352:3152previos +4uint32(collisions,arm_generation,tile_count,
+reserved),128x6faces(tile+8UV) y64x256ARGBuint32. SHA de tiles no se persiste.
+Style3=materialesMinecraft;0/1/2conservados, flags y fotos completas acotadas.
+Host acepta pares(v2,419),(v3,421),(v4,422),(v5,423),(v6,424), rechaza capacidades
+nuevas antes de activar input. CaptureIPCbuild ahora424 (version3/3296); Cube92/v1.
+
+97Python,21core,20Minecraft,4suitesC pasan;9fixturesASan/UBSan. PNG/tinte/UV/crop,
+RGBA/paleta/TCP/versión/retiro/cleanup, render/fallos y callbacks físicos cubiertos
+con APIs simuladas. Instalación/respaldo/hash/retirada propios y diagnósticos pasan.
+DLL PE32 importaKERNEL32/msvcrt/USER32; SHA256:
+f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4.
+Nueva prueba real necesaria;0.4.23 intacta. Física completa del motor sigue pendiente.

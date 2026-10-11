@@ -67,6 +67,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean blocksEnabled;
     private double blockSize = BlockPreview.DEFAULT_SIZE;
     private final BlockPlacementTracker placementTracker = new BlockPlacementTracker();
+    private final BlockMaterials blockMaterials=new BlockMaterials();
     private final PlacedBlockScene placedScene = new PlacedBlockScene();
     private long placementEvents, placementTicks, placementsConfirmed;
 
@@ -126,7 +127,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("blocks")
+                    .then(literal("collisions")
+                        .then(literal("on").executes(ctx -> blockCollisions(ctx.getSource().getClient(),true)))
+                        .then(literal("off").executes(ctx -> blockCollisions(ctx.getSource().getClient(),false))))
                     .then(literal("style")
+                        .then(literal("minecraft").executes(ctx -> blockStyle(ctx.getSource().getClient(),3)))
                         .then(literal("stone").executes(ctx -> blockStyle(ctx.getSource().getClient(),2)))
                         .then(literal("solid").executes(ctx -> blockStyle(ctx.getSource().getClient(),1)))
                         .then(literal("wire").executes(ctx -> blockStyle(ctx.getSource().getClient(),0))))
@@ -199,7 +204,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; tamano="+(int)blockSize));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -304,7 +309,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void clearBlock() {
-        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();
+        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();blockMaterials.clear();
     }
 
     private int enableBlocks(MinecraftClient client,double size) {
@@ -313,14 +318,20 @@ public final class Re4BridgeClient implements ClientModInitializer {
         }
         stopDriving();clearBlock();blocksEnabled=true;blockSize=size;
         placementEvents=placementTicks=placementsConfirmed=0;
-        placedScene.style(bridge.textureAvailable()?2:bridge.surfaceAvailable()?1:0);
+        placedScene.style(bridge.materialsAvailable()?3:bridge.textureAvailable()?2:bridge.surfaceAvailable()?1:0);
         say(client,"Cuadricula visual activa, tamano="+(int)size+". Usa arm y coloca bloques: la primera colocacion fija la referencia. Maximo 64 bloques. Modo="+blockStyleName(placedScene.style())+". F8 detiene.");
         return 1;
     }
 
-    private static String blockStyleName(int style) {return style==2?"piedra":style==1?"caras":"aristas";}
+    private static String blockStyleName(int style) {return style==3?"Minecraft":style==2?"piedra":style==1?"caras":"aristas";}
 
+    private int blockCollisions(MinecraftClient client,boolean enabled) {
+        if(enabled && (bridge==null || !bridge.collisionAvailable())){say(client,"Colision requiere host y DLL 0.4.24.");return 0;}
+        stopDriving();placedScene.collisions(enabled);say(client,"Paredes para Leon: "+(enabled?"activadas":"desactivadas")+". Usa arm. Saltos/apoyo encima y enemigos pendientes.");return 1;
+    }
     private int blockStyle(MinecraftClient client,int style) {
+        if(style==3 && (bridge==null || !bridge.materialsAvailable())){say(client,"Texturas Minecraft requieren host y DLL 0.4.24.");return 0;}
+
         if (style==2 && (bridge==null || !bridge.textureAvailable())) {say(client,"Textura requiere host y DLL 0.4.23 conectados.");return 0;}
         if (style==1 && (bridge==null || !bridge.surfaceAvailable())) {
             say(client,"Caras rellenas requieren host y DLL 0.4.22 conectados.");return 0;
@@ -422,7 +433,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     || !client.world.getBlockState(previewBlock).equals(previewState))) {
                 clearBlock();
             }
-            var scene=placedScene.snapshot();
+            if(placedScene.style()==3)blockMaterials.resources(client);
+            var scene=placedScene.snapshot((pos,state) -> blockMaterials.faces(client,pos,state),blockMaterials);
             if (scene!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
@@ -431,7 +443,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
                 + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
-                + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()+" | modo="+blockStyleName(placedScene.style())
+                + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()+" | modo="+blockStyleName(placedScene.style())+" | col="+(current.collisionActive()?"si":"no")+" | choques="+current.collisionContacts()+" | sin tex="+blockMaterials.missing()
                     +" | enviado="+(current.previewRequested() ? "si" : "no")+" | dibujos="+current.previewDraws() : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }

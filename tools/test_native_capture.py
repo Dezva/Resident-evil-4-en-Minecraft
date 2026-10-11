@@ -25,6 +25,12 @@ class NativeCaptureTests(unittest.TestCase):
     def test_filled_surface_clipping_ordering_and_bounds(self):
         self.compile_run("test_block_surface.c")
 
+    def test_horizontal_collision_geometry(self):
+        self.compile_run("test_block_collision.c")
+
+    def test_actual_collision_callback_guards_and_position_writes(self):
+        self.compile_run("test_collision_tick.c")
+
     def test_bounded_import_lookup(self):
         self.compile_run('test_capture_import.c')
 

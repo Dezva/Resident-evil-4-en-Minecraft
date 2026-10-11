@@ -1,6 +1,7 @@
 #ifndef RE4_BLOCK_SURFACE_H
 #define RE4_BLOCK_SURFACE_H
 #include "block_geometry.h"
+#include "block_material.h"
 #include <stdlib.h>
 #include <string.h>
 /* A clipped convex quad gains at most one vertex per five frustum planes.
@@ -74,8 +75,8 @@ static inline int block_face_covered(const float boxes[][6],unsigned count,unsig
 }
 /* Painter ordering applies only to this grid. No game depth buffer or terrain
  * occlusion is assumed; face shading and clipped UVs are provisional. */
-static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,const float *view,
-        float fovy,float width,float height,BlockSurfaceMesh *mesh) {
+static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned box_count,const float *view,
+        float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6]) {
     if (!box_count || box_count>BLOCK_SURFACE_MAX_BOXES || !block_valid_view(view,fovy,width,height)) return 0;
     for (unsigned i=0;i<box_count;++i) if (!block_valid_shape_bounds(boxes[i])) return 0;
     float eye[3]={0};
@@ -85,7 +86,7 @@ static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,
     for (unsigned i=0;i<box_count;++i) for (unsigned axis=0;axis<3;++axis) for (unsigned side=0;side<2;++side) {
         const float *box=boxes[i];float plane=box[axis+(side?3:0)];
         if (side?eye[axis]<=plane:eye[axis]>=plane) continue;
-        if (block_face_covered(boxes,box_count,i,axis,side)) continue;
+        if (!materials && block_face_covered(boxes,box_count,i,axis,side)) continue;
         float center[3];for (unsigned c=0;c<3;++c) center[c]=(box[c]+box[c+3])*.5f;
         center[axis]=plane;BlockPoint projected=block_transform(view,center);
         mesh->faces[face_count++]=(BlockFace){i,axis,side,-projected.v[2]};
@@ -104,6 +105,13 @@ static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,
             polygon[corner]=block_transform(view,point);
             polygon[corner].uv[0]=(point[u]-box[u])/(box[u+3]-box[u]);
             polygon[corner].uv[1]=(box[v+3]-point[v])/(box[v+3]-box[v]);
+            if(materials) {
+                BlockFaceMaterial material=materials[face.box][face.axis*2+face.side];
+                if(material.tile>=BLOCK_MAX_TILES || !isfinite(material.uv[corner*2]) || !isfinite(material.uv[corner*2+1])
+                    || material.uv[corner*2]<0 || material.uv[corner*2]>1 || material.uv[corner*2+1]<0 || material.uv[corner*2+1]>1)return 0;
+                polygon[corner].uv[0]=((material.tile%8)*32+8.5f+15*material.uv[corner*2])/256.f;
+                polygon[corner].uv[1]=((material.tile/8)*32+8.5f+15*material.uv[corner*2+1])/256.f;
+            }
         }
         unsigned n=block_clip_face(polygon,4,horizontal,vertical);
         if (n<3) continue;
@@ -123,5 +131,8 @@ static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,
         }
     }
     return output;
+}
+static inline unsigned block_surfaces(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh) {
+    return block_surfaces_materials(boxes,count,view,fovy,width,height,mesh,NULL);
 }
 #endif

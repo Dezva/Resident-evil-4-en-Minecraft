@@ -20,6 +20,7 @@ final class PlacedBlockScene {
     private String dimension;
     private double yaw,height;
     private int style;
+    private boolean collisions;
 
     boolean put(BlockPlacementProbe.Placed placed,List<Box> shapes,double minecraftYaw) {
         if (shapes.isEmpty()) return false;
@@ -81,20 +82,28 @@ final class PlacedBlockScene {
                 x+box.maxX*size,y+box.maxY*size,z+box.maxZ*size));
         return boxes;
     }
-    BlockScene snapshot() {
-        if (anchor==null) return null;
-        var boxes=new ArrayList<BlockScene.Bounds>();
-        for (var entry:blocks.entrySet()) boxes.addAll(convert(entry.getKey(),entry.getValue(),anchor,nativeAnchor.size()));
-        return boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes,style);
+    BlockScene snapshot() {return snapshot(null,null);}
+    BlockScene snapshot(java.util.function.BiFunction<BlockPos,BlockState,BlockMaterials.Face[]> read,BlockMaterials materials) {
+        if(anchor==null)return null;
+        var boxes=new ArrayList<BlockScene.Bounds>();var faces=new ArrayList<List<BlockScene.Face>>();
+        if(style==3 && (read==null || materials==null))throw new IllegalArgumentException("Missing local materials");
+        if(materials!=null)materials.begin();
+        for(var entry:blocks.entrySet()) {
+            boxes.addAll(convert(entry.getKey(),entry.getValue(),anchor,nativeAnchor.size()));
+            if(style==3){var info=read.apply(entry.getKey(),entry.getValue().state());for(var shape:entry.getValue().shapes()){var group=new ArrayList<BlockScene.Face>();for(int i=0;i<6;i++)group.add(info[i].bounds(shape,i/2));faces.add(group);}}
+        }
+        return boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes,style,collisions,style==3?materials.tiles():List.of(),faces);
     }
+    void collisions(boolean value){collisions=value;}
+    boolean collisions(){return collisions;}
     void height(double value) {
         if (!Double.isFinite(value) || Math.abs(value)>2500) throw new IllegalArgumentException("Invalid height adjustment");
         height=value;
     }
     int size() {return blocks.size();}
-    void style(int value) {if (value<0 || value>2) throw new IllegalArgumentException("Invalid scene style");style=value;}
+    void style(int value) {if (value<0 || value>3) throw new IllegalArgumentException("Invalid scene style");style=value;}
     int style() {return style;}
     boolean anchored() {return anchor!=null;}
     String dimension() {return dimension;}
-    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;}
+    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;collisions=false;}
 }

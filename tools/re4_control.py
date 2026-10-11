@@ -77,6 +77,12 @@ class ControlPolicy:
         if box and box.get('style',0)==2 and (self.preview is None or not getattr(self.preview,'texture_available',False)):
             self.armed=False
             reason='textura requiere DLL0.4.23; usa solid o wire'
+        if box and (box.get('style',0)==3 or box.get('collisions',False)) and (self.preview is None or not getattr(self.preview,'materials_available',False)):
+            self.armed=False
+            reason='materiales/colisiones requieren DLL0.4.24'
+        if box and box.get('collisions',False) and (self.preview is None or not getattr(self.preview,'collision_available',False)):
+            self.armed=False
+            reason='canal de colision no disponible; reinicia RE4'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
         result = {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
@@ -89,6 +95,8 @@ class ControlPolicy:
             result['scene_available']=getattr(self.preview,'scene_available',False)
             result['surface_available']=getattr(self.preview,'surface_available',False)
             result['texture_available']=getattr(self.preview,'texture_available',False)
+            result['materials_available']=getattr(self.preview,'materials_available',False)
+            result['collision_available']=getattr(self.preview,'collision_available',False)
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
             result['preview_state']=self.preview.status()

@@ -42,5 +42,11 @@ int main(void) {
         for(unsigned j=0;j<128;++j){float x=(float)((i*97+j*73)%20000)-10000,y=(float)((i*71+j*83)%20000)-10000,z=(float)((i*47+j*67)%20000)-10000;float b[6]={x,y,z,x+1000,y+500,z+1000};memcpy(near[j],b,sizeof(b));}
         n=block_surfaces(near,128,view,90,640,480,mesh);valid(mesh,n);
     }
+    float identity[12]={1,0,0,0,0,1,0,0,0,0,1,0};
+    float stacked[2][6]={{-50,-50,-650,50,50,-550},{-50,-50,-750,50,50,-650}};
+    BlockFaceMaterial materials[2][6]={0};
+    for(unsigned i=0;i<2;++i)for(unsigned j=0;j<6;++j){materials[i][j].tile=1;float uv[8]={0,0,1,0,1,1,0,1};memcpy(materials[i][j].uv,uv,sizeof(uv));}
+    n=block_surfaces_materials(stacked,2,identity,90,640,480,mesh,materials);assert(n==12); // Keep the farther surface visible through a transparent front block.
+    for(unsigned i=0;i<n;++i){assert(mesh->vertices[i].u>=40.5f/256 && mesh->vertices[i].u<=55.5f/256);assert(mesh->vertices[i].v>=8.5f/256 && mesh->vertices[i].v<=23.5f/256);}
     free(mesh);puts("Filled faces: clipping, shading, far-first ordering, internal faces, slabs, removal and bounded randomized geometry passed");
 }

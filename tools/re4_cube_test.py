@@ -42,7 +42,7 @@ def read_cube_status(k,pid):
             data=ctypes.string_at(view,92);words=struct.unpack('<23I',data)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423) or words[4]!=pid:
+            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424) or words[4]!=pid:
                 raise ReaderError('Version/build/PID de cubo incompatible.')
             report=dict(zip(FIELDS,words[3:]))
             if report['stop_reason'] not in REASONS or report['last_scene_active'] not in (0,1):
@@ -53,6 +53,26 @@ def read_cube_status(k,pid):
             report['semantics']='Snapshot of last observed scene; active flag is not a live command lease.'
             return report
         raise ReaderError('Estado de cubo cambiando; repite el diagnostico.')
+    finally:
+        if view:k.UnmapViewOfFile(view)
+        k.CloseHandle(handle)
+
+def read_collision_status(k,pid):
+    configure(k);handle=k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-Collision-{pid}')
+    if not handle:return None
+    view=None
+    try:
+        view=k.MapViewOfFile(handle,4,0,0,48)
+        if not view:raise ReaderError('No se pudo leer colisiones.')
+        for _ in range(8):
+            before=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
+            if before&1:continue
+            words=struct.unpack('<12I',ctypes.string_at(view,48))
+            after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
+            if before!=after or before!=words[2]:continue
+            if words[:2]!=(0x52453456,1) or words[3:5]!=(424,pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
+            result=dict(zip(('ticks','contacts','corrections','rejections','reason','active','generation'),words[5:]));result['active']=bool(result['active']);return result
+        raise ReaderError('Estado de colision cambiando.')
     finally:
         if view:k.UnmapViewOfFile(view)
         k.CloseHandle(handle)
@@ -73,12 +93,12 @@ class CubeSession:
             self.address=k.MapViewOfFile(self.handle,6,0,0,32)
             if not self.address:raise ReaderError('No se pudo abrir activacion del cubo.')
             self.words=(ctypes.c_uint32*8).from_address(self.address)
-            if self.words[0]!=0x52453454 or self.words[1] not in (1,2,3,4,5):
+            if self.words[0]!=0x52453454 or self.words[1] not in (1,2,3,4,5,6):
                 raise ReaderError('Canal de activacion del cubo incompatible.')
             self.version=self.words[1]
-            if self.version in (2,3,4,5):
+            if self.version in (2,3,4,5,6):
                 k.UnmapViewOfFile(self.address);self.address=None
-                self.address=k.MapViewOfFile(self.handle,6,0,0,3152 if self.version>=3 else 56)
+                self.address=k.MapViewOfFile(self.handle,6,0,0,96352 if self.version==6 else 3152 if self.version>=3 else 56)
                 if not self.address:raise ReaderError('Canal de cubo incompleto.')
                 self.words=(ctypes.c_uint32*14).from_address(self.address)
                 if self.words[0]!=0x52453454 or self.words[1]!=self.version:
@@ -86,22 +106,25 @@ class CubeSession:
         except Exception:
             self.close();raise
 
-    def publish(self,enabled,bounds=None,scene=None):
+    def publish(self,enabled,bounds=None,scene=None,generation=0):
         if bounds is not None:
             from re4_block_preview import validate_preview
             validate_preview({'bounds':bounds})
-            if self.version not in (2,3,4,5):raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21.')
+            if self.version not in (2,3,4,5,6):raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21.')
         if scene is not None:
             from re4_block_preview import validate_preview
             validate_preview(scene)
-            if self.version not in (3,4,5):raise ReaderError('Cuadricula requiere DLL0.4.21.')
+            if self.version not in (3,4,5,6):raise ReaderError('Cuadricula requiere DLL0.4.21.')
             if bounds is not None:raise ReaderError('No mezclar cubo y cuadricula.')
             if scene.get('style',0) and self.version<4:raise ReaderError('Caras rellenas requieren DLL0.4.22.')
-            if scene.get('style',0)==2 and self.version!=5:raise ReaderError('Textura requiere DLL0.4.23.')
+            if scene.get('style',0)==2 and self.version<5:raise ReaderError('Textura requiere DLL0.4.23.')
+        if scene is not None and (scene.get('style',0)==3 or scene.get('collisions',False)):
+            if self.version!=6:raise ReaderError('Materiales/colisiones requieren DLL0.4.24.')
+            if scene.get('collisions',False) and (type(generation) is not int or not 1<=generation<=2147483647):raise ReaderError('Colisiones requieren arm reciente.')
         seq=(self.words[2]+1)|1;self.words[2]=seq&0xffffffff
         self.words[3]=self.k.GetTickCount();self.words[4]=int(enabled);self.words[5]=self.epoch
         self.words[6]=2 if enabled and scene is not None else int(enabled and bounds is not None);self.words[7]=0
-        if self.version in (2,3,4,5):
+        if self.version in (2,3,4,5,6):
             for i,value in enumerate(bounds if enabled and bounds is not None else [0]*6):
                 ctypes.c_float.from_address(self.address+32+4*i).value=value
         if self.version>=3:
@@ -111,6 +134,16 @@ class CubeSession:
             boxes=scene['boxes'] if enabled and scene is not None else []
             body+=b''.join(struct.pack('<6f',*box) for box in boxes)+bytes(24*(128-len(boxes)))
             ctypes.memmove(self.address+56,body,len(body))
+        if self.version==6:
+            import base64
+            active=scene if enabled and scene is not None else {}
+            body=struct.pack('<4I',int(active.get('collisions',False)),generation if active else 0,len(active.get('tiles',[])),0)
+            for group in active.get('faces',[]):
+                for face in group:body+=struct.pack('<I8f',*face)
+            body+=bytes(27648-36*6*len(active.get('faces',[])))
+            body+=b''.join(base64.b64decode(tile,validate=True) for tile in active.get('tiles',[]))
+            body+=bytes(65536-1024*len(active.get('tiles',[])))
+            ctypes.memmove(self.address+3152,body,len(body))
         self.words[2]=(seq+1)&0xffffffff;self.started=True
 
     def close(self):
@@ -155,7 +188,7 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if not 1<=args.seconds<=120:parser.error('--seconds debe estar entre1 y120')
     process=session=None;result=0
-    report={'diagnostic':'0.4.23','mode':'EXPLICIT CUBE LEASE; no process-memory writes',
+    report={'diagnostic':'0.4.24','mode':'EXPLICIT CUBE LEASE; no process-memory writes',
             'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     try:
         pid=find_pid();process=WindowsProcess(pid,args.game_exe);session=CubeSession(process.k,pid)

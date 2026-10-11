@@ -180,6 +180,46 @@ El dispositivo proviene de CreateDevice y se envuelve sin alterar su objeto o ta
 nativos. Se conserva el dibujo/restauración de estados de 0.4.18. El canal retirado
 BlockPreview-PID no se abre ni se utiliza en esta versión.
 
+### Materiales y barrera0.4.24
+
+Preview escena añade style3, collisions bool opcional(defaultfalse), tiles y faces.
+Style3 exige1..64tiles: stringsbase64 estrictos1368chars ->1024bytes ARGB little
+endian16×16. faces tiene una entrada por caja, seis caras por entrada, cada una
+[tile,u0,v0,u1,v1,u2,v2,u3,v3]. Tileuint0..n-1 y UV finitas0..1. Caras en orden
+-X,+X,-Y,+Y,-Z,+Z; corners(0,0),(1,0),(1,1),(0,1) sobre ejesu=(axis+1)%3,
+v=(axis+2)%3. Style0..2no acepta tiles/faces. Límites/origen/bounds previos.
+
+Host anuncia materials_available para(v6,424); collision_available requiere además
+mapping de métricas válido. Petición incompatible desarma antes de escribir input.
+Scene lease publica atomizado estilo/paleta/caras/colisión y borra sobrantes. Epoch
+cambia también al cambiar materiales/flag físico. En disarm todo se desactiva.
+
+CubeCommandv6 mide96352bytes. Primeros3152conservados. Offset3152:4uint32 para
+collisions,arm_generation,tile_count,reserved. Offset3168:128x6BlockFaceMaterial36
+bytes(tile,uint32 +8UVfloat). Offset30816:64x256ARGBuint32. Reserved0, flagsbool,
+tilecount0..64 y mayor0paraStyle3; coll exige mode2 ygen1..2147483647. Native
+valida escena/materiales antes de dibujar/corregir. Host exige canales nuevos
+para materiales/colisión. Capturev3/3296,CubeTelemetryv1/92,build424.
+
+Local\RE4Bridge-Collision-PID es telemetría readonly48bytes:magic0x52453456,v1,
+sequence,build424,pid,ticks,contacts,corrections,rejections,reason,active,generation.
+Reason0activo,1off,2nueva referencia,3dato/memoria inválido,4salto de pose,
+5cambio antes de escribir. Secuencia consistente; countersuint32. active es última
+observación, no lease. Host falla cerrado ante3/5de generación actual; rechazo
+antiguo no impide nuevoarm. ACKpreview_state incluye collision_state y requestflag.
+
+Materiales desde PNG activos/modelos del cliente:16×16/primer frame/tintes/capas,
+UV por quad. Recurso ausente/capacidad produce fallbackmagenta ycontador visible.
+Atlas256×256 con celdas32y bordes,43setters/alpha, clipping conUV/rhw, un draw y
+estado/recursos restaurados. No imágenes en ZIP, ni malla completa/profundidad RE4.
+
+Barrera opt-in: huella cuadrada radio250/altura1600, barrido XZ yslide hasta4contactos;
+ignora caja ya ocupada para salir. ConservaY. Pose previa ligada a jugador/gen/origen;
+pausa>100ms/delta>500reinicia, sin arrastre. Solo con renderer/control/scene vigentes;
+F8/generación/stale/desarmado dominan. SRWtry-lock evita reentrada; pointer/writable/
+pose/nuevoF8/TTL comprobados antes de corregir X/Z. No se registran colliders motor,
+no se modifican Y/velocidad/otrosactores y no hay apoyo vertical/saltos.
+
 ### Textura visual0.4.23
 
 style acepta entero estricto0(wire),1(solid),2(stone). Host anuncia texture_available

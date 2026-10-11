@@ -20,23 +20,26 @@ class Clock:
 class Kernel:
     def __init__(self,clock=None,wait=0,map_fail=None,busy=False,f8=False,fail_at=None,version=1,build=418):
         self.clock=clock or Clock();self.closed=[];self.unmapped=[];self.released=0;self.map_requests=[]
-        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,version,2,0,0,0,0,0)+bytes(3120 if version in (3,4,5) else 24 if version==2 else 0))
+        self.command=ctypes.create_string_buffer(struct.pack('<8I',0x52453454,version,2,0,0,0,0,0)+bytes(96320 if version==6 else 3120 if version in (3,4,5) else 24 if version==2 else 0))
         words=[0x52453455,1,3 if busy else 2,build,42]+[0]*18;words[5]=1;words[16]=1
         self.telemetry=ctypes.create_string_buffer(struct.pack('<23I',*words))
+        self.collision=ctypes.create_string_buffer(struct.pack('<12I',0x52453456,1,2,424,42,0,0,0,0,1,0,0))
         def open_mapping(access,inherit,name):
             assert not inherit
+            if name=='Local\\RE4Bridge-Collision-42':assert access==4;return 13 if version==6 else 0
             if name=='Local\\RE4Bridge-CubeTelemetry-42':assert access==4;return 10
             assert name=='Local\\RE4Bridge-CubeCommand-42' and access==6;return 11
         def view(handle,access,high,low,size):
             self.map_requests.append((handle,access,size));assert high==low==0
             if handle==map_fail:return 0
+            if handle==13:assert access==4 and size==48;return ctypes.addressof(self.collision)
             if handle==10:
                 assert access==4 and size==92
                 if struct.unpack_from('<I',self.command,16)[0]:
                     for field in ('frames','draws'):offset=(3+cube.FIELDS.index(field))*4;struct.pack_into('<I',self.telemetry,offset,struct.unpack_from('<I',self.telemetry,offset)[0]+1)
                     if fail_at and self.clock.now>=fail_at:struct.pack_into('<I',self.telemetry,44,1)
                 return ctypes.addressof(self.telemetry)
-            assert handle==11 and access==6 and size in (32,56,3152);return ctypes.addressof(self.command)
+            assert handle==11 and access==6 and size in (32,56,3152,96352);return ctypes.addressof(self.command)
         def mutex(attributes,owner,name):assert attributes is None and not owner and name=='Local\\RE4Bridge-CubeWriter-42';return 12
         def waiting(handle,timeout):assert handle==12 and timeout==0;return wait
         def release(handle):assert handle==12;self.released+=1;return 1

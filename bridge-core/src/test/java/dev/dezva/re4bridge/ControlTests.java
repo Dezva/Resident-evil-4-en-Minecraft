@@ -27,6 +27,7 @@ class ControlTests {
             await(bridge::sceneAvailable);
             await(bridge::surfaceAvailable);
             await(bridge::textureAvailable);
+            await(bridge::materialsAvailable);await(bridge::collisionAvailable);
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(false,0,0,null,new BlockPreview(1,2,3003,1000));
             await(() -> bridge.status().acknowledgedSequence()>=2);
@@ -60,6 +61,10 @@ class ControlTests {
             await(() -> bridge.previewStyle()==0);
             bridge.publishSceneControl(true,5,1,null,new BlockScene(scene.x(),scene.y(),scene.z(),scene.yaw(),scene.boxes(),2));
             await(() -> bridge.previewStyle()==2);
+            var tile=java.util.Base64.getEncoder().encodeToString(new byte[1024]);var face=new BlockScene.Face(0,java.util.List.of(0.,0.,1.,0.,1.,1.,0.,1.));
+            var material=new BlockScene(10,20,30,0,java.util.List.of(scene.boxes().getFirst()),3,true,java.util.List.of(tile),java.util.List.of(java.util.Collections.nCopies(6,face)));
+            bridge.publishSceneControl(true,5,1,null,material);await(() -> bridge.previewStyle()==3);assertEquals(5,bridge.collisionContacts());assertEquals(4,bridge.collisionCorrections());
+
             assertTrue(Files.readString(log).contains("'origin': [10.0, 20.0, 30.0, 0.0]"));
             bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.

@@ -48,7 +48,15 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile boolean sceneAvailable;
     private volatile boolean surfaceAvailable;
     private volatile boolean textureAvailable;
+    private volatile boolean materialsAvailable,collisionAvailable;
+    public boolean materialsAvailable(){return materialsAvailable;}
+    public boolean collisionAvailable(){return collisionAvailable;}
     public boolean textureAvailable() {return textureAvailable;}
+    private volatile long collisionContacts,collisionCorrections;
+    private volatile boolean collisionActive;
+    public long collisionContacts(){return collisionContacts;}
+    public long collisionCorrections(){return collisionCorrections;}
+    public boolean collisionActive(){return collisionActive;}
     private volatile int previewStyle;
     public boolean surfaceAvailable() {return surfaceAvailable;}
     public int previewStyle() {return previewStyle;}
@@ -218,7 +226,11 @@ public final class BridgeConnection implements AutoCloseable {
                             }
                             if (preview.has("skipped_passes")) previewSkipped=unsignedCounter(preview,"skipped_passes");
                             if (preview.has("box_count")) previewBoxCount=boundedInteger(preview,"box_count",BlockScene.MAX_BOXES);
-                            if (preview.has("style")) previewStyle=boundedInteger(preview,"style",2);
+                            if(preview.has("collision_state")) {
+                                var c=preview.getAsJsonObject("collision_state");collisionContacts=unsignedCounter(c,"contacts");collisionCorrections=unsignedCounter(c,"corrections");
+                                if(!c.getAsJsonPrimitive("active").isBoolean())throw new IOException("Invalid collision state");collisionActive=c.get("active").getAsBoolean();boundedInteger(c,"reason",5);
+                            }
+                            if (preview.has("style")) previewStyle=boundedInteger(preview,"style",3);
                             if (preview.has("reason")) {
                                 var value=preview.getAsJsonPrimitive("reason");
                                 if (!value.isString() || value.getAsString().length()>160)
@@ -236,6 +248,8 @@ public final class BridgeConnection implements AutoCloseable {
                             if (!available.isBoolean()) throw new IOException("Invalid scene capability");
                             sceneAvailable=available.getAsBoolean();
                         }
+                        if(state.has("materials_available")){var v=state.getAsJsonPrimitive("materials_available");if(!v.isBoolean())throw new IOException("Invalid material capability");materialsAvailable=v.getAsBoolean();}
+                        if(state.has("collision_available")){var v=state.getAsJsonPrimitive("collision_available");if(!v.isBoolean())throw new IOException("Invalid collision capability");collisionAvailable=v.getAsBoolean();}
                         if (state.has("texture_available")) {
                             var available=state.getAsJsonPrimitive("texture_available");
                             if (!available.isBoolean()) throw new IOException("Invalid texture capability");

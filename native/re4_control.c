@@ -59,6 +59,7 @@ typedef struct {
     uint32_t sequence, stamp, armed, buttons, flags, generation;
     float total, pitch, eye;
 } ControlFrame;
+static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now);
 static ControlFrame cached_frame;
 static int have_cached_frame;
 static int read_control_frame(ControlFrame *out) {
@@ -194,6 +195,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     int complete = read_control_frame(&control);
     uint32_t stamp = control.stamp, armed = control.armed, flags = control.flags, generation = control.generation;
     float total = control.total, pitch = control.pitch, eye = control.eye;
+    if(self==camera_ctrl+0x278)cube_collision_tick(&control,complete,GetTickCount());
     uint32_t player = current_player();
     if (!complete || !armed || !state->armed || state->stop
             || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
@@ -352,6 +354,7 @@ static void __cdecl pad_hook(void) {
             *(float *)(uintptr_t)(player+0xA4) = view_yaw;
         relative_walk = 0; state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0;
     }
+    cube_collision_tick(&control,complete,now);
 }
 
 /* Literal bytes with -1 wildcards; these are interoperable signatures, not absolute addresses. */
@@ -404,6 +407,12 @@ static int cube_camera(float *view,float *fov,uint32_t *player) {
 }
 /* Creation-owned facades; withdrawn block_render.h remains excluded. */
 #include "d3d9_capture.h"
+static int cube_collision_graphics_ready(void) {
+    AcquireSRWLockShared(&cube_metrics_lock);
+    int ready=cube_metrics.active && cube_metrics.live_devices && !cube_metrics.restore_failures && !cube_metrics.escapes;
+    ReleaseSRWLockShared(&cube_metrics_lock);return ready;
+}
+#include "collision_tick.h"
 
 static void install_hook(void) {
     wchar_t name[80];
@@ -427,7 +436,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=423; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=424; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

@@ -45,6 +45,30 @@ static int render_saved;
 static float render_matrix[12], render_view[12], render_right[3], render_up[3], render_back[3];
 static CameraPoint render_point;
 static uint32_t render_player, render_generation;
+typedef struct {
+    uint32_t sequence, stamp, armed, buttons, flags, generation;
+    float total, pitch, eye;
+} ControlFrame;
+static ControlFrame cached_frame;
+static int have_cached_frame;
+static int read_control_frame(ControlFrame *out) {
+    for (unsigned attempt=0;attempt<3;++attempt) {
+        LONG before = state->sequence;
+        MemoryBarrier();
+        if (before & 1) continue;
+        ControlFrame frame = {(uint32_t)before,state->stamp,state->armed,state->buttons,
+            state->look_flags,state->arm_id,state->look_total,state->pitch,state->eye_height};
+        MemoryBarrier();
+        if (before == state->sequence) {
+            cached_frame = frame; have_cached_frame = 1; *out = frame; return 1;
+        }
+    }
+    if (re4_cached_frame_usable(have_cached_frame,GetTickCount(),cached_frame.stamp,
+            cached_frame.armed,state->armed,(uint32_t)state->stop)) {
+        *out = cached_frame; return 1;
+    }
+    return 0;
+}
 static void *eye_matrix;
 static float saved_eye_matrix[12];
 static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
@@ -156,13 +180,12 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     restore_first_person();
     InterlockedIncrement(&state->camera_ticks);
     state->camera_active = 0;
-    LONG before = state->sequence;
-    MemoryBarrier();
-    uint32_t stamp = state->stamp, armed = state->armed, flags = state->look_flags, generation = state->arm_id;
-    float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
-    MemoryBarrier();
+    ControlFrame control = {0};
+    int complete = read_control_frame(&control);
+    uint32_t stamp = control.stamp, armed = control.armed, flags = control.flags, generation = control.generation;
+    float total = control.total, pitch = control.pitch, eye = control.eye;
     uint32_t player = current_player();
-    if (before != state->sequence || (before & 1) || !armed || state->stop
+    if (!complete || !armed || !state->armed || state->stop
             || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
             || !(state->capabilities & 2u) || !re4_valid_look(total,pitch,eye,flags) || !player
             || self != camera_ctrl + 0x278
@@ -216,13 +239,12 @@ static void write_render_camera(unsigned char *camera) {
 }
 /* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
 static void __cdecl projection_hook(void) {
-    LONG sequence = state->sequence;
-    MemoryBarrier();
-    uint32_t armed = state->armed, stamp = state->stamp, generation = state->arm_id;
-    MemoryBarrier();
+    ControlFrame control = {0};
+    int complete = read_control_frame(&control);
+    uint32_t armed = control.armed, stamp = control.stamp, generation = control.generation;
     uint32_t global = global_slot ? *global_slot : 0;
     unsigned char *camera = (unsigned char *)(uintptr_t)((uintptr_t)global+0x74);
-    if (sequence == state->sequence && !(sequence & 1) && armed && !state->stop
+    if (complete && armed && state->armed && !state->stop
             && (uint32_t)(GetTickCount()-stamp) < RE4_TTL_MS && state->camera_active
             && render_player == current_player() && generation == render_generation
             && global >= 0x10000 && !(global & 3u) && global <= 0xFFFFFE00
@@ -244,18 +266,18 @@ static void __cdecl pad_hook(void) {
     original_pad();
     InterlockedIncrement(&state->hook_ticks);
     if (GetAsyncKeyState(VK_F8) & 0x8000) InterlockedExchange(&state->stop, 1);
-    LONG before = state->sequence;
-    MemoryBarrier();
-    uint32_t stamp = state->stamp, armed = state->armed, buttons = state->buttons;
-    uint32_t flags = state->look_flags, generation = state->arm_id;
-    float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
-    MemoryBarrier();
-    LONG after = state->sequence;
+    ControlFrame control = {0};
+    int complete = read_control_frame(&control);
+    uint32_t before = control.sequence, stamp = control.stamp, armed = control.armed, buttons = control.buttons;
+    uint32_t flags = control.flags, generation = control.generation;
+    float total = control.total, pitch = control.pitch, eye = control.eye;
     uint32_t now = GetTickCount();
-    if (before == after && !(before & 1) && armed && (uint32_t)(now - stamp) >= RE4_TTL_MS)
+    if ((complete && armed && (uint32_t)(now-stamp)>=RE4_TTL_MS)
+            || (!complete && have_cached_frame && cached_frame.armed && state->armed
+                && (uint32_t)(now-cached_frame.stamp)>=RE4_TTL_MS))
         InterlockedCompareExchange(&state->stop, 2, 0);
-    if (before == after && !(before & 1) && armed && !state->stop && (uint32_t)(now - stamp) < RE4_TTL_MS) {
-        uint32_t input = re4_buttons((uint32_t)before, (uint32_t)after, now, stamp, armed, (uint32_t)state->stop, buttons);
+    if (complete && armed && state->armed && !state->stop && (uint32_t)(now - stamp) < RE4_TTL_MS) {
+        uint32_t input = re4_buttons(before,before,now,stamp,armed,(uint32_t)state->stop,buttons);
         if ((state->capabilities & 1u) && (flags & 1u) && re4_valid_look(total,pitch,eye,flags)) {
             uint32_t player = current_player();
             if (player && writable((void *)(uintptr_t)(player + 0xA4),4)) {
@@ -414,6 +436,7 @@ static void install_hook(void) {
             || !readable((void *)(uintptr_t)global_address,4)) return;
     for (unsigned i=0;i<projection_count;++i) projection_rvas[i] = (uint32_t)(projections[i]-base);
     uint32_t projection_target_rva;
+    int observed_profile = 0;
     if (!re4_shared_call_target((const unsigned char *const *)projections,projection_rvas,
             projection_count,size,&projection_target_rva)) {
         uint32_t thunks[32], destinations[32]; unsigned selected[32], selected_count;
@@ -432,6 +455,7 @@ static void install_hook(void) {
         /* Ascending indices permit compaction without overwriting unread sites. */
         for (unsigned i=0;i<selected_count;++i) projections[i] = projections[selected[i]];
         projection_count = selected_count;
+        observed_profile = 1;
     }
     uintptr_t projection_target = (uintptr_t)base+projection_target_rva;
     if (projection_target < (uintptr_t)base || projection_target >= (uintptr_t)base+size
@@ -468,7 +492,16 @@ static void install_hook(void) {
     if (!VirtualProtect(cmp,7,old_protect,&ignored)) return;
     global_slot = (volatile uint32_t *)(uintptr_t)global_address;
     original_projection = (void (__cdecl *)(void))projection_target;
-    for (unsigned i=0;i<projection_count;++i) {
+    if (observed_profile) {
+        /* Hook the proven E9 entry, covering callers outside the short pattern.
+           original_projection is the canonical body, never this patched thunk. */
+        unsigned char *entry = base+0xe395;
+        if (!VirtualProtect(entry,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
+        replacement = (int32_t)((uintptr_t)projection_hook-(uintptr_t)(entry+5));
+        memcpy(entry+1,&replacement,4);
+        FlushInstructionCache(GetCurrentProcess(),entry,5);
+        if (!VirtualProtect(entry,5,old_protect,&ignored)) return;
+    } else for (unsigned i=0;i<projection_count;++i) {
         unsigned char *projection = projections[i];
         if (!VirtualProtect(projection,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
         replacement = (int32_t)((uintptr_t)projection_hook-(uintptr_t)(projection+5));

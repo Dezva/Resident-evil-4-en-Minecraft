@@ -4,6 +4,12 @@
 #define RE4_MAGIC 0x52453443u
 #define RE4_TTL_MS 500u
 #define RE4_MOVEMENT_MASK 15u
+/* Reuse a complete frame only within its original lease; never extend stamp.
+   Live disarm/stop dominate a cached armed frame, even during a torn write. */
+static inline int re4_cached_frame_usable(unsigned have, uint32_t now,
+        uint32_t stamp, unsigned cached_armed, unsigned live_armed, unsigned stop) {
+    return have && cached_armed && live_armed && !stop && (uint32_t)(now-stamp)<RE4_TTL_MS;
+}
 /* Wrap-safe tick arithmetic; reject torn writes, expired input and opposite keys. */
 static inline uint32_t re4_buttons(uint32_t sequence_before, uint32_t sequence_after,
         uint32_t now, uint32_t stamp, uint32_t armed, uint32_t stop, uint32_t buttons) {

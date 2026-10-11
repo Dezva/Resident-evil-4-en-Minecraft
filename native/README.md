@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.7
+# Native RE4 movement and optional look, 0.4.8
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -147,3 +147,24 @@ The portable C profile test uses the actual supplied RVAs/displacements, checks
 six selected sites and rejects modified/missing/differently resolved candidates.
 31 Python tests include the read-only profile report. This layout was identified
 in user diagnostics; DLL0.4.7 runtime activation/render remains unverified.
+
+## 0.4.8 stable reads and projection entry
+
+User confirms FP activation/improvement0.4.7, but rapid WASD mixing is unstable.
+221-sample trace shows stable desired gaze during several key transitions,
+while Global camera can differ. The known profile now patches the validated
+E9 entry atRVA0xE395, delegating directly to body0x19F3A0. This covers every
+caller of that entry rather than only the six short-pattern callers. Generic
+shared-target path is unchanged. No new unvalidated addresses/opcode changes.
+ControlFrame seqlock reader retries3 times, then can reuse last complete frame
+only with original timestamp <500ms, live armed and no stop. Never extends TTL.
+This prevents partial publications from resetting mouse anchor/consumed total.
+Live disarm/stop still dominate; stale cached armed frame latches stop2.
+Camera/render/input share the same reader. C lease tests cover repeated retry
+through expiry, disarm, stop and uint32 wrap. Windows visual result unverified.
+
+tools/test_native_frame_read.py extracts the actual C reader, compiles it with
+mocked clock/barriers and interrupts publication after copying fields. Verifies
+the torn candidate never updates cache, retry obtains the full new frame, odd
+publication reuses only unexpired frame, and live disarm/stop reject reuse.
+No runtime Windows DLL is executed by this harness.

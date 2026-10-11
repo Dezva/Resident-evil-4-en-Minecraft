@@ -224,3 +224,22 @@ RVA relativos al módulo; no dirección absoluta ni perfil para otros ejecutable
 Destino común genérico sigue disponible. Desconocidos/alterados/incompletos
 permanecen rechazados. Tres suites C y31 pruebas Python pasan; fixtures de
 instalación/diagnóstico también. Activación/render Windows0.4.7 pendiente.
+
+## 0.4.8 cambios rápidos de teclas
+
+Usuario confirma mejora/activación FP0.4.7, pero combinaciones rápidas alteran
+la cámara. Registro0.4.7 de221 muestras muestra aplicado_yaw estable en varios
+cambios sin ratón y divergencia de Global.Camera; lecturas no atómicas no
+prueban la causa exacta de cada sacudida visual. Se encontraron dos problemas:
+solo seis llamadores de proyección se enganchaban y muestras incompletas de
+seqlock reiniciaban estado de mirada. Perfil observado ahora modifica la entrada
+E9 validada0xE395, delegando directamente al cuerpo0x19F3A0, para cubrir otros
+llamadores sin recursión. ControlFrame reintenta3 veces y puede usar última
+muestra íntegra, solo con timestamp original vigente (<500ms), live armed,
+no stop. No extiende TTL; caducidad latches stop2 y exige rearme. Cámara,
+proyección e input usan el mismo lector. W+S/A+D siguen cancelando eje.
+Tres suites C y32 pruebas Python pasan. Harness compila el lector C real con
+barreras/reloj simulados e interrumpe publicación después de copiar campos;
+verifica reintento, exclusión de candidato roto de caché, live stop/disarm,
+caducidad y wrap. Fixtures instaladores/diagnóstico pasan. No se ejecuta DLL
+Windows en esas pruebas; estabilidad visual/locomoción real pendiente0.4.8.

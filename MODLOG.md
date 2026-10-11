@@ -265,3 +265,14 @@ el layout UHD1.1.0 observado valida siete sitios, thunks E9 y destinos antes
 de seleccionar las seis llamadas correctas. No selecciona por mayoría ni
 habilita layouts desconocidos. Mod/host0.4.3 sin cambios. Tres suites C y31
 pruebas Python pasan; activación FP0.4.7 en Windows pendiente.
+
+## 0.4.8
+
+FP0.4.7 se activa y mejora según usuario; cambios rápidos A/D/W/S y mezclas
+todavía alteran vista. Engancha entrada E9 de proyección del perfil validado
+en lugar de solo seis CALLs, conservando cuerpo original separado. ControlFrame
+reintenta lectura seqlock y reutiliza únicamente última muestra completa aún
+vigente, sin reiniciar ancla/giro por un frame roto ni extender timestamp.
+Live stop/desarmado y TTL500ms conservan prioridad. Mod/host0.4.3 sin cambios.
+Tres suites C,32 pruebas Python y fixtures PowerShell pasan. Estabilidad real
+0.4.8 pendiente de Windows; no se modificaron instaladores ni movimiento.

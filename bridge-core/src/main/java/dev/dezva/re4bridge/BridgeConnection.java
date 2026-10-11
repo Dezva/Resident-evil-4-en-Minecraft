@@ -45,6 +45,10 @@ public final class BridgeConnection implements AutoCloseable {
     public int nativeCapabilities() { return nativeCapabilities; }
     private volatile int previewStatus = -1;
     private volatile boolean previewAvailable;
+    private volatile boolean sceneAvailable;
+    private volatile int previewBoxCount;
+    public boolean sceneAvailable() { return sceneAvailable; }
+    public int previewBoxCount() { return previewBoxCount; }
     private volatile boolean previewRequested;
     private volatile long previewSkipped;
     private volatile String previewReason = "sin estado";
@@ -68,11 +72,17 @@ public final class BridgeConnection implements AutoCloseable {
         publishControl(armed,buttons,generation,look,null);
     }
     public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look, BlockPreview preview) {
+        publishVisualControl(armed,buttons,generation,look,preview==null?null:preview.toJson());
+    }
+    public void publishSceneControl(boolean armed,int buttons,int generation,MouseLook.Input look,BlockScene scene) {
+        publishVisualControl(armed,buttons,generation,look,scene==null?null:scene.toJson());
+    }
+    private void publishVisualControl(boolean armed,int buttons,int generation,MouseLook.Input look,JsonObject preview) {
         if (buttons < 0 || (buttons & ~79) != 0 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
-        if (armed && preview != null) frame.add("preview",preview.toJson());
+        if (armed && preview != null) frame.add("preview",preview);
         if (look != null && armed) {
             JsonObject data = new JsonObject();
             data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
@@ -201,6 +211,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 previewRequested=value.getAsBoolean();
                             }
                             if (preview.has("skipped_passes")) previewSkipped=unsignedCounter(preview,"skipped_passes");
+                            if (preview.has("box_count")) previewBoxCount=boundedInteger(preview,"box_count",BlockScene.MAX_BOXES);
                             if (preview.has("reason")) {
                                 var value=preview.getAsJsonPrimitive("reason");
                                 if (!value.isString() || value.getAsString().length()>160)
@@ -212,6 +223,11 @@ public final class BridgeConnection implements AutoCloseable {
                             var available=state.getAsJsonPrimitive("preview_available");
                             if (!available.isBoolean()) throw new IOException("Invalid preview capability");
                             previewAvailable=available.getAsBoolean();
+                        }
+                        if (state.has("scene_available")) {
+                            var available=state.getAsJsonPrimitive("scene_available");
+                            if (!available.isBoolean()) throw new IOException("Invalid scene capability");
+                            sceneAvailable=available.getAsBoolean();
                         }
                         if (state.has("camera_active")) {
                             if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");

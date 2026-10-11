@@ -79,8 +79,9 @@ class ControlPolicy:
                 "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
         if self.preview is not None:
             result['preview_available']=True
+            result['scene_available']=getattr(self.preview,'scene_available',False)
             box=frame.get('preview')
-            self.preview.publish(self.armed and box is not None,frame['arm_id'],box['bounds'] if box else None)
+            self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
             result['preview_state']=self.preview.status()
             if box is not None and self.armed and result['preview_state'].get('blocked',False):
                 self.armed=False

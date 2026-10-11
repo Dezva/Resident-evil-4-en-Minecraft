@@ -180,6 +180,37 @@ El dispositivo proviene de CreateDevice y se envuelve sin alterar su objeto o ta
 nativos. Se conserva el dibujo/restauración de estados de 0.4.18. El canal retirado
 BlockPreview-PID no se abre ni se utiliza en esta versión.
 
+### Escena visual 0.4.21
+
+Preview puede usar exclusivamente `{origin:[x,y,z,yaw],boxes:[[minX,minY,minZ,maxX,maxY,maxZ],...]}`.
+Origin xyz finito±20000000, yaw±π, lista1..128, bounds locales finitos±20000000,
+extensiones por eje1..7500. No se mezcla con preview.bounds del cubo único.
+El origen corresponde al centro horizontal/base del primer bloque delante de
+Leon; los demás bounds son coordenadas MC relativas escaladas. Giro rígido
+θ=-(yawRE4+yawMC) normalizado, local-to-world X=c*x-s*z,Z=s*x+c*z,Y=y.
+La primera referencia permanece tras retirada; origin cambia solo mediante
+height, nueva blocks on o cambio/deselección de escena. No se fija de nuevo al
+mover cámara o Leon. No mapea el suelo, no altera física ni guarda en disco.
+
+Cliente captura hasta64 bloques/128 cajas,16 formas por bloque, comprueba
+estado/formas de celdas cargadas y retira aire/sustitución. Celdas descargadas
+no se consideran aire. Losas dobles y vecinos actualizan formas; overflow
+posterior retira escena con aviso. Mobs/estructuras/suelo no se exportan.
+Host anuncia scene_available bool solo con DLLv3/build421. preview_state añade
+box_count uint1..128 o0 desactivado y origin/cantidad al diagnóstico; el host
+no devuelve la lista completa en cada ack. requested no acredita dibujo visible.
+
+CubeCommand v3 mide3152 bytes: header8uint32 previo, bounds6float(32..55),
+origin4float(56..71), count/scene_reserved(72..79), boxes128x6float(80..3151).
+mode0/1 requieren count0; mode2 requiere count1..128; ambos reservados0.
+Secuencia consistente/TTL500ms/F8/mutex anteriores. Host publica snapshot
+completo y borra slots sobrantes. El renderer valida toda la escena, compone
+camera*transform rígido, proyecta hasta3072 vértices y usa un respaldo y una
+llamada DrawPrimitiveUP. Estado y referencias se restauran; sin recurso GPU
+persistente, Z/occlusion siguen desactivados para diagnóstico de aristas.
+Telemetría de92bytes y CaptureIPC de3296 conservan sus versiones, build421.
+Host puede leer DLL419/v2 para único; escena en v2 se rechaza sin escribir.
+
 ### Prueba visual 0.4.11 — retirada, contrato histórico
 
 El frame `re4_control` puede incluir `preview: {bounds:[minX,minY,minZ,maxX,maxY,maxZ]}`.

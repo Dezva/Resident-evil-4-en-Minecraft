@@ -7,6 +7,8 @@ static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
 static unsigned create_fail,capture_fail,apply_fail,setter_fail,draw_fail,offscreen,camera_invalid,viewport_fail,back_fail;
 static unsigned f8;static uint32_t player_id=42;static uint32_t now=1000;static float shift;
+static unsigned last_vertices;
+static float first_x;
 static CubeCommand command={.enabled=1,.epoch=7,.stamp=1000};
 static int cube_command_read(CubeCommand *out) {*out=command;return 1;}
 static DWORD GetTickCount(void) {return now;}
@@ -35,8 +37,9 @@ static HRESULT texture(IDirect3DDevice9 *d,DWORD stage,IDirect3DBaseTexture9 *t)
 static HRESULT stage(IDirect3DDevice9 *d,DWORD n,D3DTEXTURESTAGESTATETYPE type,DWORD value) {(void)d;assert(n<2 && type<8);current.stage[n][type]=value;return changed();}
 static HRESULT render(IDirect3DDevice9 *d,D3DRENDERSTATETYPE type,DWORD value) {(void)d;assert(type<256);current.render[type]=value;return changed();}
 static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride) {
-    (void)d;assert(type==D3DPT_LINELIST && count==12 && stride==20);const BlockVertex *vertices=data;
-    for(unsigned i=0;i<24;++i) assert(isfinite(vertices[i].x+vertices[i].y) && vertices[i].x>=10 && vertices[i].x<=650 && vertices[i].y>=20 && vertices[i].y<=500 && vertices[i].color==0xFF40FF40);
+    (void)d;assert(type==D3DPT_LINELIST && count>0 && count<=12*CUBE_MAX_BOXES && stride==20);const BlockVertex *vertices=data;
+    last_vertices=count*2;first_x=vertices[0].x;
+    for(unsigned i=0;i<count*2;++i) assert(isfinite(vertices[i].x+vertices[i].y) && vertices[i].x>=10 && vertices[i].x<=650 && vertices[i].y>=20 && vertices[i].y<=500 && vertices[i].color==0xFF40FF40);
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
 static IDirect3DDevice9Vtbl table={.GetRenderTarget=get_target,.GetBackBuffer=get_back,.GetViewport=get_view,
@@ -69,6 +72,23 @@ int main(void) {
     unsigned prior_explicit=draws;command.bounds[3]=command.bounds[0];
     cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==1);
     command.bounds[3]=NAN;cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==2);
+    /* One stable rigid grid, two boxes and a half-height slab, one state backup. */
+    f=reset();command.mode=2;command.count=3;command.origin[2]=-600;
+    float cube[6]={-50,-50,-50,50,50,50};
+    for (unsigned i=0;i<3;++i) {memcpy(command.boxes[i],cube,sizeof(cube));command.boxes[i][0]+=i*100;command.boxes[i][3]+=i*100;}
+    command.boxes[2][4]=0;cube_render_device(&f);
+    assert(draws==1 && last_vertices==72 && creates==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
+    float native_origin[4];memcpy(native_origin,command.origin,sizeof(native_origin));float first=first_x;
+    shift=10;player_id=99;cube_render_device(&f);
+    assert(draws==2 && first_x>first && !memcmp(native_origin,command.origin,sizeof(native_origin)));
+    command.count=2;cube_render_device(&f);assert(last_vertices==48); // Individual removal.
+    command.origin[3]=0.5f;cube_render_device(&f);assert(draws==4 && last_vertices==48);
+    command.boxes[1][0]=NAN;cube_render_device(&f);assert(draws==4 && events[CUBE_CAMERA_REJECT]==1);
+    command.boxes[1][0]=0;command.origin[3]=NAN;cube_render_device(&f);assert(draws==4);
+    f=reset();command.mode=2;command.count=CUBE_MAX_BOXES;command.origin[2]=-600;
+    for (unsigned i=0;i<CUBE_MAX_BOXES;++i) memcpy(command.boxes[i],cube,sizeof(cube));
+    cube_render_device(&f);assert(last_vertices==24*CUBE_MAX_BOXES && draws==1 && creates==1 && applies==1 && !surface_refs && !backup_refs);
+    command.count=CUBE_MAX_BOXES+1;cube_render_device(&f);assert(draws==1);
     for(unsigned failure=1;failure<=23;++failure) {
         f=reset();setter_fail=failure;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
     }

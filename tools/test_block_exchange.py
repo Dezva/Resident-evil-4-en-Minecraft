@@ -13,11 +13,18 @@ from test_re4_control import Writer
 
 class BlockExchangeTests(unittest.TestCase):
     def test_place_remove_f8_rearm_and_disconnect_disable_mapping(self):
-        kernel=Kernel(version=2,build=419)
+        self.exchange(2,419)
+
+    def test_scene_tcp_rotated_snapshot_individual_remove_f8_and_disconnect(self):
+        self.exchange(3,421)
+
+    def exchange(self,version,build):
+        kernel=Kernel(version=version,build=build)
         visual=NativePreview(42,kernel,user=kernel)
         writer=Writer();policy=ControlPolicy(writer,visual)
         errors=[];report={};token='a'*64;session=str(uuid.uuid4())
         bounds=[-50,-50,-650,50,50,-550]
+        payload={'origin':[100,200,300,.25],'boxes':[bounds,[50,-50,-650,150,0,-550]]} if version==3 else {'bounds':bounds}
         with socket.socket() as listener:
             listener.bind(('127.0.0.1',0));listener.listen(1);listener.settimeout(3)
             def serve():
@@ -38,26 +45,32 @@ class BlockExchangeTests(unittest.TestCase):
                         sequence+=1
                         frame=dict(protocol=1,type='re4_control',session=session,seq=sequence,
                                    armed=armed,arm_id=arm_id,buttons=0)
-                        if box is not None:frame['preview']={'bounds':box}
+                        if box is not None:frame['preview']=box
                         protocol.write_frame(stream,frame)
                         ack=protocol.read_frame(stream)
                         self.assertEqual(ack['seq'],sequence)
                         self.assertTrue(ack['control_state']['preview_available'])
                         return ack['control_state']
                     self.assertFalse(send(False,0,None)['armed'])
-                    self.assertTrue(send(True,1,bounds)['armed'])
+                    self.assertTrue(send(True,1,payload)['armed'])
                     words=struct.unpack('<8I6f',kernel.command.raw[:56])
-                    self.assertEqual(words[4],1);self.assertEqual(words[6],1)
-                    self.assertEqual(list(words[8:]),bounds)
+                    self.assertEqual(words[4],1);self.assertEqual(words[6],2 if version==3 else 1)
+                    if version==3:
+                        self.assertEqual(struct.unpack_from('<4f2I',kernel.command,56),(100,200,300,.25,2,0))
+                        self.assertEqual(list(struct.unpack_from('<6f',kernel.command,80)),bounds)
+                        smaller=dict(payload,boxes=payload['boxes'][1:])
+                        state=send(True,1,smaller);self.assertEqual(state['preview_state']['box_count'],1)
+                        self.assertEqual(list(struct.unpack_from('<6f',kernel.command,80)),payload['boxes'][1])
+                    else:self.assertEqual(list(words[8:]),bounds)
                     send(True,1,None)  # Destroying the selected block removes the visual lease.
                     self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
-                    send(True,1,bounds)
+                    send(True,1,payload)
                     writer.stop_code=1
-                    self.assertFalse(send(True,1,bounds)['armed'])
+                    self.assertFalse(send(True,1,payload)['armed'])
                     self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
                     writer.stop_code=0
-                    self.assertFalse(send(True,1,bounds)['armed'])
-                    self.assertTrue(send(True,2,bounds)['armed'])
+                    self.assertFalse(send(True,1,payload)['armed'])
+                    self.assertTrue(send(True,2,payload)['armed'])
                 thread.join(3)
                 self.assertFalse(thread.is_alive());self.assertFalse(errors,errors)
                 self.assertTrue(report['disconnected'])

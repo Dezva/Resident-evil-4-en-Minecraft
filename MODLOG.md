@@ -539,3 +539,32 @@ selección, confirmaciones y orden al host; log incluye bounds y pases omitidos.
 DLL SHA256 80ea2448268e72492bf1421a7f232b44031e5cfd927ba14e08ebfc8565a0e885
 idéntica a0.4.19, build419/ABI conservados; no reinstalación nativa requerida.
 Causa/visibilidad automática y escala siguen pendientes de prueba Windows.
+
+## 0.4.21 — varios bloques en cuadrícula fija y formas de losas
+
+Usuario confirma colocar/retirar 0.4.20 y envía vídeo del resultado. La referencia
+1011(1) muestra el objetivo visual Minecraft/RE4 con HUD, espada, TNT y criatura;
+el vídeo no establece cómo lo implementó el autor. Se avanza a escena visual,
+sin atribuir colisión física al cubo ni asegurar precisión de terreno.
+
+Primera colocación fija origen y orientación común; hasta64 bloques/128 cajas.
+Se mantienen separaciones/alturas MC, retirada individual incluso de referencia,
+losas inferiores/superiores/dobles, actualizaciones de formas por vecinos y
+conservación al descargar chunks. Cola confirma todas las colocaciones de un
+tick. blocks height ajusta la altura visual, no obtiene suelo. Nueva blocks on
+borra/reancla; dimensión/desconexión elimina escena; no persistencia en disco.
+
+CubeCommand v3/3152 bytes mantiene modos diagnóstico0/único1 y añade escena2,
+origen xyz/yaw rígido y count≤128. Telemetría v1/92 bytes/Capturev3/3296 se
+conservan, build421. NativePreview acepta v2/419 para diagnóstico único, pero el
+mod exige scene_available para blocks on. IPC íntegro, reservados/cantidad,
+validación completa de formas antes de dibujar, TTL/F8/mutex se conservan.
+Dibujo batch una llamada y un respaldo completo para128 cajas, sin recursos GPU
+persistentes ni detector retirado. Creación/hook/lifetime de fábrica sin cambios.
+
+79 Python,19 bridge-core,15 Minecraft y4 suitesC pasan;6 fixtures ASan/UBSan.
+Instalación/copia de partidas/verificación hash/desinstalación propias pasan.
+DLL PE32 imports KERNEL32/msvcrt/USER32; JAR compilado. SHA nativa:
+dbcc928f14ae5e7ef5f990691ea715bdf09ba6b2182008c057139ed913a63496.
+Versiones anteriores conservadas; nueva prueba Windows necesaria antes de
+superficies o física. No se transferirán las estructuras/mobs del superplano.

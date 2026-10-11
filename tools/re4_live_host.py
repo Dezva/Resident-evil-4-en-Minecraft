@@ -30,7 +30,7 @@ def main():
         if args.control:
             native = NativeControl(pid)
             preview = NativePreview(pid,process.k)
-            print('Host 0.4.20 / DLL 0.4.19: un bloque visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
+            print('Host 0.4.21: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

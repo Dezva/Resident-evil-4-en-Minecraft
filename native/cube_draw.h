@@ -21,8 +21,19 @@ static void cube_render_device(CubeDevice *f) {
     D3DVIEWPORT9 viewport;
     hr=device->lpVtbl->GetViewport(device,&viewport);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);return;}
-    BlockVertex vertices[24];
-    if (command.mode==1) {
+    BlockVertex vertices[24*CUBE_MAX_BOXES];unsigned count=0;
+    if (command.mode==2) {
+        float scene_view[12];
+        if (!command.count || command.count>CUBE_MAX_BOXES || !block_scene_view(view,command.origin,scene_view)) {
+            cube_record(CUBE_CAMERA_REJECT,0);return;
+        }
+        // Validate the entire bounded snapshot before rendering any part of it.
+        for (unsigned i=0;i<command.count;++i) if (!block_valid_shape_bounds(command.boxes[i])) {
+            cube_record(CUBE_CAMERA_REJECT,0);return;
+        }
+        for (unsigned i=0;i<command.count;++i)
+            count+=block_lines(command.boxes[i],scene_view,fov,(float)viewport.Width,(float)viewport.Height,vertices+count);
+    } else if (command.mode==1) {
         if (!block_valid_bounds(command.bounds)) {cube_record(CUBE_CAMERA_REJECT,0);return;}
         memcpy(f->gate.bounds,command.bounds,sizeof(f->gate.bounds));
         f->gate.anchored=1;
@@ -39,7 +50,7 @@ static void cube_render_device(CubeDevice *f) {
         }
         f->gate.anchored=1;
     }
-    unsigned count=block_lines(f->gate.bounds,view,fov,(float)viewport.Width,(float)viewport.Height,vertices);
+    if (command.mode!=2) count=block_lines(f->gate.bounds,view,fov,(float)viewport.Width,(float)viewport.Height,vertices);
     if (!count) {cube_record(CUBE_PASS_SKIP,0);return;}
     for (unsigned i=0;i<count;++i) {vertices[i].x+=viewport.X;vertices[i].y+=viewport.Y;}
     IDirect3DStateBlock9 *backup=NULL;

@@ -555,3 +555,34 @@ en RETURN. Esto valida el punto de observación previo a la interacción, no
 prueba la GUI real. Manual100 visible pero diminuto en captura del usuario;
 default1000 provisional, pendiente de calibración y colocación automática real.
 DLL conserva hash/build419; no se modificó ni recompiló código nativo.
+
+## 0.4.21 — escena rígida de varias cajas
+
+79 pruebas Python,19 bridge-core,15 Minecraft,4 suites C portátiles pasan;
+compilaciones JDK21/Fabric y MinGW PE32 -Werror completas. Seis fixtures nativos
+con ASan/UBSan pasan, incluidos reader real, DrawPrimitiveUP batch128, rollback
+gráfico ante fallos y restauración fatal, COM/lifetime/fábrica/hook anteriores.
+Instaladores/diagnóstico PowerShell verifican backup, hash, no-overwrite,
+retirada propia y lectura IPC. Native imports limitadas KERNEL32/msvcrt/USER32.
+
+Escena MC: distancia y altura de una pared, borrar el bloque origen sin mover
+los demás, vaciar/rellenar con referencia conservada, losa inferior/superior/doble,
+giro alineado MC/RE4, height común, límite64 y rechazo sin pérdida, cambio de
+dimensión y chunks sin cargar comprobados con registro real Minecraft sin GUI.
+Bloques sin formas se rechazan; no se copia superplano ni entidades.
+
+TCP autenticado real -> ControlPolicy -> NativePreview/CubeSession v3 con APIs
+Windows simuladas verifica origen, count, formas, retirada individual,
+F8/nueva arm, desconexión; v2 conservado para único. Valida128 cajas y formas
+finas; overflow/NaN/boolean/origen incorrecto rechaza antes de escritura. Orden
+v3 de3152 bytes con publicación impar/par y body completo; entradas sobrantes
+se borran al reducir/retirar. Header/build incompatibles no activan dibujo.
+
+Geometría C verifica composición cámara*origen/rotación, proyección fija de
+varias cajas y losa, traslado de vista sin movimiento de la escena, retirada,
+rotación,128 cajas en un batch, reservados/count y invalidación de snapshot.
+Todas las23 fallas de setter anteriores conservan restauración. Dispositivo
+nativo/vtable siguen sin alterarse. Las APIs simuladas no prueban driver,
+arranque real ni visibilidad de0.4.21. Usuario confirma0.4.20 con vídeo, pero
+0.4.21 todavía necesita prueba real. El suelo RE4 no se ha leído: height es un
+ajuste visual, y formas de colisión MC no son colisiones instaladas en RE4.

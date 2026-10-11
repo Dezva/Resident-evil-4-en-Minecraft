@@ -9,6 +9,24 @@ static inline int block_valid_bounds(const float *b) {
     for (unsigned i=0;i<3;++i) if (b[i+3]-b[i]<40.f || b[i+3]-b[i]>2500.f) return 0;
     return 1;
 }
+static inline int block_valid_shape_bounds(const float *b) {
+    for (unsigned i=0;i<6;++i) if (!isfinite(b[i]) || fabsf(b[i])>20000000.f) return 0;
+    for (unsigned i=0;i<3;++i) if (b[i+3]-b[i]<1.f || b[i+3]-b[i]>7500.f) return 0;
+    return 1;
+}
+/* Compose CAMERA inverse with the grid's rigid local-to-world rotation. */
+static inline int block_scene_view(const float *camera,const float *origin,float *view) {
+    for (unsigned i=0;i<4;++i) if (!isfinite(origin[i]) || fabsf(origin[i])>(i==3?3.141593f:20000000.f)) return 0;
+    float c=cosf(origin[3]),s=sinf(origin[3]);
+    for (unsigned r=0;r<3;++r) {
+        view[4*r]=camera[4*r]*c+camera[4*r+2]*s;
+        view[4*r+1]=camera[4*r+1];
+        view[4*r+2]=-camera[4*r]*s+camera[4*r+2]*c;
+        view[4*r+3]=camera[4*r+3];
+        for (unsigned axis=0;axis<3;++axis) view[4*r+3]+=camera[4*r+axis]*origin[axis];
+    }
+    return 1;
+}
 /* Clip in screen coordinates, then interpolate endpoints. No giant offscreen vertices. */
 static inline int block_clip_line(float *a,float *b,float width,float height) {
     float dx=b[0]-a[0],dy=b[1]-a[1],lo=0,hi=1;
@@ -24,7 +42,7 @@ static inline int block_clip_line(float *a,float *b,float width,float height) {
    Screen-space diagnostic lines have no depth/terrain occlusion. */
 static inline unsigned block_lines(const float *bounds,const float *view,float fovy,
         float width,float height,BlockVertex *vertices) {
-    if (!block_valid_bounds(bounds) || !isfinite(fovy) || fovy<5 || fovy>170
+    if (!block_valid_shape_bounds(bounds) || !isfinite(fovy) || fovy<5 || fovy>170
             || width<1 || height<1 || width>16384 || height>16384) return 0;
     for (unsigned i=0;i<12;++i) if (!isfinite(view[i]) || fabsf(view[i])>200000000.f) return 0;
     for (unsigned r=0;r<3;++r) {

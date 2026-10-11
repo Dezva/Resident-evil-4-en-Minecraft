@@ -67,6 +67,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean blocksEnabled;
     private double blockSize = BlockPreview.DEFAULT_SIZE;
     private final BlockPlacementTracker placementTracker = new BlockPlacementTracker();
+    private final PlacedBlockScene placedScene = new PlacedBlockScene();
     private long placementEvents, placementTicks, placementsConfirmed;
 
     @Override public void onInitializeClient() {
@@ -125,6 +126,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("blocks")
+                    .then(literal("height").then(argument("offset",DoubleArgumentType.doubleArg(-2500,2500)).executes(ctx -> {
+                        placedScene.height(DoubleArgumentType.getDouble(ctx,"offset"));
+                        say(ctx.getSource().getClient(),"Altura de la cuadricula ajustada. Usa arm para verla.");return 1;
+                    })))
                     .then(literal("on").executes(ctx -> enableBlocks(ctx.getSource().getClient(),BlockPreview.DEFAULT_SIZE))
                         .then(argument("size",DoubleArgumentType.doubleArg(40,2500)).executes(ctx ->
                             enableBlocks(ctx.getSource().getClient(),DoubleArgumentType.getDouble(ctx,"size")))))
@@ -190,7 +195,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null)+"; tamano="+(int)blockSize));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; tamano="+(int)blockSize));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -237,6 +242,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
             }
             if (event) placementEvents++; else placementTicks++;
         } catch (IllegalArgumentException error) { /* Invalid RE4 coordinates create no selection. */ }
+    }
+
+    private java.util.List<Box> sceneShapes(MinecraftClient client,BlockPos pos) {
+        var state=client.world.getBlockState(pos);
+        return state.getCollisionShape(client.world,pos,ShapeContext.absent()).getBoundingBoxes();
     }
 
     private int connect(MinecraftClient client, boolean readerMode) {
@@ -290,16 +300,16 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void clearBlock() {
-        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();
+        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();
     }
 
     private int enableBlocks(MinecraftClient client,double size) {
-        if (bridge==null || !bridge.controllerMode() || !bridge.status().connected() || !bridge.previewAvailable()) {
-            say(client,"Conecta /re4bridge controller al host 0.4.20 antes de activar bloques.");return 0;
+        if (bridge==null || !bridge.controllerMode() || !bridge.status().connected() || !bridge.sceneAvailable()) {
+            say(client,"Bloques multiples requieren host y DLL 0.4.21. Conecta controller despues de instalarlos.");return 0;
         }
         stopDriving();clearBlock();blocksEnabled=true;blockSize=size;
         placementEvents=placementTicks=placementsConfirmed=0;
-        say(client,"Un bloque visual activo, tamano="+(int)size+". Usa arm y coloca un bloque: cubo fijo delante de Leon; romperlo lo retira. F8 detiene.");
+        say(client,"Cuadricula visual activa, tamano="+(int)size+". Usa arm y coloca bloques: la primera colocacion fija la referencia. Maximo 64 bloques. F8 detiene.");
         return 1;
     }
 
@@ -312,6 +322,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 || hit.getType()!=HitResult.Type.BLOCK || client.world.getBlockState(hit.getBlockPos()).isAir()) {
             say(client,"Conecta controller y mira un bloque colocado en Minecraft antes de blocktest.");return 0;
         }
+        blocksEnabled=false;placedScene.clear();
         try {blockPreview=BlockPreview.ahead(sample,size);}
         catch (IllegalArgumentException error) {say(client,"Posicion RE4 fuera del rango de prueba.");return 0;}
         previewBlock=hit.getBlockPos().toImmutable();
@@ -378,25 +389,33 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 try { look = mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
-            var placed=placementTracker.poll(client.world::getBlockState,client.world.getRegistryKey().getValue().toString());
-            if (placed!=null) {
-                blockPreview=placed.box();previewBlock=placed.pos();previewState=placed.state();previewDimension=placed.dimension();
-                placementsConfirmed++;
-                say(client,"Bloque colocado detectado. Cubo de "+(int)blockSize+" unidades; arm habilita el dibujo.");
+            String dimension=client.world.getRegistryKey().getValue().toString();
+            if (!placedScene.update(client.world::getBlockState,pos -> sceneShapes(client,pos),client.world::isChunkLoaded,dimension))
+                say(client,"Cuadricula retirada: demasiadas formas. Usa blocks on para empezar otra mas pequena.");
+            if (sample==null || !sample.fresh(now)) placementTracker.clear();
+            for (var placed:placementTracker.pollAll(client.world::getBlockState,dimension)) {
+                boolean first=!placedScene.anchored();
+                if (placedScene.put(placed,sceneShapes(client,placed.pos()),client.player.getYaw())) {
+                    if (first) placedScene.align(sample.yawRadians());
+                    placementsConfirmed++;
+                    say(client,"Bloque colocado detectado. Cuadricula: "+placedScene.size()+" bloques.");
+                } else say(client,"Bloque no agregado: limite de bloques/formas o forma fuera del rango permitido.");
             }
             if (blockPreview!=null && (previewBlock==null
                     || !client.world.getRegistryKey().getValue().toString().equals(previewDimension)
                     || !client.world.getBlockState(previewBlock).equals(previewState))) {
                 clearBlock();
             }
-            current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
+            var scene=placedScene.snapshot();
+            if (scene!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene);
+            else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
                 "RE4: " + controlArming.reason() + " | arm=" + (current.nativeArmed() ? "si" : "no")
                 + " | teclas=" + buttons + "/" + current.nativeButtons()
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
                 + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
-                + (blocksEnabled || blockPreview!=null ? " | bloque="+(blockPreview!=null ? "detectado" : "esperando")
+                + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()
                     +" | enviado="+(current.previewRequested() ? "si" : "no")+" | dibujos="+current.previewDraws() : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }

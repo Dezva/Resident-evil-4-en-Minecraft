@@ -17,12 +17,16 @@ final class BlockPlacementTracker {
         pending.addLast(new BlockPlacementProbe(pos,before,expected,box,dimension));
     }
     BlockPlacementProbe.Placed poll(Function<BlockPos,BlockState> read, String dimension) {
-        BlockPlacementProbe.Placed placed=null;
+        var all=pollAll(read,dimension);
+        return all.isEmpty()?null:all.getLast();
+    }
+    java.util.List<BlockPlacementProbe.Placed> pollAll(Function<BlockPos,BlockState> read,String dimension) {
+        var placed=new java.util.ArrayList<BlockPlacementProbe.Placed>();
         var iterator=pending.iterator();
         while (iterator.hasNext()) {
             var probe=iterator.next();
             var confirmed=probe.poll(read,dimension);
-            if (confirmed!=null) placed=confirmed;
+            if (confirmed!=null) placed.add(confirmed);
             if (probe.finished()) iterator.remove();
         }
         return placed;

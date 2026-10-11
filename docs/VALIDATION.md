@@ -99,3 +99,13 @@ en el PC del usuario. No se valida todavia camara libre ni sincronizacion comple
 Una conexión al simulador no es evidencia de que RE4 funcione. No se ejecutó ni
 modificó RE4 desde este entorno. Ningún ejecutable o recurso del juego se incluye
 en el paquete de prueba.
+
+## 0.4.0: orientacion y camara opcionales
+
+W/S y A/D de 0.3.5 fueron confirmados por el usuario, sin retraso notable.
+Alt-tab desarma como previsto. 0.4.0 agrega raton/camara experimentales;
+todavia no hay prueba real de esas dos funciones. TCP Java/Python prueba los
+campos look/capacidades y limites; publicacion IPC v2 usa memoria sintetica.
+Pruebas C ejecutan el consumo acumulado y la matematica del ojo. La DLL
+fastcall se compila x86 con limpieza de 12 bytes de argumentos de pila, y
+solo imports KERNEL32/msvcrt/USER32. Ese chequeo no valida el hook en RE4.

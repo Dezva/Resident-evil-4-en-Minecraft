@@ -159,3 +159,16 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
 - Se mantiene DLL 0.3.4; actualizacion requiere solo mod 0.3.5 y host nuevo.
 - Se mantienen cortes por foco/menu/pausa/muestra antigua y rearme explicito.
   Pruebas sinteticas de la secuencia no sustituyen movimiento real en Windows.
+
+## 0.4.0: raton y camara experimental
+
+- Usuario confirma W/S y A/D sin retraso notable, Minecraft enfocado y RE4
+  en ventana. Perder foco desarma como previsto; no es fallo del host.
+- Giro relativo acumulado y consumo nativo por secuencia; delta limitado y
+  PlayerPtr/ang_A0 resueltos con firmas, sin teleport.
+- Camara QuasiFPS opt-in, wrapper fastcall con original conservado. Ojo
+  configurable y pitch limitado, sin tocar colision/modelo/guardados.
+- IPC v2 de80 bytes, host acepta movimiento v1 y anuncia capacidades.
+  Comandos mouse/firstperson/eyeheight y HUD compacto con muestras/FP.
+- Actualiza DLL/mod/host, retirando DLL con paquete anterior. Conserva Fabric API.
+- Pruebas cloud no confirman giro/camara real. Primero giro sin FP, despues FP.

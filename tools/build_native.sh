@@ -4,8 +4,10 @@ cd "$(dirname "$0")/.."
 native_cc=${RE4_MINGW_CC:-/workspace/tools/mingw32/usr/bin/i686-w64-mingw32-gcc-posix}
 mkdir -p native/build
 "$native_cc" -std=c11 -O2 -Wall -Wextra -Werror -Wno-cast-function-type -shared \
-  native/re4_control.c -o native/build/dinput8.dll -Wl,--kill-at,--no-insert-timestamp -static-libgcc
+  native/re4_control.c -o native/build/dinput8.dll -Wl,--kill-at,--no-insert-timestamp -static-libgcc -lm
 gcc -std=c11 -Wall -Wextra -Werror native/test_control.c -o native/build/test-control
 native/build/test-control
 gcc -std=c11 -Wall -Wextra -Werror native/test_branch.c -o native/build/test-branch
 native/build/test-branch
+gcc -std=c11 -Wall -Wextra -Werror native/test_look.c -o native/build/test-look -lm
+native/build/test-look

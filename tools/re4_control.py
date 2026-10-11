@@ -3,6 +3,7 @@ import ctypes
 from ctypes import wintypes as w
 import os
 import time
+import math
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
 
@@ -18,6 +19,18 @@ def validate_control(frame):
         raise ProtocolError("Invalid arm generation")
     if frame["armed"] and frame["arm_id"] == 0:
         raise ProtocolError("Explicit arm generation required")
+    look = frame.get("look")
+    if look is not None:
+        if not isinstance(look, dict) or type(look.get("enabled")) is not bool or type(look.get("first_person")) is not bool:
+            raise ProtocolError("Invalid look flags")
+        if look["first_person"] and not look["enabled"]:
+            raise ProtocolError("First person requires mouse control")
+        for name, limit in [("total_yaw", 10000000), ("pitch", 85), ("eye_height", 250)]:
+            value = look.get(name)
+            if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > limit:
+                raise ProtocolError("Invalid look value")
+        if abs(look["eye_height"]) < 40:
+            raise ProtocolError("Invalid eye height")
 
 
 class ControlPolicy:
@@ -44,10 +57,20 @@ class ControlPolicy:
         if status["stop"] or not status["ticking"]:
             self.armed = False
             reason = "parada nativa" if status["stop"] else "modulo sin ticks recientes"
-        self.writer.publish(self.armed, frame["buttons"] if self.armed else 0)
+        look = frame.get("look")
+        if look and look["enabled"] and not (status.get("capabilities", 0) & 1):
+            self.armed = False
+            reason = "DLL sin soporte de raton"
+        if look and look["first_person"] and not (status.get("capabilities", 0) & 2):
+            self.armed = False
+            reason = "firma de camara no disponible"
+        self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
+                            look=look if self.armed else None, generation=frame["arm_id"])
         return {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
-                "reason": "activo" if self.armed else reason}
+                "reason": "activo" if self.armed else reason,
+                "capabilities": status.get("capabilities", 0), "camera_active": status.get("camera_active", False),
+                "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
 
     def stop(self):
         self.armed = False
@@ -82,9 +105,18 @@ class NativeControl:
             self.k.CloseHandle(self.handle)
             raise ReaderError(f"MapViewOfFile fallo (Windows {code})")
         self.words = (ctypes.c_uint32 * 10).from_address(self.address)
+        self.version = self.words[1]
+        if self.version == 2:
+            self.k.UnmapViewOfFile(self.address)
+            self.address = self.k.MapViewOfFile(self.handle, 6, 0, 0, 80)
+            if not self.address:
+                code = ctypes.get_last_error()
+                self.k.CloseHandle(self.handle)
+                raise ReaderError(f"MapViewOfFile IPC v2 fallo (Windows {code})")
+            self.words = (ctypes.c_uint32 * 20).from_address(self.address)
         self.last_ticks = self.words[8]
         self.last_tick_time = time.monotonic() - 1
-        if self.words[0] != MAGIC or self.words[1] != 1 or self.words[7] != 1:
+        if self.words[0] != MAGIC or self.version not in (1,2) or self.words[7] != 1:
             code = self.words[7]
             self.k.UnmapViewOfFile(self.address)
             self.k.CloseHandle(self.handle)
@@ -98,17 +130,27 @@ class NativeControl:
             self.last_tick_time = time.monotonic()
         return {"stop": self.words[6], "hook_ticks": ticks,
                 "native_buttons": self.words[9],
+                "capabilities": self.words[15] if self.version == 2 else 0,
+                "camera_active": bool(self.words[19] and self.words[4]) if self.version == 2 else False,
+                "look_packets": self.words[18] if self.version == 2 else 0,
+                "camera_ticks": self.words[17] if self.version == 2 else 0,
                 "ticking": ticks != 0 and time.monotonic() - self.last_tick_time < 0.5}
 
     def reset_stop(self):
         self.words[6] = 0
 
-    def publish(self, armed, buttons):
+    def publish(self, armed, buttons, look=None, generation=0):
         seq = (self.words[2] + 1) | 1
         self.words[2] = seq & 0xFFFFFFFF
         self.words[3] = self.k.GetTickCount()
         self.words[4] = int(armed)
         self.words[5] = buttons
+        if self.version == 2:
+            for offset, value in [(40, look["total_yaw"] if look else 0),
+                                  (44, look["pitch"] if look else 0), (48, look["eye_height"] if look else 160)]:
+                ctypes.c_float.from_address(self.address + offset).value = value
+            self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1)) if armed and look else 0
+            self.words[14] = generation
         self.words[2] = (seq + 1) & 0xFFFFFFFF
 
     def close(self):

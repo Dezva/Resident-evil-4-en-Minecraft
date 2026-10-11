@@ -8,10 +8,13 @@ from re4_reader import (DEFAULT_EXE, VERSION_SIGNATURE, ReaderError, WindowsProc
 
 KEY_SIGNATURE = "A1 ? ? ? ? 33 C9 83 E0 ? 83 3D"
 PAD_SIGNATURE = "E8 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? 6A 04 E8 ? ? ? ? 83 C4 18 E8 ? ? ? ? E8 ? ? ? ? A1"
+CAMERA_SIGNATURE = "52 8D 85 ? ? ? ? 50 8D 4D ? 51 8B CB E8"
+CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
 
 
 def inspect(read, base, size, query=None):
-    report = {"mode": "READ ONLY", "checks": {}, "sections": []}
+    report = {"mode": "READ ONLY", "checks": {}, "sections": [],
+              "note": "Con DLL activa, las ramas ya instaladas pueden apuntar a dinput8 fuera de bio4; no implica fallo."}
     checks = report["checks"]
     offset = u32(read(base, 64), 0x3c)
     header = read(base + offset, 24)
@@ -27,11 +30,31 @@ def inspect(read, base, size, query=None):
         report["sections"].append(row)
         blobs.append((address, read(address, length)))
     hits = {}
-    for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE)]:
+    for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE),
+                            ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE)]:
         found = [address + hit for address, data in blobs for hit in matches(data, signature)]
         checks[name + "_matches"] = len(found)
         if len(found) == 1:
             hits[name] = found[0]
+    if 'camera_ctrl' in hits:
+        pointer = u32(read(hits['camera_ctrl'] + 3, 4))
+        checks['camera_ctrl_in_module'] = base <= pointer <= base + size - 0x788
+        if checks['camera_ctrl_in_module']:
+            read(pointer, 0x788)
+            checks['camera_ctrl_readable'] = True
+    if 'camera' in hits:
+        call = hits['camera'] + 14
+        wrapper = call + 5 + struct.unpack('<i', read(call+1,4))[0]
+        checks['camera_wrapper_in_module'] = base <= wrapper <= base + size - 5
+        if checks['camera_wrapper_in_module']:
+            data = read(wrapper,5)
+            report['camera_branch_details'] = {'wrapper_rva':hex(wrapper-base), 'wrapper_bytes':data.hex(' ')}
+            checks['camera_wrapper_branch'] = data[0] in (0xe8,0xe9)
+            if checks['camera_wrapper_branch']:
+                target = wrapper + 5 + struct.unpack_from('<i',data,1)[0]
+                checks['camera_target_in_module'] = base <= target < base + size
+                if checks['camera_target_in_module'] and query:
+                    checks['camera_target_executable'] = bool(query(target)['protection'] & (0x20|0x40|0x80))
     if "version" in hits:
         pointer = u32(read(hits["version"] + 1, 4))
         checks["version_pointer_in_module"] = base <= pointer <= base + size - 6

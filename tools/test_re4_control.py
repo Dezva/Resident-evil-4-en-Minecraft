@@ -1,6 +1,7 @@
 import unittest
 from fake_re4_host import ProtocolError
-from re4_control import ControlPolicy, validate_control
+from re4_control import ControlPolicy, validate_control, NativeControl
+import ctypes
 
 
 class Writer:
@@ -8,7 +9,7 @@ class Writer:
         self.stop_code = 0
         self.ticking = True
         self.writes = []
-    def publish(self, armed, buttons): self.writes.append((armed, buttons))
+    def publish(self, armed, buttons, **kwargs): self.writes.append((armed, buttons))
     def reset_stop(self): self.stop_code = 0
     def status(self): return {"stop": self.stop_code, "ticking": self.ticking, "hook_ticks": 10}
 
@@ -70,6 +71,40 @@ class ControlTests(unittest.TestCase):
         status = policy.apply(self.frame(generation=2), sample)
         self.assertEqual(status['reason'], 'modulo sin ticks recientes')
         self.assertFalse(status['armed'])
+
+    def test_look_validation_capability_and_explicit_rearm(self):
+        look = {'enabled': True, 'first_person': True, 'total_yaw': 22.0, 'pitch': 10.0, 'eye_height': 160.0}
+        writer = Writer()
+        policy = ControlPolicy(writer)
+        frame = dict(self.frame(), look=look)
+        self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
+        for field, value in [('total_yaw',float('nan')), ('pitch',86), ('eye_height',0), ('enabled',1)]:
+            invalid = dict(frame, look=dict(look, **{field:value}))
+            with self.assertRaises(ProtocolError): validate_control(invalid)
+        original_status = writer.status
+        writer.status = lambda: dict(original_status(), capabilities=3)
+        # Rejected generation is not allowed to arm automatically when capabilities appear.
+        self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
+        self.assertTrue(policy.apply(dict(frame, arm_id=2), {'state':'player'})['armed'])
+
+    def test_ipc_v2_publication_preserves_native_status_and_disarms_look(self):
+        native = NativeControl.__new__(NativeControl)
+        backing = (ctypes.c_uint32 * 20)()
+        native.version = 2
+        native.words = backing
+        native.address = ctypes.addressof(backing)
+        class Kernel:
+            def GetTickCount(self): return 123
+        native.k = Kernel()
+        backing[15] = 3; backing[17] = 50
+        look = {'enabled': True, 'first_person': True, 'total_yaw': 22.0, 'pitch': 10.0, 'eye_height': 160.0}
+        native.publish(True, 1, look, 7)
+        self.assertEqual(backing[2] % 2, 0)
+        self.assertEqual((backing[4],backing[5],backing[13],backing[14]), (1,1,3,7))
+        self.assertEqual(ctypes.c_float.from_address(native.address+40).value, 22)
+        self.assertEqual((backing[15],backing[17]), (3,50))
+        native.publish(False,0)
+        self.assertEqual((backing[4],backing[5],backing[13]), (0,0,0))
 
 
 if __name__ == "__main__": unittest.main()

@@ -1,5 +1,5 @@
 allprojects {
     group = 'dev.dezva.re4bridge'
-    version = '0.3.5'
+    version = '0.4.0'
 }
 tasks.register('test') { dependsOn ':bridge-core:test' }

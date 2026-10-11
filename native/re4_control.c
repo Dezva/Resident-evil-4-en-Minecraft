@@ -6,6 +6,7 @@
 #include <string.h>
 #include "control_logic.h"
 #include "branch_logic.h"
+#include "look_logic.h"
 
 typedef struct {
     uint32_t magic, version;
@@ -13,8 +14,12 @@ typedef struct {
     volatile uint32_t stamp, armed, buttons;
     volatile LONG stop, status, hook_ticks;
     volatile uint32_t native_buttons;
+    volatile float look_total, pitch, eye_height;
+    volatile uint32_t look_flags, arm_id, capabilities;
+    volatile float applied_yaw;
+    volatile LONG camera_ticks, look_applied_count, camera_active;
 } Shared;
-_Static_assert(sizeof(Shared) == 40, "IPC layout");
+_Static_assert(sizeof(Shared) == 80, "IPC v2 layout");
 static Shared *state;
 /* Retain the named mapping handle until process exit, independently of its view. */
 static HANDLE shared_mapping;
@@ -22,6 +27,23 @@ static HMODULE system_dinput;
 static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 static void (__cdecl *original_pad)(void);
 static volatile uint64_t *key_on;
+static volatile uint32_t *player_slot;
+static unsigned char *image_base;
+static DWORD image_size;
+static unsigned char *camera_ctrl;
+typedef struct { float position[3], target[3], roll, fovy; } CameraPoint;
+static void (__attribute__((fastcall)) *original_camera)(void *, void *, void *, void *, CameraPoint *);
+static uint32_t last_look_sequence, last_arm_id, last_player;
+static float consumed_yaw;
+
+static int writable(const void *pointer, SIZE_T length) {
+    MEMORY_BASIC_INFORMATION m;
+    return VirtualQuery(pointer, &m, sizeof(m)) && m.State == MEM_COMMIT
+        && !(m.Protect & (PAGE_GUARD | PAGE_NOACCESS))
+        && (m.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE))
+        && (uintptr_t)pointer >= (uintptr_t)m.BaseAddress
+        && length <= m.RegionSize - ((uintptr_t)pointer - (uintptr_t)m.BaseAddress);
+}
 
 /* Only readable committed memory; never infer fallback addresses. */
 static int readable(const void *pointer, SIZE_T length) {
@@ -35,6 +57,34 @@ static int readable(const void *pointer, SIZE_T length) {
         && length <= m.RegionSize - ((uintptr_t)pointer - (uintptr_t)m.BaseAddress);
 }
 
+static uint32_t current_player(void) {
+    uint32_t player = player_slot ? *player_slot : 0;
+    if (player < 0x10000 || player > 0xFFFFFF00 || (player & 3u)
+            || !readable((void *)(uintptr_t)player, 0xAC)) return 0;
+    uint32_t vtable; memcpy(&vtable, (void *)(uintptr_t)player, 4);
+    if (vtable < (uintptr_t)image_base || vtable >= (uintptr_t)image_base + image_size) return 0;
+    return player;
+}
+
+static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
+        void *matrix, void *offset, CameraPoint *point) {
+    original_camera(self, unused, matrix, offset, point);
+    InterlockedIncrement(&state->camera_ticks);
+    state->camera_active = 0;
+    LONG before = state->sequence;
+    MemoryBarrier();
+    uint32_t stamp = state->stamp, armed = state->armed, flags = state->look_flags;
+    float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
+    MemoryBarrier();
+    if (before != state->sequence || (before & 1) || !armed || state->stop
+            || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
+            || !re4_valid_look(total,pitch,eye,flags) || !current_player()
+            || self != camera_ctrl + 0x278 || !writable(point,sizeof(*point))) return;
+    /* Override only this frame's camera point; retain game's roll/FOV and player collision. */
+    re4_eye_point(pitch, eye, point->position, point->target);
+    state->camera_active = 1;
+}
+
 static void __cdecl pad_hook(void) {
     original_pad();
     InterlockedIncrement(&state->hook_ticks);
@@ -42,6 +92,8 @@ static void __cdecl pad_hook(void) {
     LONG before = state->sequence;
     MemoryBarrier();
     uint32_t stamp = state->stamp, armed = state->armed, buttons = state->buttons;
+    uint32_t flags = state->look_flags, generation = state->arm_id;
+    float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
     MemoryBarrier();
     LONG after = state->sequence;
     uint32_t now = GetTickCount();
@@ -51,13 +103,35 @@ static void __cdecl pad_hook(void) {
         uint32_t input = re4_buttons((uint32_t)before, (uint32_t)after, now, stamp, armed, (uint32_t)state->stop, buttons);
         *key_on = (*key_on & ~(uint64_t)RE4_MOVEMENT_MASK) | input;
         state->native_buttons = input;
-    } else state->native_buttons = 0;
+        if ((state->capabilities & 1u) && (flags & 1u) && re4_valid_look(total,pitch,eye,flags)) {
+            uint32_t player = current_player();
+            if (player && writable((void *)(uintptr_t)(player + 0xA4),4)) {
+                if (last_arm_id != generation || last_player != player) {
+                    consumed_yaw = (last_arm_id == generation && last_player != player) ? total : 0;
+                    last_arm_id = generation; last_player = player;
+                    last_look_sequence = (uint32_t)before - 2u;
+                }
+                if (last_look_sequence != (uint32_t)before) {
+                    float *yaw = (float *)(uintptr_t)(player + 0xA4);
+                    if (*player_slot == player && isfinite(*yaw) && fabsf(*yaw) <= 100000000.f) {
+                        *yaw = re4_wrap_yaw(*yaw + re4_take_yaw(total, &consumed_yaw));
+                        state->applied_yaw = *yaw;
+                        InterlockedIncrement(&state->look_applied_count);
+                    }
+                    last_look_sequence = (uint32_t)before;
+                }
+            }
+        }
+    } else { state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0; }
 }
 
 /* Literal bytes with -1 wildcards; these are interoperable signatures, not absolute addresses. */
 static const int version_pattern[] = {0x68,-1,-1,-1,-1,0x8B,0xC8,0xE8,-1,-1,-1,-1,0xDC,0x2D,-1,-1,-1,-1,0xA1,-1,-1,-1,-1,0xDC,0x25};
 static const int key_pattern[] = {0xA1,-1,-1,-1,-1,0x33,0xC9,0x83,0xE0,-1,0x83,0x3D};
 static const int pad_pattern[] = {0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0x68,-1,-1,-1,-1,0x6A,0x04,0xE8,-1,-1,-1,-1,0x83,0xC4,0x18,0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0xA1};
+static const int player_pattern[] = {0xA1,-1,-1,-1,-1,0xD8,0xCC,0xD8,0xC9,0xD8,0xCA,0xD9,0x5D,-1,0xD9,0x45,-1};
+static const int camera_pattern[] = {0x52,0x8D,0x85,-1,-1,-1,-1,0x50,0x8D,0x4D,-1,0x51,0x8B,0xCB,0xE8};
+static const int ctrl_pattern[] = {0xD9,0xEE,0xB9,-1,-1,-1,-1,0xD9,0x9E,0xA4,0x00,0x00,0x00,0xE8,-1,-1,-1,-1,0xD9,0xEE};
 
 static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
         IMAGE_NT_HEADERS32 *nt, const int *pattern, SIZE_T length) {
@@ -88,7 +162,7 @@ static void install_hook(void) {
     state = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared));
     if (!state) { CloseHandle(mapping); return; }
     shared_mapping = mapping;
-    memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 1; state->status = 2;
+    memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
     unsigned char *base = (unsigned char *)GetModuleHandleW(NULL);
     if (!readable(base, sizeof(IMAGE_DOS_HEADER))) return;
     IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
@@ -137,6 +211,38 @@ static void install_hook(void) {
     DWORD ignored;
     if (!VirtualProtect(call,5,old_protect,&ignored)) return;
     state->status = 1;
+    image_base = base; image_size = size;
+    unsigned char *p = unique_pattern(base,size,nt,player_pattern,sizeof(player_pattern)/sizeof(int));
+    uint32_t slot;
+    if (!p) return;
+    memcpy(&slot,p+1,4);
+    if (slot < (uintptr_t)base || slot > (uintptr_t)base+size-4 || !readable((void *)(uintptr_t)slot,4)) return;
+    player_slot = (volatile uint32_t *)(uintptr_t)slot;
+    state->capabilities = 1;
+    unsigned char *c = unique_pattern(base,size,nt,camera_pattern,sizeof(camera_pattern)/sizeof(int));
+    unsigned char *ctrl = unique_pattern(base,size,nt,ctrl_pattern,sizeof(ctrl_pattern)/sizeof(int));
+    if (!c || !ctrl) return;
+    uint32_t ctrl_address; memcpy(&ctrl_address,ctrl+3,4);
+    if (ctrl_address < (uintptr_t)base || ctrl_address > (uintptr_t)base+size-0x788
+            || !readable((void *)(uintptr_t)ctrl_address,0x788)) return;
+    memcpy(&displacement,c+15,4);
+    uintptr_t camera_wrapper = (uintptr_t)(c+19) + displacement;
+    if (camera_wrapper < (uintptr_t)base || camera_wrapper > (uintptr_t)base+size-5
+            || !readable((void *)camera_wrapper,5)) return;
+    uint32_t camera_target_rva;
+    if (!re4_relative_target((unsigned char *)camera_wrapper, (uint32_t)(camera_wrapper-(uintptr_t)base),size,&camera_target_rva)) return;
+    uintptr_t camera_target = (uintptr_t)base+camera_target_rva;
+    if (!readable((void *)camera_target,1)) return;
+    VirtualQuery((void *)camera_target,&code_memory,sizeof(code_memory));
+    if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;
+    camera_ctrl = (unsigned char *)(uintptr_t)ctrl_address;
+    original_camera = (void (__attribute__((fastcall)) *)(void *,void *,void *,void *,CameraPoint *))camera_target;
+    if (!VirtualProtect((void *)camera_wrapper,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
+    replacement = (int32_t)((uintptr_t)camera_hook - (camera_wrapper+5));
+    memcpy((void *)(camera_wrapper+1),&replacement,4);
+    FlushInstructionCache(GetCurrentProcess(),(void *)camera_wrapper,5);
+    if (!VirtualProtect((void *)camera_wrapper,5,old_protect,&ignored)) return;
+    state->capabilities |= 2u;
 }
 
 static BOOL CALLBACK initialize(PINIT_ONCE unused, PVOID parameter, PVOID *context) {

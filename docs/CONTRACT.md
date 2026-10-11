@@ -1,5 +1,21 @@
 # Puente v1: contrato del prototipo
 
+## Orientacion opcional 0.4.0 (IPC nativo v2)
+
+re4_control puede agregar look {enabled, first_person, total_yaw, pitch,
+eye_height}. Flags booleanos; first_person requiere enabled. total_yaw finito
+abs<=1e7 grados acumulados, pitch finito +/-85, altura finita abs 40..250.
+Ausencia/frame desarmado desactiva look. ACK agrega capabilities 0..3 (raton1,
+camara2), camera_active booleano y contadores look_packets/camera_ticks.
+
+IPC v2 conserva palabras 0..9 y agrega floats total_yaw/pitch/eye_height
+en 10..12, flags13, arm_id14, capacidades15, yaw aplicado16, ticks camara17,
+muestras look18 y camara activa19. 80 bytes; magic anterior, version2 y
+seqlock sobre entrada extendida. Host acepta v1 solo para movimiento.
+Una secuencia consume una muestra; delta maximo30 grados y diferencia pendiente.
+Camara opt-in cambia resultado por frame de QuasiFPS::hitCheck sin teleport,
+con FOV/roll originales. El rearme reinicia el acumulador.
+
 ## Control nativo (mod 0.3.5; compatible con host anterior)
 
 Modo separado `re4_control`, solicitado con `/re4bridge controller` y host

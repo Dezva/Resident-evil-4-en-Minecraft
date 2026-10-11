@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import dev.dezva.re4bridge.ControlArming;
+import dev.dezva.re4bridge.MouseLook;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.Perspective;
@@ -46,6 +47,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private int turnSign = 1;
     private final ControlArming controlArming = new ControlArming();
     private int controlHudTicks;
+    private final MouseLook mouseLook = new MouseLook();
+    private boolean mouseEnabled;
+    private boolean firstPersonEnabled;
+    private double eyeHeight = 160;
 
     @Override public void onInitializeClient() {
         try {
@@ -59,6 +64,28 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 .then(literal("connect").executes(ctx -> connect(ctx.getSource().getClient(), false)))
                 .then(literal("re4").executes(ctx -> connect(ctx.getSource().getClient(), true)))
                 .then(literal("controller").executes(ctx -> connectController(ctx.getSource().getClient())))
+                .then(literal("mouse").executes(ctx -> {
+                    if (bridge == null || !bridge.controllerMode() || (bridge.nativeCapabilities() & 1) == 0) {
+                        say(ctx.getSource().getClient(), "Raton no disponible: conecta el host y DLL 0.4.0 con controller."); return 0;
+                    }
+                    stopDriving(); mouseEnabled = !mouseEnabled;
+                    if (!mouseEnabled) firstPersonEnabled = false;
+                    say(ctx.getSource().getClient(), "Raton: " + mouseEnabled + ". Usa arm para probar."); return 1;
+                }))
+                .then(literal("firstperson").executes(ctx -> {
+                    if (bridge == null || !bridge.controllerMode() || (bridge.nativeCapabilities() & 2) == 0) {
+                        say(ctx.getSource().getClient(), "Camara no disponible: la DLL no valido la firma de camara."); return 0;
+                    }
+                    stopDriving(); firstPersonEnabled = !firstPersonEnabled;
+                    if (firstPersonEnabled) mouseEnabled = true;
+                    say(ctx.getSource().getClient(), "Primera persona experimental: " + firstPersonEnabled + ". Usa arm."); return 1;
+                }))
+                .then(literal("eyeheight").then(argument("height", DoubleArgumentType.doubleArg(-250, 250)).executes(ctx -> {
+                    double height = DoubleArgumentType.getDouble(ctx, "height");
+                    if (Math.abs(height) < 40) { say(ctx.getSource().getClient(), "Altura absoluta entre 40 y 250 unidades RE4."); return 0; }
+                    stopDriving(); eyeHeight = height;
+                    say(ctx.getSource().getClient(), "Altura de camara: " + height + ". Usa arm."); return 1;
+                })))
                 .then(literal("arm").executes(ctx -> {
                     var current = bridge;
                     var sample = current == null ? null : current.re4Sample();
@@ -69,6 +96,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     }
                     following = false;
                     controlArming.request(System.nanoTime());
+                    mouseLook.reset();
                     current.publishControl(false, 0, controlArming.generation());
                     say(ctx.getSource().getClient(), "Cierra el chat para activar control. Mira el indicador sobre la barra de items. F8 detiene.");
                     return 1;
@@ -159,6 +187,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
 
     private void disconnect(MinecraftClient client) {
         stopDriving();
+        mouseEnabled = false; firstPersonEnabled = false;
         if (bridge != null) bridge.close();
         bridge = null;
         following = false;
@@ -177,6 +206,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
 
     private void stopDriving() {
         controlArming.stop("desarmado");
+        mouseLook.reset();
         if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, controlArming.generation());
     }
 
@@ -230,11 +260,18 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (client.options.rightKey.isPressed()) buttons |= 4;
                 if (client.options.leftKey.isPressed()) buttons |= 8;
             }
-            current.publishControl(controlArming.active(), buttons, controlArming.generation());
+            MouseLook.Input look = null;
+            if (controlArming.active() && mouseEnabled) {
+                try { look = mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
+                catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
+            } else mouseLook.reset();
+            current.publishControl(controlArming.active(), buttons, controlArming.generation(), look);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
-                "RE4: " + controlArming.reason() + " | teclas=" + buttons
-                + " | nativo=" + current.nativeArmed() + " | aplicado=" + current.nativeButtons()
-                + " | host: " + current.nativeReason()), true);
+                "RE4: " + controlArming.reason() + " | arm=" + (current.nativeArmed() ? "si" : "no")
+                + " | teclas=" + buttons + "/" + current.nativeButtons()
+                + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
+                + " | FP=" + (current.cameraActive() ? "si" : "no")
+                + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }
         if (client.isPaused()) return;
         if (current.readerMode()) {

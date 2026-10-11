@@ -78,10 +78,11 @@ public static class RE4BridgeDiagnostic {
             try {
                 $magic = [Runtime.InteropServices.Marshal]::ReadInt32($view, 0)
                 $version = [Runtime.InteropServices.Marshal]::ReadInt32($view, 4)
-                if ($magic -ne 0x52453443 -or $version -ne 1) { throw 'IPC con identificador/version inesperados.' }
+                if ($magic -ne 0x52453443 -or $version -notin @(1,2)) { throw 'IPC con identificador/version inesperados.' }
                 $status = [Runtime.InteropServices.Marshal]::ReadInt32($view, 28)
                 $ticks = [Runtime.InteropServices.Marshal]::ReadInt32($view, 32)
                 Write-Host ('IPC PRESENTE, estado: ' + $status + ', ticks: ' + $ticks)
+                Write-Host ('Protocolo IPC: ' + $version)
                 Write-Host 'Estados: 1 listo; 2 firmas/version no aceptadas; 3 fallo al instalar hook.'
             } finally { [void][RE4BridgeDiagnostic]::UnmapViewOfFile($view) }
         } finally { [void][RE4BridgeDiagnostic]::CloseHandle($handle) }

@@ -21,6 +21,9 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile long nativeTicks;
     private volatile int nativeButtons;
     private volatile String nativeReason = "sin detalle";
+    private volatile int nativeCapabilities;
+    private volatile boolean cameraActive;
+    private volatile long nativeLookPackets;
     private volatile Re4Sample re4Sample;
     private final AtomicReference<JsonObject> pose = new AtomicReference<>();
     private final AtomicReference<JsonObject> collision = new AtomicReference<>();
@@ -39,11 +42,23 @@ public final class BridgeConnection implements AutoCloseable {
     public long nativeTicks() { return nativeTicks; }
     public int nativeButtons() { return nativeButtons; }
     public String nativeReason() { return nativeReason; }
+    public int nativeCapabilities() { return nativeCapabilities; }
+    public boolean cameraActive() { return cameraActive; }
+    public long nativeLookPackets() { return nativeLookPackets; }
     public void publishControl(boolean armed, int buttons, int generation) {
+        publishControl(armed, buttons, generation, null);
+    }
+    public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look) {
         if (buttons < 0 || buttons > 15 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
+        if (look != null && armed) {
+            JsonObject data = new JsonObject();
+            data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
+            data.addProperty("total_yaw", look.totalYaw()); data.addProperty("pitch", look.pitch());
+            data.addProperty("eye_height", look.eyeHeight()); frame.add("look", data);
+        }
         control.set(new ControlFrame(frame, System.nanoTime()));
     }
     public Re4Sample re4Sample() { return re4Sample; }
@@ -152,6 +167,18 @@ public final class BridgeConnection implements AutoCloseable {
                                 throw new IOException("Invalid native reason");
                             nativeReason = value.getAsString();
                         }
+                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 3);
+                        if (state.has("camera_active")) {
+                            if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");
+                            cameraActive = state.get("camera_active").getAsBoolean();
+                        }
+                        if (state.has("look_packets")) {
+                            var value = state.getAsJsonPrimitive("look_packets");
+                            nativeLookPackets = value.getAsLong();
+                            if (!value.isNumber() || nativeLookPackets < 0 || nativeLookPackets > 0xFFFFFFFFL
+                                    || !value.getAsString().equals(Long.toString(nativeLookPackets)))
+                                throw new IOException("Invalid look counter");
+                        }
                     }
                 }
                 status = new Status(true, modeMessage, sequence);
@@ -171,6 +198,13 @@ public final class BridgeConnection implements AutoCloseable {
 
     private static String string(JsonObject frame, String key) {
         return frame.has(key) && frame.get(key).isJsonPrimitive() ? frame.get(key).getAsString() : "";
+    }
+    private static int boundedInteger(JsonObject frame, String key, int max) throws IOException {
+        var value = frame.getAsJsonPrimitive(key);
+        int result = value.getAsInt();
+        if (!value.isNumber() || result < 0 || result > max || !value.getAsString().equals(Integer.toString(result)))
+            throw new IOException("Invalid " + key);
+        return result;
     }
 
     @Override public void close() {

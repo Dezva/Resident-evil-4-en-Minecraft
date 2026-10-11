@@ -1,4 +1,7 @@
-# Paquete/mod 0.3.5: controles Minecraft -> RE4 UHD 1.1.0 (DLL 0.3.4)
+# Controles Minecraft -> RE4 UHD 1.1.0
+
+Para 0.4.0, sigue [raton y camara](RE4-MOUSE-CAMERA.md). El usuario confirmo
+W/S/A/D de 0.3.5 sin retraso notable. Las actualizaciones siguientes son historicas.
 
 ## Actualizacion del armado y estado visible 0.3.5
 

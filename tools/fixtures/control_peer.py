@@ -10,12 +10,14 @@ from re4_control import ControlPolicy
 
 class Writer:
     def __init__(self): self.armed = False; self.buttons = 0
-    def publish(self, armed, buttons):
+    def publish(self, armed, buttons, **kwargs):
         self.armed = armed
         self.buttons = buttons if armed else 0
         print(f"INPUT armed={armed} buttons={buttons}", flush=True)
+        if kwargs.get('look'): print('LOOK ' + str(kwargs['look']), flush=True)
     def reset_stop(self): pass
-    def status(self): return {"stop": 0, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons}
+    def status(self): return {"stop": 0, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons,
+                              "capabilities": 3, "camera_active": False, "look_packets": 10, "camera_ticks": 50}
 
 
 parser = argparse.ArgumentParser()

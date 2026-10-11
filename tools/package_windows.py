@@ -39,9 +39,13 @@ def main():
                            (root / "tools/fake_re4_host.py", "tools/fake_re4_host.py"),
                            (root / "START-RE4-BRIDGE.bat", "START-RE4-BRIDGE.bat"),
                            (root / "START-RE4-CONTROLS.bat", "START-RE4-CONTROLS.bat"),
+                           (root / "VIEW-RE4.bat", "VIEW-RE4.bat"),
+                           (root / "VIEW-RE4.ps1", "VIEW-RE4.ps1"),
+                           (root / "tools/RE4View.cs", "tools/RE4View.cs"),
+                           (root / "docs/RE4-VIEW.md", "docs/RE4-VIEW.md"),
                            (root / "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.bat"),
                            (root / "DIAGNOSE-RE4-CONTROLS.ps1", "DIAGNOSE-RE4-CONTROLS.ps1"),
-                           (root / "PROBE-RE4-NATIVE.bat", "PROBE-RE4-NATIVE.bat"),
+                           (root / "PROBE-RE4-NATIVE.bat", "VIEW-RE4.bat", "VIEW-RE4.ps1", "PROBE-RE4-NATIVE.bat"),
                            (root / "tools/re4_native_probe.py", "tools/re4_native_probe.py"),
                            (root / "INSTALL-RE4-CONTROLS.ps1", "INSTALL-RE4-CONTROLS.ps1"),
                            (root / "UNINSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1"),
@@ -69,7 +73,7 @@ def main():
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
                  "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
-                 "PROBE-RE4-NATIVE.bat",
+                 "PROBE-RE4-NATIVE.bat", "VIEW-RE4.bat", "VIEW-RE4.ps1",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

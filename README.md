@@ -112,3 +112,10 @@ equivale a una inspección del ejecutable desde esta máquina.
 Consultar [el contrato del protocolo](docs/CONTRACT.md),
 [el registro de desarrollo](MODLOG.md) y [la validación](docs/VALIDATION.md).
 Se distribuye código propio, sin ejecutables ni recursos extraídos de los juegos.
+
+## Vista de RE4 y retorno al juego normal
+
+El [complemento de vista para Windows](docs/RE4-VIEW.md) permite mostrar RE4
+sin bordes conservando el foco de Minecraft: F9 desde Minecraft presenta RE4;
+F8 o el boton Volver a RE4 normal detienen el puente y restauran la ventana/foco.
+Se distribuye separado, sin cambiar los mods ni DLL existentes.

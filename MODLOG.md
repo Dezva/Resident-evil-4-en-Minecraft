@@ -199,3 +199,14 @@ solo se retiene copia si es la matriz estatica CamCtrl/QuasiFPS documentada.
 Regresiones C comprueban que girar no desplaza el ojo, pitch vertical y mirada
 unitaria, valores no finitos y conservacion de bits Alive/Move/ajenos al restaurar.
 La efectividad del dibujo y la transformacion final siguen pendientes de Windows.
+
+## Complemento de vista 0.1.0
+
+VIEW-RE4.bat/ps1 y backend Win32: F9 presenta RE4 borderless/topmost sin activar
+la ventana; Minecraft conserva el foco. F8/boton Normal escriben solo parada
+IPC validada y restauran estilos/bordes/tamano/posicion/topmost/foco de RE4.
+Preparar Minecraft y F9 de vuelta desarman; perder foco o cerrar panel tambien.
+No cambia mod/host/DLL ni evita cortes de seguridad. Desktop sintetico y memoria
+IPC prueban foco, orden parada/retorno, fallo parcial, proteccion de HWND/pid,
+restauracion reintentable y parada v1/v2 sin modificar el frame del host.
+Presentacion real WinForms/RE4 pendiente de prueba Windows.

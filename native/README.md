@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.6
+# Native RE4 movement and optional look, 0.4.7
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -131,3 +131,19 @@ lists remain unsupported; no arbitrary first/majority selection. All other
 patterns retain unique-match policy. C tests cover seven matching callers and
 one discrepant/invalid/opcode-changed caller. Probe now lists every call's RVA,
 target, bytes and protection. Real activation remains unverified.
+
+## 0.4.7 observed two-target layout
+
+The supplied probe identifies six callers of thunkRVA0xE395 -> E9 ->0x19F3A0
+and one caller atRVA0x1F7BAD of thunk0x344F ->0x202F60. Pinned Game.cpp gives
+CameraCurrentProjection VA0x59F3A0, corresponding to RVA0x19F3A0 (preferred
+base0x400000). A version-gated explicit compatibility profile requires ALL
+seven observed callerRVAs, both thunkRVAs and their E9 destinations, with
+committed/readable/executable code. Only then select the six projection callers,
+leaving the unrelated one unchanged. Unknown/missing/altered layouts reject;
+no count-based vote or general fallback address. Module-relative validation
+supports relocation. Generic one-shared-target behavior remains unchanged.
+The portable C profile test uses the actual supplied RVAs/displacements, checks
+six selected sites and rejects modified/missing/differently resolved candidates.
+31 Python tests include the read-only profile report. This layout was identified
+in user diagnostics; DLL0.4.7 runtime activation/render remains unverified.

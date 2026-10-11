@@ -1,7 +1,8 @@
 """Synthetic audit tests. No Windows hook is installed or executed."""
 import struct
 import unittest
-from re4_native_probe import inspect, KEY_SIGNATURE, PAD_SIGNATURE, GLOBAL_SIGNATURE, PROJECTION_SIGNATURE
+from re4_native_probe import (inspect, KEY_SIGNATURE, PAD_SIGNATURE, GLOBAL_SIGNATURE, PROJECTION_SIGNATURE,
+                              observed_projection_profile, OBSERVED_PROJECTION_CALLS)
 from test_re4_reader import Memory
 
 
@@ -15,6 +16,18 @@ def fixture():
 
 
 class ProbeTests(unittest.TestCase):
+    def test_observed_profile_requires_all_calls_and_both_verified_destinations(self):
+        rows = [dict(call_rva=hex(call),target_rva=hex(0x344f if call==0x1f7bad else 0xe395),
+                     resolved_target_rva=hex(0x202f60 if call==0x1f7bad else 0x19f3a0))
+                for call in sorted(OBSERVED_PROJECTION_CALLS)]
+        self.assertTrue(observed_projection_profile(rows))
+        self.assertFalse(observed_projection_profile(rows[:-1]))
+        rows[0]['resolved_target_rva'] = '0x19f3a1'
+        self.assertFalse(observed_projection_profile(rows))
+        rows[0]['resolved_target_rva'] = '0x19f3a0'
+        rows[0]['resolved_target_executable'] = False
+        self.assertFalse(observed_projection_profile(rows))
+
     def test_seven_projection_calls_require_one_target(self):
         m = fixture()
         for i in range(7):

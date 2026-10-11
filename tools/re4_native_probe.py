@@ -13,6 +13,19 @@ SMOOTH_SIGNATURE = "E8 ? ? ? ? 80 BB B6 01 00 00 00"
 CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
 GLOBAL_SIGNATURE = "A1 ? ? ? ? B9 FF FF FF 7F 21 48 ? A1"
 PROJECTION_SIGNATURE = "E8 ? ? ? ? 8A 46 30 3C FD"
+OBSERVED_PROJECTION_CALLS = {0x1e7110,0x1e8697,0x1e8f4a,0x1ebb47,0x1f43d3,0x1f7bad,0x205dad}
+
+
+def observed_projection_profile(rows):
+    """Exact read-only UHD layout, not a majority or arbitrary fallback."""
+    if len(rows)!=7 or {int(row['call_rva'],16) for row in rows}!=OBSERVED_PROJECTION_CALLS:
+        return False
+    for row in rows:
+        other = int(row['call_rva'],16)==0x1f7bad
+        if row['target_rva']!=hex(0x344f if other else 0xe395): return False
+        if row.get('resolved_target_rva')!=hex(0x202f60 if other else 0x19f3a0): return False
+        if row.get('resolved_target_executable') is False or row.get('target_executable') is False: return False
+    return True
 
 
 def inspect(read, base, size, query=None):
@@ -56,11 +69,18 @@ def inspect(read, base, size, query=None):
             if inside:
                 row['target_bytes'] = read(target,min(16,base+size-target)).hex(' ')
                 if query: row['target_executable'] = bool(query(target)['protection'] & (0x20|0x40|0x80))
+                if target <= base+size-5 and read(target,1)==b'\xe9':
+                    resolved = target+5+struct.unpack('<i',read(target+1,4))[0]
+                    if base <= resolved < base+size:
+                        row['resolved_target_rva'] = hex(resolved-base)
+                        row['resolved_target_bytes'] = read(resolved,min(16,base+size-resolved)).hex(' ')
+                        if query: row['resolved_target_executable'] = bool(query(resolved)['protection'] & (0x20|0x40|0x80))
             rows.append(row)
         report['projection_calls'] = rows
         checks['projection_unique_targets'] = len(set(targets))
         checks['projection_target_in_module'] = all(row['target_in_module'] for row in rows)
         checks['projection_shared_target'] = len(set(targets)) == 1 and checks['projection_target_in_module'] and len(rows) <= 32
+        checks['projection_observed_profile'] = observed_projection_profile(rows)
         if query and checks['projection_target_in_module']:
             checks['projection_target_executable'] = all(row['target_executable'] for row in rows)
     if 'camera_ctrl' in hits:

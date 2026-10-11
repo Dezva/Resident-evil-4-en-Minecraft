@@ -415,7 +415,24 @@ static void install_hook(void) {
     for (unsigned i=0;i<projection_count;++i) projection_rvas[i] = (uint32_t)(projections[i]-base);
     uint32_t projection_target_rva;
     if (!re4_shared_call_target((const unsigned char *const *)projections,projection_rvas,
-            projection_count,size,&projection_target_rva)) return;
+            projection_count,size,&projection_target_rva)) {
+        uint32_t thunks[32], destinations[32]; unsigned selected[32], selected_count;
+        for (unsigned i=0;i<projection_count;++i) {
+            if (projections[i][0]!=0xE8 || !re4_relative_target(projections[i],projection_rvas[i],size,&thunks[i])
+                    || thunks[i]>size-5 || !readable(base+thunks[i],5) || base[thunks[i]]!=0xE9
+                    || !re4_relative_target(base+thunks[i],thunks[i],size,&destinations[i])
+                    || !readable(base+destinations[i],1)) return;
+            VirtualQuery(base+thunks[i],&code_memory,sizeof(code_memory));
+            if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;
+            VirtualQuery(base+destinations[i],&code_memory,sizeof(code_memory));
+            if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;
+        }
+        if (!re4_observed_projection_profile(projection_rvas,thunks,destinations,projection_count,
+                selected,&selected_count,&projection_target_rva)) return;
+        /* Ascending indices permit compaction without overwriting unread sites. */
+        for (unsigned i=0;i<selected_count;++i) projections[i] = projections[selected[i]];
+        projection_count = selected_count;
+    }
     uintptr_t projection_target = (uintptr_t)base+projection_target_rva;
     if (projection_target < (uintptr_t)base || projection_target >= (uintptr_t)base+size
             || !readable((void *)projection_target,1)) return;

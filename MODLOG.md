@@ -256,3 +256,12 @@ o alguna es inválida. Instala todas las llamadas solo tras validarlas. Nuevo
 PROBE muestra destinos/bytes de las siete coincidencias para investigar si
 todavía no se admite FP. Mod/host conservan0.4.3; paquete completo. Tres suites
 C,30 pruebas Python y fixtures PowerShell pasan; activación Windows pendiente.
+
+## 0.4.7
+
+Diagnóstico confirma dos destinos de proyección: seis llamadas resuelven la
+función de proyección documentada y una es otra función. Perfil estricto para
+el layout UHD1.1.0 observado valida siete sitios, thunks E9 y destinos antes
+de seleccionar las seis llamadas correctas. No selecciona por mayoría ni
+habilita layouts desconocidos. Mod/host0.4.3 sin cambios. Tres suites C y31
+pruebas Python pasan; activación FP0.4.7 en Windows pendiente.

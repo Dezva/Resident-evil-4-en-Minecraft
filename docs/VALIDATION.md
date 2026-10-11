@@ -210,3 +210,17 @@ Tres suites C y30 pruebas Python pasan: siete llamadas comunes, rechazo de
 una discrepante, opcode distinto, dirección fuera del módulo y lista vacía.
 Fixtures PowerShell de instalación y diagnóstico pasan. No se ha verificado
 la activación FP con DLL0.4.6 en el ejecutable Windows real del usuario.
+
+## 0.4.7 profile de dos destinos observado
+
+PROBE0.4.6 del usuario muestra projection_unique_targets=2: seis CALLs al
+thunk0xE395 con E9 06 10 19 00, que resuelve0x19F3A0, y una al thunk0x344F
+con E9 0C FB 1F 00, que resuelve0x202F60. Se verificó el Game.cpp de la
+revisión pública92c0208bd09c29c9640e13a2493b8e6bd6edd700: identifica
+CameraCurrentProjection VA0x59F3A0 (RVA0x19F3A0). No se eligió por mayoría.
+Perfil explícito exige los siete sitios RVA exactos, sus thunks/destinos E9
+y protecciones ejecutables; selecciona seis sitios y deja la otra función intacta.
+RVA relativos al módulo; no dirección absoluta ni perfil para otros ejecutables.
+Destino común genérico sigue disponible. Desconocidos/alterados/incompletos
+permanecen rechazados. Tres suites C y31 pruebas Python pasan; fixtures de
+instalación/diagnóstico también. Activación/render Windows0.4.7 pendiente.

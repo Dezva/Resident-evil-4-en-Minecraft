@@ -1,4 +1,4 @@
-# Native RE4 movement input, 0.3.0
+# Native RE4 movement input, 0.3.4
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -12,7 +12,7 @@ CALL at the destination to `PadRead` in KeyboardMouseTweaks.cpp, the Key_btn_on
 operand in Game.cpp and forward/back/right/left flags in SDK/pad.h. Our code
 independently resolves these patterns only in executable PE32/i386 sections and
 requires one match each, in-module operands/targets and title version `1.1.0`.
-It replaces only the nested CALL's displacement, preserves its opcode, calls
+It replaces only the entry branch's displacement (E8 CALL or E9 tail JMP), preserves its opcode, calls
 the original void cdecl function first, then replaces only four movement bits.
 It does not include the reference's source code, loader or binary.
 
@@ -21,6 +21,9 @@ game retains responsibility for locomotion, collisions, speed and movement
 restrictions in its routines. No player coordinates, save files or game EXE are
 patched. Runtime hook/DirectInput loading and actual collisions are still pending
 validation in the user's Windows installation; compilation is not proof of those.
+The user has confirmed DLL loading and IPC. A read-only audit found an E9 entry
+at RVA 0x7509 targeting 0x567360; 0.3.4 resolves it dynamically and accepts its
+branch type. A portable regression uses those exact observed bytes/RVAs.
 
 IPC: local Windows mapping `Local\RE4Bridge-Control-<pid>`, default process DACL,
 40 bytes (ten little-endian uint32 words): magic `0x52453443`, version 1,

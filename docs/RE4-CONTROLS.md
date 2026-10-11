@@ -1,4 +1,20 @@
-# Paquete 0.3.3: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0, DLL 0.3.1)
+# Paquete 0.3.4: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0)
+
+## Correccion del salto nativo 0.3.4
+
+El lector del usuario confirmo todas las firmas y una entrada E9 (salto relativo)
+en RVA 0x7509 que apunta a 0x567360. El modulo anterior exigia E8 (CALL), por eso
+rechazaba la entrada con estado 2. Ahora acepta ambos opcodes y conserva el
+opcode original al cambiar solo el desplazamiento. Mantiene los controles de
+version, unicidad, limites de imagen y proteccion ejecutable. No usa esos RVA
+como direcciones fijas: se siguen resolviendo por firmas.
+
+Para actualizar desde la DLL 0.3.1: cierra RE4, ejecuta el desinstalador de tu
+carpeta anterior (paquetes 0.3.1/0.3.2/0.3.3 usan el mismo hash), extrae 0.3.4
+en una carpeta nueva y ejecuta su instalador. No copies la DLL manualmente.
+El mod Minecraft 0.3.0 se conserva. Reinicia RE4, carga una partida y ejecuta
+el diagnostico de la carpeta nueva. Debe informar estado 1; con RE4 activo el
+contador ticks debe crecer. La prueba real sigue pendiente hasta observarlo.
 
 ## Correccion del diagnostico 0.3.2
 

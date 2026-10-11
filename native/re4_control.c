@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "control_logic.h"
+#include "branch_logic.h"
 
 typedef struct {
     uint32_t magic, version;
@@ -115,13 +116,13 @@ static void install_hook(void) {
     int32_t displacement;
     memcpy(&displacement,call+1,4);
     uintptr_t wrapper = (uintptr_t)(call+5) + displacement;
-    if (wrapper < (uintptr_t)base || wrapper > (uintptr_t)base+size-5 || !readable((void *)wrapper,5)
-            || *(unsigned char *)wrapper != 0xE8) return;
-    /* Public reference wraps the first CALL inside this wrapper, not the outer CALL. */
+    if (wrapper < (uintptr_t)base || wrapper > (uintptr_t)base+size-5 || !readable((void *)wrapper,5)) return;
+    /* The observed UHD entry is an E9 tail thunk. Preserve CALL/JMP semantics. */
     call = (unsigned char *)wrapper;
-    memcpy(&displacement,call+1,4);
-    uintptr_t target = (uintptr_t)(call+5) + displacement;
-    if (target < (uintptr_t)base || target >= (uintptr_t)base+size || !readable((void *)target,1)) return;
+    uint32_t target_rva;
+    if (!re4_relative_target(call, (uint32_t)(wrapper - (uintptr_t)base), size, &target_rva)) return;
+    uintptr_t target = (uintptr_t)base + target_rva;
+    if (!readable((void *)target,1)) return;
     MEMORY_BASIC_INFORMATION code_memory;
     VirtualQuery((void *)target,&code_memory,sizeof(code_memory));
     if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;

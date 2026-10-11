@@ -137,3 +137,13 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   ReadCall de ModUtils lee rel32 sin distinguir E8/E9; no se cambia aun el
   hook sin conocer los bytes de la entrada real. Cuarta prueba del lector
   comprueba salto relativo y que se conserva la memoria sintetica.
+
+## 0.3.4: entrada PadRead con salto E9
+
+- El usuario confirma entrada E9 52 FE 55 00, RVA 0x7509, destino 0x567360.
+- Se acepta E8/E9 manteniendo opcode y validacion de destino ejecutable;
+  no se usan direcciones fijas ni se omiten controles de firmas/version.
+- Regresion C usa bytes/RVA observados y verifica CALL, JMP, desplazamiento
+  negativo y rechazo de opcode/destino/rango invalidos.
+- Se conserva el mod Minecraft 0.3.0. DLL nueva requiere retirar la anterior
+  con su desinstalador y reinstalar/reiniciar RE4. Ejecucion real pendiente.

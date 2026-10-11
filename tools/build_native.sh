@@ -7,3 +7,5 @@ mkdir -p native/build
   native/re4_control.c -o native/build/dinput8.dll -Wl,--kill-at,--no-insert-timestamp -static-libgcc
 gcc -std=c11 -Wall -Wextra -Werror native/test_control.c -o native/build/test-control
 native/build/test-control
+gcc -std=c11 -Wall -Wextra -Werror native/test_branch.c -o native/build/test-branch
+native/build/test-branch

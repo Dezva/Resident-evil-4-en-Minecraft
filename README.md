@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.11: bloque visual de prueba](docs/RE4-BLOCK-0.4.11.md), requiere mod/host/DLL nuevos. Correr0.4.10 fue confirmado por el usuario. El nuevo cubo de líneas se vincula a un bloque seleccionado y requiere prueba Windows; no tiene colisión ni ocultación por terreno. Cámara pendiente. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [0.4.12: detector gráfico y retorno de foco](docs/RE4-BLOCK-0.4.12.md), requiere host/DLL/VIEW nuevos y conserva mod0.4.11. El usuario no vio el bloque en0.4.11: estado3 y frames0 confirman que el detector no encontró dispositivo. Se amplía búsqueda validada y añade diagnóstico; render real pendiente de Windows. Cubo visual sin colisión/ocultación por terreno. Correr0.4.10 confirmado; cámara pendiente. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

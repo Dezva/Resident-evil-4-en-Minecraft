@@ -57,3 +57,8 @@ estas en Minecraft, proteccion de HWND cerrado/reutilizado y limpieza tras
 fallos. Memoria sintetica comprueba IPC v1/v2: cambia solo stop (offset 24),
 preserva secuencia/inputs y rechaza identificador/version/estado desconocidos.
 La interfaz WinForms y el render de los juegos requieren prueba en Windows.
+
+En0.4.12, si Windows rechaza el foco de RE4 al volver, la sesión conserva la
+parada y la restauración de ventana, y el panel pide pulsar RE4 manualmente.
+No convierte ese rechazo en una excepción de retorno. Errores reales al restaurar
+la ventana conservan el estado pendiente para poder reintentar la limpieza.

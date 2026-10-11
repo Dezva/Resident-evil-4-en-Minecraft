@@ -281,3 +281,16 @@ under viewer movement. PE32 DLL compiled with warnings treated as errors.
 Actual D3D9 device discovery/rendering not executed on Linux; public reference
 was consulted for SDK, not copied as a wrapper. No textures/occlusion/collision,
 no save/entity/position edits. Windows visual test remains required.
+
+## 0.4.12 device discovery and focus fallback
+
+User screenshot: discovery status3, zero frames/draws on0.4.11; no real block
+render has been confirmed. Native detector's actual helpers are now exercised
+with synthetic memory: different validated vtables, window thread independent
+of pad thread, split regions, one-level roots, duplicate roots, ambiguous devices,
+foreign-process/hidden windows, guarded memory and foreign executable methods.
+Native PE32 build and4 portable C suites pass.43 Python tests pass; mappingv1/v2
+and counter preservation checked. VIEW backend and real PowerShell return action
+fixtures verify native stop/window restoration despite denied foreground request.
+No GPU, driver, real Windows GUI or gameplay executed; Linux success is not
+evidence that a block renders on the user's machine. Minecraft0.4.11 retained.

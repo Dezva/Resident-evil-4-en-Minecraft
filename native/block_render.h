@@ -8,8 +8,9 @@ typedef struct {
     volatile uint32_t stamp,enabled,generation;
     volatile float bounds[6];
     volatile uint32_t status,frames,draws,failures,last_hresult;
+    volatile uint32_t attempts,slots,tables,devices,window_rejected,roots;
 } BlockShared;
-_Static_assert(sizeof(BlockShared)==68,"Block preview layout");
+_Static_assert(sizeof(BlockShared)==92,"Block preview layout");
 static BlockShared *block_state;
 static HANDLE block_mapping;
 static IDirect3DDevice9 *block_device;
@@ -17,6 +18,7 @@ static IDirect3DDevice9Vtbl block_vtable;
 static HRESULT (WINAPI *block_original_end)(IDirect3DDevice9 *);
 static uint32_t block_poll_stamp;
 static unsigned block_attempts;
+static uintptr_t block_roots[8192];
 
 static HRESULT WINAPI block_end_scene(IDirect3DDevice9 *device) {
     if (device==block_device && block_state) {
@@ -81,22 +83,105 @@ static HRESULT WINAPI block_end_scene(IDirect3DDevice9 *device) {
     return block_original_end(device);
 }
 
-/* Exact device-vtable identity from an official system D3D9 probe, not guessed
-   executable addresses. Scan only committed readable/writable PE data sections.
-   Accept one unique game-window device, and replace its own vtable pointer. */
+/* Exact device-vtable identity is not required: D3D9 has device variants.
+   Validate introspection methods against the system probe and every method's
+   executable module before invoking COM. Search only game-owned pointer roots. */
+typedef struct {
+    IDirect3DDevice9 *probe,*found;
+    HWND probe_window;
+    uintptr_t library_start,library_end;
+    unsigned ambiguous;
+} BlockSearch;
+static int block_new_root(uintptr_t value) {
+    unsigned slot=(unsigned)((value>>4)*2654435761u)&8191u;
+    while (block_roots[slot] && block_roots[slot]!=value) slot=(slot+1)&8191u;
+    if (block_roots[slot]) return 0;
+    block_roots[slot]=value;return 1;
+}
+static int block_system_table(const IDirect3DDevice9Vtbl *table,BlockSearch *search) {
+    uintptr_t address=(uintptr_t)table;
+    if (address<search->library_start || address>search->library_end-sizeof(*table)
+            || !readable(table,sizeof(*table))) return 0;
+    const IDirect3DDevice9Vtbl *reference=search->probe->lpVtbl;
+    if (table->GetCreationParameters!=reference->GetCreationParameters
+            || table->GetDirect3D!=reference->GetDirect3D || table->GetDeviceCaps!=reference->GetDeviceCaps) return 0;
+    for (unsigned i=0;i<sizeof(*table)/sizeof(void *);++i) {
+        uintptr_t method;memcpy(&method,(const unsigned char *)table+i*sizeof(void *),sizeof(method));
+        MEMORY_BASIC_INFORMATION memory;
+        if (!VirtualQuery((void *)method,&memory,sizeof(memory)) || memory.State!=MEM_COMMIT
+                || (uintptr_t)memory.AllocationBase!=search->library_start
+                || (memory.Protect&(PAGE_GUARD|PAGE_NOACCESS))
+                || !(memory.Protect&(PAGE_EXECUTE_READ|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY))) return 0;
+    }
+    return 1;
+}
+static void block_candidate(uintptr_t value,BlockSearch *search) {
+    if (value<0x10000 || value>UINT32_MAX-0x100 || (value&3u) || value==(uintptr_t)search->probe
+            || !readable((void *)value,sizeof(void *)) || !writable((void *)value,sizeof(void *))) return;
+    block_state->slots++;
+    IDirect3DDevice9 *candidate=(IDirect3DDevice9 *)value;
+    if (!block_system_table(candidate->lpVtbl,search)) return;
+    block_state->tables++;
+    D3DDEVICE_CREATION_PARAMETERS creation={0};
+    if (FAILED(IDirect3DDevice9_GetCreationParameters(candidate,&creation))) return;
+    DWORD pid=0;
+    GetWindowThreadProcessId(creation.hFocusWindow,&pid);
+    /* Window ownership, not equality with the pad thread. The hook itself runs
+       when RE4 calls EndScene on its render thread. */
+    if (pid!=GetCurrentProcessId() || creation.hFocusWindow==search->probe_window
+            || !IsWindowVisible(creation.hFocusWindow)) {block_state->window_rejected++;return;}
+    block_state->devices++;
+    if (search->found && candidate!=search->found) search->ambiguous=1;
+    search->found=candidate;
+}
+/* Region-wise traversal: PE data may span multiple protections/allocations. */
+static void block_scan_range(uintptr_t start,SIZE_T length,BlockSearch *search,int indirect) {
+    uintptr_t end=start+length;
+    for (uintptr_t cursor=start;cursor<end;) {
+        MEMORY_BASIC_INFORMATION memory;
+        if (!VirtualQuery((void *)cursor,&memory,sizeof(memory))) break;
+        uintptr_t region_end=(uintptr_t)memory.BaseAddress+memory.RegionSize;
+        if (region_end<=cursor) break;
+        uintptr_t stop=region_end<end?region_end:end;
+        if (memory.State==MEM_COMMIT && !(memory.Protect&(PAGE_GUARD|PAGE_NOACCESS))
+                && (memory.Protect&0xff)==PAGE_READWRITE) {
+            for (uintptr_t address=(cursor+3u)&~(uintptr_t)3u;address+4<=stop;address+=4) {
+                uint32_t value;memcpy(&value,(void *)address,4);
+                block_candidate(value,search);
+                if (indirect && value>=0x10000 && !(value&3u) && block_state->roots<4096) {
+                    MEMORY_BASIC_INFORMATION root;
+                    if (VirtualQuery((void *)(uintptr_t)value,&root,sizeof(root)) && root.State==MEM_COMMIT
+                            && root.Type==MEM_PRIVATE && !(root.Protect&(PAGE_GUARD|PAGE_NOACCESS))
+                            && (root.Protect&0xff)==PAGE_READWRITE && block_new_root(value)) {
+                        /* A bounded prefix of a structure referenced by game data.
+                           No process-wide heap scan or recursive pointer guessing. */
+                        SIZE_T remaining=(uintptr_t)root.BaseAddress+root.RegionSize-value;
+                        SIZE_T bytes=remaining<256?remaining:256;
+                        block_state->roots++;
+                        block_scan_range(value,bytes,search,0);
+                    }
+                }
+            }
+        }
+        cursor=stop;
+    }
+}
+
 static void block_poll(void) {
     if (!block_state || block_device || state->hook_ticks<120 || block_attempts>=5
             || (uint32_t)(GetTickCount()-block_poll_stamp)<2000) return;
     block_poll_stamp=GetTickCount();block_attempts++;
+    memset(block_roots,0,sizeof(block_roots));
+    block_state->slots=block_state->tables=block_state->devices=block_state->window_rejected=block_state->roots=0;
     wchar_t path[MAX_PATH];UINT n=GetSystemDirectoryW(path,MAX_PATH);
     if (!n || n>MAX_PATH-12) return;
     memcpy(path+n,L"\\d3d9.dll",sizeof(L"\\d3d9.dll"));
     HMODULE library=LoadLibraryExW(path,NULL,LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!library) {block_state->status=2;return;}
+    if (!library) {block_state->status=2;block_state->attempts=block_attempts;return;}
     typedef IDirect3D9 *(WINAPI *Create)(UINT);
     Create create=(Create)GetProcAddress(library,"Direct3DCreate9");
     IDirect3D9 *d3d=create?create(D3D_SDK_VERSION):NULL;
-    if (!d3d) {FreeLibrary(library);block_state->status=2;return;}
+    if (!d3d) {FreeLibrary(library);block_state->status=2;block_state->attempts=block_attempts;return;}
     WNDCLASSW wc={0};wc.lpfnWndProc=DefWindowProcW;wc.hInstance=GetModuleHandleW(NULL);
     wc.lpszClassName=L"RE4Bridge-DeviceProbe";
     ATOM atom=RegisterClassW(&wc);
@@ -109,27 +194,22 @@ static void block_poll(void) {
     HRESULT hr=window?IDirect3D9_CreateDevice(d3d,0,D3DDEVTYPE_HAL,window,flags,&pp,&probe):E_FAIL;
     IDirect3DDevice9 *found=NULL;int ambiguous=0;
     if (SUCCEEDED(hr)) {
+        IMAGE_DOS_HEADER *library_dos=(IMAGE_DOS_HEADER *)library;
+        IMAGE_NT_HEADERS32 *library_nt=(IMAGE_NT_HEADERS32 *)((unsigned char *)library+library_dos->e_lfanew);
+        BlockSearch search={probe,NULL,window,(uintptr_t)library,
+            (uintptr_t)library+library_nt->OptionalHeader.SizeOfImage,0};
         IMAGE_DOS_HEADER *dos=(IMAGE_DOS_HEADER *)image_base;
         IMAGE_NT_HEADERS32 *nt=(IMAGE_NT_HEADERS32 *)(image_base+dos->e_lfanew);
         IMAGE_SECTION_HEADER *sections=IMAGE_FIRST_SECTION(nt);
-        for (unsigned s=0;s<nt->FileHeader.NumberOfSections;++s) {
-            DWORD rva=sections[s].VirtualAddress,length=sections[s].Misc.VirtualSize;
-            if (!(sections[s].Characteristics&IMAGE_SCN_MEM_WRITE) || (sections[s].Characteristics&IMAGE_SCN_MEM_EXECUTE)
-                    || rva>=image_size || length>image_size-rva || !readable(image_base+rva,length)) continue;
-            for (DWORD offset=0;offset+4<=length;offset+=4) {
-                uint32_t value;memcpy(&value,image_base+rva+offset,4);
-                if (value<0x10000 || value>0xFFFFFF00 || (value&3u) || value==(uint32_t)(uintptr_t)probe
-                        || !readable((void *)(uintptr_t)value,4) || !writable((void *)(uintptr_t)value,4)) continue;
-                IDirect3DDevice9 *candidate=(IDirect3DDevice9 *)(uintptr_t)value;
-                if (candidate->lpVtbl!=probe->lpVtbl) continue;
-                D3DDEVICE_CREATION_PARAMETERS creation;
-                if (FAILED(IDirect3DDevice9_GetCreationParameters(candidate,&creation)) || creation.hFocusWindow==window) continue;
-                DWORD pid=0;DWORD thread=GetWindowThreadProcessId(creation.hFocusWindow,&pid);
-                if (pid!=GetCurrentProcessId() || thread!=GetCurrentThreadId() || !IsWindowVisible(creation.hFocusWindow)) continue;
-                if (found && candidate!=found) ambiguous=1;
-                found=candidate;
+        for (unsigned pass=0;pass<2 && !search.found;++pass) {
+            for (unsigned s=0;s<nt->FileHeader.NumberOfSections;++s) {
+                DWORD rva=sections[s].VirtualAddress,length=sections[s].Misc.VirtualSize;
+                if (!(sections[s].Characteristics&IMAGE_SCN_MEM_WRITE) || (sections[s].Characteristics&IMAGE_SCN_MEM_EXECUTE)
+                        || rva>=image_size || length>image_size-rva) continue;
+                block_scan_range((uintptr_t)image_base+rva,length,&search,pass==1);
             }
         }
+        found=search.found;ambiguous=search.ambiguous;
         if (found && !ambiguous) {
             const IDirect3DDevice9Vtbl *previous=found->lpVtbl;
             memcpy(&block_vtable,previous,sizeof(block_vtable));
@@ -144,6 +224,8 @@ static void block_poll(void) {
     if (window) DestroyWindow(window);
     if (atom) UnregisterClassW(wc.lpszClassName,wc.hInstance);
     IDirect3D9_Release(d3d);FreeLibrary(library);
+    /* Commit the attempt counter last so the host reports completed scans. */
+    MemoryBarrier();block_state->attempts=block_attempts;
 }
 static void block_initialize(void) {
     wchar_t name[80];swprintf(name,80,L"Local\\RE4Bridge-BlockPreview-%lu",(unsigned long)GetCurrentProcessId());
@@ -153,5 +235,5 @@ static void block_initialize(void) {
     block_state=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(BlockShared));
     if (!block_state) {CloseHandle(mapping);return;}
     block_mapping=mapping;memset(block_state,0,sizeof(*block_state));
-    block_state->magic=0x52453442;block_state->version=1;
+    block_state->magic=0x52453442;block_state->version=2;
 }

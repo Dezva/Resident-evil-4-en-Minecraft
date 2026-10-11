@@ -45,6 +45,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
             Set-ViewPanel $false
             $session.Normal($true)
             $label.Text='RE4 normal. Para volver al puente: Preparar Minecraft, arm y F9.'
+            if (!$session.FocusConfirmed) { $label.Text='Vista restaurada. Windows no permitio dar foco: pulsa la ventana de RE4. Para volver: Preparar Minecraft, arm y F9.' }
             if (!$session.StopConfirmed) { $label.Text+=' IPC no disponible: el corte depende de perder foco/TTL.' }
         } catch { $label.Text='Error de retorno: '+$_.Exception.Message }
     }

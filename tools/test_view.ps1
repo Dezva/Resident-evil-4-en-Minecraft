@@ -5,13 +5,13 @@ namespace RE4BridgeView {
 public class FakeViewDesktop : Desktop {
     public System.Collections.Generic.List<string> Calls = new System.Collections.Generic.List<string>();
     public IntPtr Current = new IntPtr(2);
-    public bool GameAlive = true, FailPresent, FailRestore;
+    public bool GameAlive = true, FailPresent, FailRestore, DenyFocus;
     public bool SameWindow(IntPtr h,uint pid) { return h == new IntPtr(1) ? GameAlive && pid == 10 : h == new IntPtr(2) && pid == 20; }
     public IntPtr Foreground() { return Current; }
     public Snapshot Capture(IntPtr h,uint pid) { Calls.Add("capture"); return new Snapshot {Handle=h,Pid=pid}; }
     public void Present(Snapshot s,Rect r) { Calls.Add("present"); if(FailPresent) throw new Exception("partial present"); }
     public void Restore(Snapshot s) { Calls.Add("restore"); if(FailRestore) throw new Exception("restore failed"); }
-    public void Focus(IntPtr h) { Calls.Add("focus"+h); Current=h; }
+    public bool Focus(IntPtr h) { Calls.Add("focus"+h); if (DenyFocus) return false; Current=h; return true; }
     public bool Stop(uint pid) { Calls.Add("stop"); return true; }
 }
 public class ViewChecks {
@@ -38,6 +38,9 @@ public class ViewChecks {
         Check(session.Active,"Keep restoration pending after failure, so cleanup can retry");
         api.FailRestore=false; session.Normal(false); Check(!session.Active,"Cleanup retry must restore window");
         Check(!api.Calls.Contains("focus1"),"Background cleanup must not steal focus from another app");
+        api=new FakeViewDesktop(); session=Create(api); session.Enter(new Rect()); api.DenyFocus=true;
+        session.Normal(true);
+        Check(!session.Active && session.StopConfirmed && !session.FocusConfirmed,"Denied foreground must still stop and restore without throwing");
         IntPtr view=Marshal.AllocHGlobal(80);
         try {
             for(int version=1;version<=2;version++) {
@@ -76,5 +79,12 @@ $label=[pscustomobject]@{Text=''}
 Return-ToNormal
 if ($session.Active -or $script:panelHidden -or !$session.StopConfirmed -or $api.Current -ne [IntPtr]::new(1)) {
     throw 'Hidden-panel return must stop, restore, show panel and focus RE4.'
+}
+$api.Current=[IntPtr]::new(2)
+$session.Enter([RE4BridgeView.Rect]::new())
+$api.DenyFocus=$true
+Return-ToNormal
+if ($session.Active -or !$session.StopConfirmed -or $label.Text -notlike '*pulsa la ventana de RE4*' -or $label.Text -like 'Error*') {
+    throw 'Denied focus must report manual activation after restoring and stopping.'
 }
 Write-Host 'View fixtures passed: focus preserved, native stop before return, partial failure cleanup, closed/reused window protection, restoration retry, IPC v1/v2 stop-only write and invalid-header rejection. GUI script parsed. Real Windows presentation not executed.'

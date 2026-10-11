@@ -31,9 +31,18 @@ class NativePreview:
         if not self.address:
             self.k.CloseHandle(self.handle);raise ReaderError('No se pudo abrir bloque visual.')
         self.words=(ctypes.c_uint32*17).from_address(self.address)
-        if self.words[0]!=0x52453442 or self.words[1]!=1:
+        if self.words[0]!=0x52453442 or self.words[1] not in (1,2):
             self.k.UnmapViewOfFile(self.address);self.k.CloseHandle(self.handle)
             raise ReaderError('Canal de bloque desconocido.')
+        if self.words[1]==2:
+            self.k.UnmapViewOfFile(self.address)
+            self.address=self.k.MapViewOfFile(self.handle,0xF001F,0,0,92)
+            if not self.address:
+                self.k.CloseHandle(self.handle);raise ReaderError('Canal de diagnostico de bloque incompleto.')
+            self.words=(ctypes.c_uint32*23).from_address(self.address)
+            if self.words[0]!=0x52453442 or self.words[1]!=2:
+                self.k.UnmapViewOfFile(self.address);self.k.CloseHandle(self.handle)
+                raise ReaderError('El canal de bloque cambio durante la apertura.')
 
     def publish(self,enabled,generation,bounds=None):
         if enabled: validate_preview({'bounds':bounds})
@@ -47,7 +56,10 @@ class NativePreview:
         self.words[2]=(seq+1)&0xFFFFFFFF
 
     def status(self):
-        return dict(zip(['status','frames','draws','failures','last_hresult'],self.words[12:17]))
+        result=dict(zip(['status','frames','draws','failures','last_hresult'],self.words[12:17]))
+        if len(self.words)==23:
+            result['discovery']=dict(zip(['attempts','slots','tables','devices','window_rejected','roots'],self.words[17:23]))
+        return result
 
     def close(self):
         self.publish(False,0)

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import socket
 import struct
+import json
 from fake_re4_host import ProtocolError, load_config, serve_peer
 from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locate_player_slot, sample_player
 from re4_control import NativeControl, ControlPolicy
@@ -34,7 +35,16 @@ def main():
             capabilities = native.status()['capabilities']
             print(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}, correr={bool(capabilities & 4)}", flush=True)
 
+        last_discovery=None
         def provider():
+            nonlocal last_discovery
+            if preview is not None:
+                visual=preview.status()
+                discovery=visual.get('discovery',{})
+                key=(visual['status'],discovery.get('attempts'))
+                if key!=last_discovery:
+                    print('BLOQUE DIAGNOSTICO: '+json.dumps(visual),flush=True)
+                    last_discovery=key
             try:
                 return sample_player(process.read, slot, process.base, process.size)
             except (ReaderError, struct.error):

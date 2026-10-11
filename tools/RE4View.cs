@@ -17,7 +17,7 @@ namespace RE4BridgeView {
         Snapshot Capture(IntPtr window, uint pid);
         void Present(Snapshot state, Rect screen);
         void Restore(Snapshot state);
-        void Focus(IntPtr window);
+        bool Focus(IntPtr window);
         bool Stop(uint pid);
     }
     // The mode changes only one verified game window; it never sends desktop keys.
@@ -28,6 +28,7 @@ namespace RE4BridgeView {
         readonly uint minecraftPid;
         public bool Active { get; private set; }
         public bool StopConfirmed { get; private set; }
+        public bool FocusConfirmed { get; private set; }
         public Session(Desktop api, IntPtr re4, uint re4Pid, IntPtr mc, uint mcPid) {
             desktop = api; minecraft = mc; minecraftPid = mcPid;
             if (!api.SameWindow(re4,re4Pid) || !api.SameWindow(mc,mcPid))
@@ -47,18 +48,19 @@ namespace RE4BridgeView {
             } catch { Normal(false); throw; }
         }
         public void Normal(bool focusGame) {
+            FocusConfirmed = false;
             // Latch the same stop word as native F8, independently of the TCP host.
             StopConfirmed = desktop.SameWindow(game.Handle,game.Pid) && desktop.Stop(game.Pid);
             if (Active) {
                 if (desktop.SameWindow(game.Handle,game.Pid)) desktop.Restore(game);
                 Active = false;
             }
-            if (focusGame && desktop.SameWindow(game.Handle,game.Pid)) desktop.Focus(game.Handle);
+            if (focusGame && desktop.SameWindow(game.Handle,game.Pid)) FocusConfirmed = desktop.Focus(game.Handle);
         }
         public void Prepare() {
             Normal(false);
             if (!desktop.SameWindow(minecraft,minecraftPid)) throw new InvalidOperationException("Minecraft se cerro.");
-            desktop.Focus(minecraft);
+            if (!desktop.Focus(minecraft)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa Minecraft.");
         }
         public bool StillFocused() {
             return desktop.SameWindow(game.Handle,game.Pid) && desktop.SameWindow(minecraft,minecraftPid)
@@ -113,13 +115,13 @@ namespace RE4BridgeView {
             Check(SetWindowPos(state.Handle,order,rect.Left,rect.Top,rect.Right-rect.Left,rect.Bottom-rect.Top,0x30)); // Restore bounds without activation.
         }
         public void RaiseControls(IntPtr h) { Check(SetWindowPos(h,new IntPtr(-1),0,0,0,0,0x13)); }
-        public void Focus(IntPtr h) {
-            if (SetForegroundWindow(h)) return;
+        public bool Focus(IntPtr h) {
+            if (SetForegroundWindow(h)) return GetForegroundWindow() == h;
             // Temporarily join foreground input queues for this explicit user action only.
             uint ignored; uint foreground = GetWindowThreadProcessId(GetForegroundWindow(),out ignored);
             uint own = GetCurrentThreadId();
             bool attached = foreground != 0 && foreground != own && AttachThreadInput(own,foreground,true);
-            try { if (!SetForegroundWindow(h)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa la ventana del juego."); }
+            try { return SetForegroundWindow(h) && GetForegroundWindow() == h; }
             finally { if (attached) AttachThreadInput(own,foreground,false); }
         }
         public static bool LatchStop(IntPtr view) {

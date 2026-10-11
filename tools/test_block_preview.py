@@ -1,9 +1,11 @@
 import ctypes
 import unittest
+from unittest.mock import Mock,patch
 from re4_block_preview import NativePreview,validate_preview
 from fake_re4_host import ProtocolError
 from re4_control import ControlPolicy
 from test_re4_control import Writer
+from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
@@ -27,6 +29,26 @@ class PreviewTests(unittest.TestCase):
         preview.publish(False,7)
         self.assertEqual(backing[4],0);self.assertEqual(preview.status()['frames'],99)
         self.assertEqual(preview.status()['draws'],20)
+
+    def test_versioned_mapping_and_discovery_counters(self):
+        for version,size in [(1,17),(2,23),(99,17)]:
+            backing=(ctypes.c_uint32*size)();backing[0]=0x52453442;backing[1]=version
+            for i in range(12,size):backing[i]=i*10
+            kernel=Mock();kernel.OpenFileMappingW.return_value=99
+            kernel.MapViewOfFile.return_value=ctypes.addressof(backing);kernel.GetTickCount.return_value=100
+            with patch('ctypes.WinDLL',return_value=kernel,create=True):
+                if version==99:
+                    with self.assertRaises(ReaderError): NativePreview(42)
+                    kernel.UnmapViewOfFile.assert_called_once();kernel.CloseHandle.assert_called_once_with(99)
+                    continue
+                preview=NativePreview(42);before=list(backing[12:])
+                preview.publish(True,7,self.bounds)
+                status=preview.status();preview.close()
+                self.assertEqual(list(backing[12:]),before)
+                sizes=[call.args[-1] for call in kernel.MapViewOfFile.call_args_list]
+                self.assertEqual(sizes,[68] if version==1 else [68,92])
+                if version==2:self.assertEqual(status['discovery']['roots'],220)
+                else:self.assertNotIn('discovery',status)
 
     def test_stop_disarm_and_removed_preview_disable_the_visual_channel(self):
         class Preview:

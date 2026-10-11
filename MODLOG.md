@@ -318,3 +318,16 @@ solo EndScene. Contadores visibles en status. Cámara/controles0.4.10 conservado
 17 pruebas core,2 Minecraft,41 Python y4 suites C pasan; callback EndScene real
 se ejercita con COM simulado para verificar restauración incluso al fallar.
 Detección del dispositivo y visualización efectiva requieren Windows del usuario.
+
+## 0.4.12 — dispositivo gráfico y retorno de foco
+
+Captura del usuario0.4.11: estado3, frames0, sin dibujo; parada nativa1 y
+error al activar ventana. Detector deja de exigir identidad de tabla completa
+y mismo hilo de ventana: valida métodos de consulta de sonda y pertenencia
+ejecutable de los119 métodos a Direct3D9 oficial. Recorre regiones separadas
+y prefijos de estructuras referenciadas por datos RE4, con límite y deduplicación.
+Solo dispositivo único de ventana visible del proceso; no wrappers externos.
+IPC92bytesv2 con contadores de descubrimiento impresos por host, compatible
+con mod0.4.11. VIEW restaura/paraliza aunque Windows rechace dar foco, y pide
+activación manual sin excepción.43 pruebas Python,4 suites C y fixtures VIEW
+pasan; detección/visualización real permanece pendiente de Windows.

@@ -1,5 +1,5 @@
-/* Creation-only diagnostic. No loader calls, COM calls, heap allocation or IPC
- * inside capture_install_import/DllMain. Device addresses are historical data. */
+/* Creation-only diagnostic. No DLL loads, COM calls or heap allocation during
+ * import installation; initial DllMain creates no IPC. Addresses are historical. */
 #define COBJMACROS
 #include <d3d9.h>
 #include "capture_import.h"
@@ -9,9 +9,11 @@ typedef struct {
     uint32_t build,pid,hook_status,factory_calls,factory_success,wrappers_live,wrap_failures;
     uint32_t device_calls,device_success,device_failures,last_hresult,factory_address,device_address;
     uint32_t adapter,device_type,behavior_flags,windowed,width,height,focus_window,escaped_interfaces;
+    uint32_t phase,attempts;
+    CaptureAttempt initial,latest;
 } CaptureShared;
-_Static_assert(sizeof(CaptureShared)==96,"Capture diagnostic IPC v1");
-static CaptureShared capture_metrics={.magic=0x52453447,.version=1,.build=415};
+_Static_assert(sizeof(CaptureShared)==168,"Capture diagnostic IPC v2");
+static CaptureShared capture_metrics={.magic=0x52453447,.version=2,.build=416};
 static CaptureShared *capture_shared;
 static HANDLE capture_mapping;
 static SRWLOCK capture_lock=SRWLOCK_INIT;
@@ -85,47 +87,70 @@ static const unsigned char *capture_image_read(void *base,uint32_t offset,size_t
     unsigned char *p=(unsigned char *)base+offset;
     return readable(p,length)?p:NULL;
 }
-static void capture_install_import(void) {
+static void capture_install_import(unsigned phase) {
     DWORD saved_error=GetLastError();
+    CaptureAttempt attempt={.status=3};
     unsigned char *base=(unsigned char *)GetModuleHandleW(NULL);
-    if (!readable(base,64) || capture_u16(base)!=0x5a4d) {capture_metrics.hook_status=3;goto done;}
+    if (!readable(base,64) || capture_u16(base)!=0x5a4d) {attempt.reason=2;goto done;}
     uint32_t pe=capture_u32(base+0x3c);
-    if (pe<64 || pe>1024*1024 || !readable(base+pe,248)) {capture_metrics.hook_status=3;goto done;}
+    attempt.pe_rva=pe;
+    if (pe<64 || pe>1024*1024 || !readable(base+pe,248)) {attempt.reason=3;goto done;}
     uint32_t size=capture_u32(base+pe+80);
-    if (size<pe+248 || size>512*1024*1024 || size>UINTPTR_MAX-(uintptr_t)base) {capture_metrics.hook_status=3;goto done;}
+    attempt.image_size=size;
+    if (size<pe+248 || size>512*1024*1024 || size>UINTPTR_MAX-(uintptr_t)base) {attempt.reason=4;goto done;}
     HMODULE d3d9=GetModuleHandleW(L"d3d9.dll");
-    if (!d3d9) {capture_metrics.hook_status=2;goto done;}
+    if (!d3d9) {attempt.status=2;attempt.reason=5;goto done;}
     /* Refuse local proxies/wrappers. Do not load or initialize any library here. */
     wchar_t loaded[MAX_PATH],expected[MAX_PATH];
     DWORD length=GetModuleFileNameW(d3d9,loaded,MAX_PATH);
     UINT directory=GetSystemWow64DirectoryW(expected,MAX_PATH);
     if (!directory) directory=GetSystemDirectoryW(expected,MAX_PATH);
-    if (!length || length>=MAX_PATH || !directory || directory>MAX_PATH-12) {capture_metrics.hook_status=3;goto done;}
+    if (!length || length>=MAX_PATH || !directory || directory>MAX_PATH-12) {attempt.reason=6;goto done;}
     memcpy(expected+directory,L"\\d3d9.dll",sizeof(L"\\d3d9.dll"));
-    if (lstrcmpiW(loaded,expected)) {capture_metrics.hook_status=3;goto done;}
+    if (lstrcmpiW(loaded,expected)) {attempt.reason=7;goto done;}
     FARPROC original=GetProcAddress(d3d9,"Direct3DCreate9");
-    if (!original) {capture_metrics.hook_status=3;goto done;}
+    if (!original) {attempt.reason=8;goto done;}
     uint32_t slot=0;
-    int found=capture_find_import(capture_image_read,base,size,(uint32_t)(uintptr_t)original,&slot);
-    if (found!=1) {capture_metrics.hook_status=(uint32_t)found;goto done;}
+    CaptureImportDetails details;
+    int found=capture_find_import(capture_image_read,base,size,(uint32_t)(uintptr_t)original,&slot,&details);
+    attempt.slot_rva=details.slot;attempt.observed=details.observed;attempt.expected=details.expected;
+    if (found!=1) {attempt.status=(uint32_t)found;attempt.reason=details.reason;goto done;}
     LONG *iat=(LONG *)(base+slot);DWORD protection,ignored;
     MEMORY_BASIC_INFORMATION region;
-    if (!VirtualQuery(iat,&region,sizeof(region))) {capture_metrics.hook_status=4;goto done;}
+    if (!VirtualQuery(iat,&region,sizeof(region))) {attempt.status=4;attempt.reason=20;attempt.win_error=GetLastError();goto done;}
     DWORD temporary=(region.Protect&0xf0u)?PAGE_EXECUTE_READWRITE:PAGE_READWRITE;
-    if (!VirtualProtect(iat,4,temporary,&protection)) {capture_metrics.hook_status=4;goto done;}
+    if (!VirtualProtect(iat,4,temporary,&protection)) {attempt.status=4;attempt.reason=21;attempt.win_error=GetLastError();goto done;}
     capture_original_create9=(IDirect3D9 *(WINAPI *)(UINT))original;
     LONG replaced=InterlockedCompareExchange(iat,(LONG)(uintptr_t)capture_create9,(LONG)(uintptr_t)original);
     if (replaced!=(LONG)(uintptr_t)original) {
-        capture_metrics.hook_status=3;
-        if (!VirtualProtect(iat,4,protection,&ignored)) capture_metrics.hook_status=4;
+        attempt.reason=22;attempt.observed=(uint32_t)replaced;
+        if (!VirtualProtect(iat,4,protection,&ignored)) {attempt.status=4;attempt.reason=23;attempt.win_error=GetLastError();}
         goto done;
     }
     if (!VirtualProtect(iat,4,protection,&ignored)) {
+        attempt.win_error=GetLastError();
         InterlockedCompareExchange(iat,(LONG)(uintptr_t)original,(LONG)(uintptr_t)capture_create9);
         VirtualProtect(iat,4,protection,&ignored);
-        capture_metrics.hook_status=4;goto done;
+        attempt.status=4;attempt.reason=23;goto done;
     }
-    capture_metrics.hook_status=1;
+    attempt.status=1;attempt.reason=1;
 done:
+    AcquireSRWLockExclusive(&capture_lock);
+    capture_metrics.hook_status=attempt.status;capture_metrics.phase=phase;capture_metrics.attempts++;
+    if (phase==1) capture_metrics.initial=attempt;
+    capture_metrics.latest=attempt;capture_publish_locked();
+    ReleaseSRWLockExclusive(&capture_lock);
     SetLastError(saved_error);
+}
+static volatile LONG capture_retry_called;
+static void capture_retry_import(void) {
+    DWORD error=GetLastError();
+    if (InterlockedCompareExchange(&capture_retry_called,1,0)!=0) {SetLastError(error);return;}
+    AcquireSRWLockExclusive(&capture_lock);
+    uint32_t status=capture_metrics.hook_status;
+    ReleaseSRWLockExclusive(&capture_lock);
+    /* One API-boundary retry only. Never retry a ready or protection-failed
+       hook, force device recreation, or search for an existing device. */
+    if (status==2 || status==3) capture_install_import(2);
+    SetLastError(error);
 }

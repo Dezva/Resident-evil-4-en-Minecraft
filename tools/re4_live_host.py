@@ -27,10 +27,13 @@ def main():
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             native = NativeControl(pid)
-            print('0.4.15: captura de creacion grafica, dibujo DESACTIVADO. No ejecutes blocktest; controles y camara disponibles.',flush=True)
+            print('0.4.16: captura de creacion grafica, dibujo DESACTIVADO. No ejecutes blocktest; controles y camara disponibles.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
+                if 'installation' in captured:
+                    journal=captured['installation']
+                    print(f"Captura al inicio: {journal['initial']['reason']}; ultimo intento: {journal['latest']['reason']}; fase={journal['phase']}",flush=True)
             except ReaderError as error:print('Captura grafica:',error,flush=True)
             print("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
             capabilities = native.status()['capabilities']

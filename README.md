@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.15: captura de creación gráfica, sin dibujo](docs/RE4-CAPTURE-0.4.15.md). El usuario informa rechazo "incompatible o modificada" y cero creaciones; causa pendiente. Se publica [auditoría externa de importaciones](docs/RE4-IMPORT-AUDIT.md), de solo lectura y sin DLL nueva. Mod0.4.11/API sin cambios. **0.4.13 está retirada**; [0.4.14](docs/RE4-RECOVERY-0.4.14.md) abre y carga partida según el usuario y queda como recuperación. Bloques visuales desactivados. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [0.4.16: motivo inicial y un reintento de captura, sin dibujo](docs/RE4-CAPTURE-0.4.16.md). Los informes del usuario muestran rechazo inicial en0.4.15 y una importación válida al auditar el juego abierto; la causa inicial sigue sin identificar. El reintento mantiene todos los filtros y requiere prueba en Windows. Mod0.4.11/API sin cambios. **0.4.13 está retirada**; [0.4.14](docs/RE4-RECOVERY-0.4.14.md) abre y carga partida según el usuario y queda como recuperación. Bloques visuales desactivados. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

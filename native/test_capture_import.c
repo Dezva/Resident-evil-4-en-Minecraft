@@ -4,6 +4,7 @@
 static unsigned char image[65536],original[65536];
 static unsigned reads;
 static uint32_t denied;
+static CaptureImportDetails details;
 static const unsigned char *read_image(void *ctx,uint32_t rva,size_t n) {
     (void)ctx;reads++;
     assert(rva<=sizeof(image) && n<=sizeof(image)-rva);
@@ -22,14 +23,14 @@ static void setup(void) {
     dword(0x600,0x800);dword(0x700,0x12345678);
     strcpy((char *)image+0x802,"Direct3DCreate9");
 }
-static int find(uint32_t *slot) {return capture_find_import(read_image,NULL,sizeof(image),0x12345678,slot);}
+static int find(uint32_t *slot) {return capture_find_import(read_image,NULL,sizeof(image),0x12345678,slot,&details);}
 int main(void) {
     uint32_t slot=99;
     setup();memcpy(original,image,sizeof(image));assert(find(&slot)==1 && slot==0x700);
     assert(!memcmp(original,image,sizeof(image))); // Lookup must not modify the game.
-    setup();dword(0x700,0x87654321);assert(find(&slot)==3);
+    setup();dword(0x700,0x87654321);assert(find(&slot)==3 && details.reason==15 && details.slot==0x700 && details.observed==0x87654321 && details.expected==0x12345678);
     setup();dword(0x604,0x800);dword(0x704,0x12345678);assert(find(&slot)==3);
-    setup();dword(0x400,0);assert(find(&slot)==3);
+    setup();dword(0x400,0);assert(find(&slot)==3 && details.reason==13);
     setup();dword(0x600,0x8000007f);assert(find(&slot)==2);
     setup();dword(0x100,0);dword(0x104,0);assert(find(&slot)==2);
     setup();dword(0x100,0xfffffff0);assert(find(&slot)==3);

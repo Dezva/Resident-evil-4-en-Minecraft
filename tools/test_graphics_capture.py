@@ -15,16 +15,16 @@ class ApiFunction:
 
 
 class Kernel:
-    def __init__(self,words,absent=False,map_fail=False):
-        self.buffer=ctypes.create_string_buffer(struct.pack('<24I',*words))
+    def __init__(self,words,absent=False,map_fail=False,extended_fail=False):
+        self.buffer=ctypes.create_string_buffer(struct.pack('<'+str(len(words))+'I',*words))
         self.closed=0;self.unmapped=0;self.viewed=0
         def open_mapping(access,inherit,name):
             assert access==4 and not inherit and name=='Local\\RE4Bridge-GraphicsCapture-42'
             return 0 if absent else 1
         def map_view(handle,access,high,low,size):
-            assert handle==1 and access==4 and high==low==0 and size==96
+            assert handle==1 and access==4 and high==low==0 and size in (96,len(words)*4)
             self.viewed+=1
-            return 0 if map_fail else ctypes.addressof(self.buffer)
+            return 0 if map_fail or (extended_fail and size>96) else ctypes.addressof(self.buffer)
         def unmap(view):
             assert view==ctypes.addressof(self.buffer);self.unmapped+=1;return 1
         def close(handle):assert handle==1;self.closed+=1;return 1
@@ -40,6 +40,26 @@ def snapshot():
 
 
 class GraphicsCaptureTests(unittest.TestCase):
+    def test_v2_installer_journal_and_readonly_remap(self):
+        words=snapshot();words[1]=2;words[3]=416
+        words += [2,2,3,15,0,0x700,0x800,0x20002000,0x80,65536,
+                  1,1,0,0x700,0x20002000,0x20002000,0x80,65536]
+        kernel=Kernel(words);before=kernel.buffer.raw
+        report=capture.read_capture(kernel,42)
+        self.assertEqual(report['build'],'0.4.16')
+        self.assertEqual(report['installation']['initial']['reason_code'],15)
+        self.assertEqual(report['installation']['initial']['observed'],'0x800')
+        self.assertEqual(report['installation']['latest']['status'],1)
+        self.assertEqual(report['installation']['phase'],'DirectInput8Create')
+        self.assertEqual(kernel.buffer.raw,before)
+        self.assertEqual((kernel.viewed,kernel.unmapped,kernel.closed),(2,2,1))
+        failed=Kernel(words,extended_fail=True)
+        with self.assertRaisesRegex(ReaderError,'extendido'):capture.read_capture(failed,42)
+        self.assertEqual((failed.viewed,failed.unmapped,failed.closed),(2,1,1))
+        for index,value in [(24,3),(25,3),(27,99),(34,99)]:
+            invalid=list(words);invalid[index]=value
+            with self.assertRaises(ReaderError):capture.decode_capture(struct.pack('<42I',*invalid),42)
+
     def test_readonly_report_and_handle_cleanup(self):
         kernel=Kernel(snapshot());before=kernel.buffer.raw
         report=capture.read_capture(kernel,42)

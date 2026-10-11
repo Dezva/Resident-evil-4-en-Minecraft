@@ -1,6 +1,13 @@
-# Native RE4 movement, optional look and creation capture, 0.4.15
+# Native RE4 movement, optional look and creation capture, 0.4.16
 
-0.4.15 adds a creation-only diagnostic ([instructions](../docs/RE4-CAPTURE-0.4.15.md)).
+0.4.16 records the initial installation reason and performs at most one retry
+before the first forwarded DirectInput8Create, only if the initial import was
+unavailable/rejected. Identical PE32/system-export filters apply; a ready or
+protection-failed hook is never retried. IPC v2 is168bytes with initial/latest
+attempts; the reader also accepts v1 from0.4.15. No device recreation or search.
+[Windows instructions](../docs/RE4-CAPTURE-0.4.16.md).
+
+0.4.15 introduced the creation-only diagnostic.
 DllMain now redirects one validated PE32 Direct3DCreate9 import; it does not call
 COM, allocate a wrapper/mapping or load modules. The original import must exactly
 match the export in the system D3D9 library. Missing/changed/ambiguous imports are

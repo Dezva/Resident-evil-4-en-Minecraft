@@ -10,18 +10,35 @@ from re4_reader import DEFAULT_EXE,ReaderError,WindowsProcess,find_pid
 
 MAGIC=0x52453447
 SIZE=96
+SIZES={1:96,2:168}
 HOOK_STATES={0:'no intentado',1:'importacion interceptada',2:'importacion no disponible',
              3:'incompatible o modificada',4:'fallo de proteccion; captura rechazada'}
+INSTALL_REASONS={0:'sin intento',1:'importacion instalada',2:'cabecera DOS no valida',
+    3:'cabecera PE no legible',4:'tamano de imagen no valido',5:'d3d9 no cargada',
+    6:'ruta de sistema no disponible',7:'ruta de d3d9 distinta del sistema',8:'exportacion no disponible',
+    9:'cabecera PE32 incompatible',10:'directorio de imports ausente',11:'limites del directorio de imports',
+    12:'descriptor de importacion no legible',13:'tabla de nombres ausente o no valida',14:'tabla de imports no legible',
+    15:'destino de importacion distinto de la exportacion',16:'tabla de imports sin terminador',
+    17:'descriptores sin terminador',18:'importacion ambigua',19:'importacion por nombre no encontrada',
+    20:'consulta de memoria fallo',21:'proteccion de escritura fallo',22:'importacion cambio al instalar',
+    23:'restauracion de proteccion fallo'}
+
+
+def layout(data,pid):
+    if len(data)<24:raise ReaderError('Cabecera de captura incompleta.')
+    magic,version,_,build,owner=struct.unpack_from('<5I',data)
+    if magic!=MAGIC or (version,build) not in {(1,415),(2,416)} or owner!=pid:
+        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL 0.4.15 o 0.4.16.')
+    return version,SIZES[version],f'0.4.{build-400}'
 
 
 def decode_capture(data,pid):
-    if len(data)!=SIZE:raise ReaderError('Tamano de captura incompatible.')
-    words=struct.unpack('<24I',data)
-    if words[0]!=MAGIC or words[1]!=1 or words[3]!=415 or words[4]!=pid:
-        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL 0.4.15.')
+    version,size,build=layout(data,pid)
+    if len(data)!=size:raise ReaderError('Tamano de captura incompatible.')
+    words=struct.unpack('<'+str(size//4)+'I',data)
     if words[2]&1:raise ReaderError('Instantanea de captura incompleta.')
     if words[5] not in HOOK_STATES:raise ReaderError('Estado de captura desconocido.')
-    return dict(build='0.4.15',hook_status=words[5],hook_description=HOOK_STATES[words[5]],
+    report=dict(build=build,hook_status=words[5],hook_description=HOOK_STATES[words[5]],
                 factory_calls=words[6],factory_success=words[7],wrappers_live=words[8],wrap_failures=words[9],
                 device_calls=words[10],device_success=words[11],device_failures=words[12],
                 last_hresult=f'0x{words[13]:08x}',last_factory_address=f'0x{words[14]:08x}',
@@ -31,6 +48,17 @@ def decode_capture(data,pid):
                 escaped_interfaces=words[23],creation_observed=words[11]>0,
                 address_semantics='Historical API return values; no current device lifetime is asserted.',
                 rendering_enabled=False)
+    if version==2:
+        phases={0:'sin intento',1:'DLL_PROCESS_ATTACH',2:'DirectInput8Create'}
+        if words[24] not in phases or words[25]>2:raise ReaderError('Fase/intentos de captura no validos.')
+        report['installation']={'phase':phases[words[24]],'attempts':words[25]}
+        for name,start in [('initial',26),('latest',34)]:
+            status,reason,error,slot,observed,expected,pe,image=words[start:start+8]
+            if status not in HOOK_STATES or reason not in INSTALL_REASONS:raise ReaderError('Motivo de instalacion desconocido.')
+            report['installation'][name]={'status':status,'reason_code':reason,'reason':INSTALL_REASONS[reason],
+                'windows_error':error,'slot_rva':hex(slot),'observed':hex(observed),'expected':hex(expected),
+                'pe_rva':hex(pe),'image_size':image}
+    return report
 
 
 def read_capture(k,pid):
@@ -39,15 +67,20 @@ def read_capture(k,pid):
     k.UnmapViewOfFile.argtypes=[ctypes.c_void_p];k.UnmapViewOfFile.restype=w.BOOL
     k.CloseHandle.argtypes=[w.HANDLE];k.CloseHandle.restype=w.BOOL
     handle=k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-GraphicsCapture-{pid}')
-    if not handle:raise ReaderError('Canal de captura ausente. Abre RE4 con la DLL 0.4.15; usa los mismos permisos que el juego.')
+    if not handle:raise ReaderError('Canal de captura ausente. Abre RE4 con la DLL 0.4.15 o 0.4.16; usa los mismos permisos que el juego.')
     view=None
     try:
         view=k.MapViewOfFile(handle,4,0,0,SIZE)
         if not view:raise ReaderError('No se pudo leer el canal de captura.')
+        _,size,_=layout(ctypes.string_at(view,24),pid)
+        if size!=SIZE:
+            k.UnmapViewOfFile(view);view=None
+            view=k.MapViewOfFile(handle,4,0,0,size)
+            if not view:raise ReaderError('No se pudo leer el canal de captura extendido.')
         for _ in range(8):
             before=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before&1:continue
-            data=ctypes.string_at(view,SIZE)
+            data=ctypes.string_at(view,size)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before==after==struct.unpack_from('<I',data,8)[0]:return decode_capture(data,pid)
         raise ReaderError('Captura cambiando; repite el diagnostico dentro de unos segundos.')
@@ -61,7 +94,7 @@ def main(argv=None):
     parser.add_argument('--game-exe',default=DEFAULT_EXE)
     parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1])
     args=parser.parse_args(argv)
-    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.15',
+    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.16',
                          'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     result=0
     try:
@@ -69,6 +102,9 @@ def main(argv=None):
         report['capture']=read_capture(process.k,pid)
         state=report['capture']
         print(f"Captura grafica: {state['hook_description']}; creaciones correctas={state['device_success']}; dibujo DESACTIVADO.")
+        if 'installation' in state:
+            journal=state['installation']
+            print(f"Inicio: {journal['initial']['reason']}; ultimo intento: {journal['latest']['reason']}; fase={journal['phase']}")
     except (ReaderError,OSError,ValueError,struct.error) as error:
         report['error']=str(error);print('ERROR:',error);result=1
     finally:

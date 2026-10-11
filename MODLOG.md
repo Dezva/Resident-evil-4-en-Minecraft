@@ -413,3 +413,21 @@ Estado actual válido con rechazo temprano no se atribuye sin prueba a tiempo de
 carga.5 pruebas sintéticas pasan; archivo autónomo6ficheros sin DLL/mod/instalador,
 extracción/importación comprobadas y Universal Modder sin fallos/avisos.
 Se requiere imports-audit JSON del equipo para resolver el rechazo concreto.
+
+## 0.4.16 — resultado inicial y reintento único de captura
+
+graphics-capture-20261011-135432.json confirma estado3 y cero llamadas en0.4.15.
+imports-audit-20261011-135454.json encuentra importación única por nombre en
+RVA0x1310CE0 con valor0x68EB4B20, idéntico a la exportación de D3D9 oficial en
+SysWOW64; auditoría completa604lecturas/2361bytes. El estado actual es válido,
+pero no reconstruye el rechazo inicial. No se atribuye a un motivo sin prueba.
+
+Se conservan motivo/estado/WinError/RVA/valores/cabecera de cada intento y se
+permite un único reintento antes del primer DirectInput8Create delegado. Solo
+si el rechazo fue importación ausente/incompatible; nunca listo/fallo de protección.
+Mismos filtros PE32/exportación/ruta, CAS y rollback. Sin búsquedas de dispositivos,
+recreación ni renderer. IPC168bytes/v2/build416, lector read-only compatible con
+v1/0.4.15. Paquete completo incluye auditor y los mismos JAR0.4.11/API. Algoritmos
+de control/cámara/correr permanecen iguales.61 Python/4 C y3 fixtures ASan/UBSan
+pasan; instalación/respaldo/hash propio verificados. Arranque y creación real de
+0.4.16 pendientes de Windows;0.4.14 conserva su papel de recuperación confirmada.

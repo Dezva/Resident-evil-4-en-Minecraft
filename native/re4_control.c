@@ -420,7 +420,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=415; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=416; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -590,6 +590,7 @@ __declspec(dllexport) HRESULT WINAPI DirectInput8Create(HINSTANCE instance, DWOR
     typedef HRESULT (WINAPI *Create)(HINSTANCE,DWORD,const IID *,LPVOID *,LPVOID);
     Create original = (Create)system_export("DirectInput8Create");
     if (!original) return E_FAIL;
+    capture_retry_import();
     HRESULT result = original(instance,version,iid,output,outer);
     static LONG installed;
     if (SUCCEEDED(result) && InterlockedCompareExchange(&installed,1,0) == 0) install_hook();
@@ -608,7 +609,7 @@ BOOL WINAPI DllMain(HINSTANCE instance,DWORD reason,LPVOID reserved) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(instance);
         /* Import redirection only. Actual COM wrapping/IPC starts after entry. */
-        capture_install_import();
+        capture_install_import(1);
     }
     return TRUE;
 }

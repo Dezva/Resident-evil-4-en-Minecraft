@@ -386,3 +386,26 @@ valor cambiado, duplicados/ordinales, forwarder, rutas/bounds/guardas/límites y
 reportes/limpieza al fallar. ZIP autónomo6archivos extraído: --help funciona sin
 checkout/config; no contiene DLL/JAR/EXE/instalador. UM publish check6archivos,
 0fallos,0avisos. Auditoría real pendiente de imports-audit del Windows del usuario.
+
+## 0.4.16 — evidencia del usuario y reintento registrado
+
+graphics-capture-20261011-135432.json confirma el rechazo de0.4.15, todas las
+llamadas/capturas a cero. imports-audit-20261011-135454.json completa604lecturas y
+2361bytes: una importación por nombre Direct3DCreate9, slotRVA0x1310CE0,
+valor0x68EB4B20 igual a la exportación oficial del D3D9 cargado/esperado en
+SysWOW64. current_native_lookup_status1 con hook_status3 previo no establece la
+causa del rechazo durante DllMain. Sin evidencia de dibujo/captura real funcional.
+
+El instalador nativo real extraído registra motivo inicial y último intento.
+Fixture comprueba IAT no resuelta inicialmente y luego resuelta, reintento único,
+registro inicial conservado, biblioteca ausente y luego disponible, conflicto
+persistente y ausencia de reintento si listo/fallo de protección. Conserva pruebas
+de ruta/bounds/CAS/rollback/protección y LastError. No ejecuta COM al instalar.
+Tres fixtures de captura pasan ASan/UBSan; no prueba cargador/driver real.
+
+IPCv2/build416/168bytes conserva los24campos iniciales y añade fase/contador/dos
+intentos. Lector FILE_MAP_READ acepta también v1/build415/96bytes; prueba rechazos
+de build/PID/motivos, snapshots completos, dos vistas de lectura y cierre ante
+fallo del remapeo extendido.61 pruebas Python y4 suites C pasan; compilación
+PE32 con -Werror e instalador/desinstalador respaldos/hash propio verificados.
+Mod/API se reutilizan sin cambios. Arranque y captura0.4.16 pendientes de Windows.

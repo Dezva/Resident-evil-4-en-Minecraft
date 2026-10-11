@@ -1,5 +1,10 @@
 # 0.4.15 — captura de creación gráfica, sin dibujo
 
+**Resultado del usuario:** hook_status3 ("incompatible o modificada"), cero
+creaciones correctas. La causa concreta aún no se conoce. Se publica el
+[diagnóstico externo de importaciones](RE4-IMPORT-AUDIT.md) para continuar
+sin cambiar la DLL instalada. El ZIP0.4.15 anterior se conserva sin sobrescribir.
+
 Prueba de la nueva captura tras el arranque correcto de0.4.14. **Todavía no
 aparecerán bloques.** Conserva controles, ratón, cámara, correr y F8; el mod
 Minecraft0.4.11/API no cambia. No reactiva el detector retirado de0.4.13.

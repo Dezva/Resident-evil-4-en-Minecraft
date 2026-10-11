@@ -399,3 +399,17 @@ solo con RE4, sin Minecraft/host. Mod0.4.11/API conservados.55 Python y4 suites 
 pasan;3 fixtures de captura reales con APIs simuladas pasan ASan/UBSan. Instalador
 verifica copias/hash y desinstalador solo retira DLL propia. Arranque/captura real
 pendientes de Windows;0.4.14 se conserva como recuperación sin sobrescribir ZIP.
+
+## Diagnóstico tras rechazo de captura0.4.15
+
+El usuario informa incompatible/modificada (estado3), creaciones correctas0.
+El mensaje no discrimina tabla de nombres, exportación, ruta, destino, ambigüedad
+ni condiciones tempranas del cargador. No se relajan filtros ni se cambian DLL.
+Se publica AUDIT-RE4-IMPORTS como ZIP autónomo solo lectura: cabeceras/imports de
+bio4 y exportación Direct3DCreate9 del D3D9 cargado, rutas e IPC existente. Acotado
+2MiB/20.000 lecturas/10s, sin heaps/COM/escrituras. Identifica OFT ausente incluso
+con IAT resuelta, destinos diferentes, ordinales/duplicados y lecturas incompletas.
+Estado actual válido con rechazo temprano no se atribuye sin prueba a tiempo de
+carga.5 pruebas sintéticas pasan; archivo autónomo6ficheros sin DLL/mod/instalador,
+extracción/importación comprobadas y Universal Modder sin fallos/avisos.
+Se requiere imports-audit JSON del equipo para resolver el rechazo concreto.

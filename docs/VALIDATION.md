@@ -371,3 +371,18 @@ Símbolos capture_* presentes; block_*/EndScene y mapping BlockPreview ausentes.
 Mod/API se reutilizan sin cambios. Instalación/desinstalación respaldos/hash propio
 probadas; no se ejecuta RE4 ni Direct3D9 real en Linux. Windows requiere abrir,
 cargar y ejecutar CAPTURE-RE4-GRAPHICS; todavía no hay dibujo ni colisión de bloques.
+
+## Captura0.4.15 rechazada — diagnóstico externo
+
+Salida del usuario: hook_status3, creaciones0, dibujo desactivado. No demuestra
+causa concreta ni captura de dispositivo funcional. Se mantienen los artefactos
+0.4.15 y0.4.14 sin modificación; no se publica otra DLL con filtros relajados.
+Nuevo auditor de imports de solo lectura verifica condiciones actuales, no las
+que existían durante DllMain. Datos de destino se ubican en módulos conocidos,
+no se dereferencian objetos ni se ejecutan COM. Resultados incompletos dejan
+estado de simulación desconocido, en lugar de presentar rechazo reproducido.
+Cinco pruebas sintéticas comprueban bytes conservados, OFT ausente/IAT resuelta,
+valor cambiado, duplicados/ordinales, forwarder, rutas/bounds/guardas/límites y
+reportes/limpieza al fallar. ZIP autónomo6archivos extraído: --help funciona sin
+checkout/config; no contiene DLL/JAR/EXE/instalador. UM publish check6archivos,
+0fallos,0avisos. Auditoría real pendiente de imports-audit del Windows del usuario.

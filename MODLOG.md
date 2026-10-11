@@ -461,3 +461,29 @@ corrección, sin recurrir al reintento. Parámetros de creación: ventana1366×7
 adapter0, type1, flags0x44. Sin dibujo, colisiones ni vida actual del dispositivo
 garantizada por estas direcciones históricas. Se documenta la evidencia sin
 alterar ni republicar los ZIP0.4.17; no se pide otra instalación para este resultado.
+
+## 0.4.18 — prueba explícita de cubo gráfico
+
+Se parte de la captura0.4.17 confirmada. CreateDevice correcto entrega una fachada
+IDirect3DDevice9 externa119métodos: forwarding tipado, referencias balanceadas,
+objeto/vtable nativos intactos, fallback original al fallar asignación/IPC.
+Bloqueo por dispositivo serializa escena, llamadas delegadas y Reset. Interfaces
+desconocidas se delegan y suspenden dibujo; recursos siguen devolviendo interfaces
+nativas cuya identidad/cobertura difiere. No se reactiva block_render.h.
+
+Cubo de100unidades de aristas verdes, anclado600unidades delante de la cámara
+al activar, proyección por CAMERA.v_mat/FOV validada y clipping. Dibujo antes
+de EndScene original, BeginScene válido, backbuffer y permiso fresco. Backup
+D3DSBT_ALL restaurado aun ante setter/draw fallido, referencias temporales
+liberadas, cero recursos GPU persistentes. Fallo de restauración bloquea hasta
+reiniciar; pérdida/Reset requieren otra activación. Sin textura/depth/colisión
+ni integración de construcción Minecraft. Controles/cámara/correr no cambian.
+
+TEST-RE4-CUBE: cinco segundos de preparación,30de prueba, F8 detiene, caducidad
+500ms y mutex de escritor único; publica únicamente CommandIPC32bytes. Telemetría
+92bytes/readonly/version1/build418 y CaptureIPCv3 compatible. Informes cube-test
+incluyen contadores inicial/final y parada; CAPTURE no activa dibujo.
+70 Python/4 C y6 fixtures ASan/UBSan pasan;23fallos de setter y restore/lifetime
+comprobados con APIs simuladas. Instalador/respaldo/hash propio verificados.
+Mods/API conservados. Arranque/cubo visible/compatibilidad real pendientes de
+Windows;0.4.17 se conserva como recuperación y sus ZIP no se sobrescriben.

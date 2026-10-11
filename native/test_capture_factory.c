@@ -90,10 +90,14 @@ static HRESULT fake_GetDeviceCaps(IDirect3D9 *self, UINT Adapter, D3DDEVTYPE Dev
 static HMONITOR fake_GetAdapterMonitor(IDirect3D9 *self, UINT Adapter) {assert(self==&inner);assert(Adapter==(UINT)(uintptr_t)67456);forwarded++;return (HMONITOR)(uintptr_t)43791;}
 static IDirect3D9Vtbl table={fake_query,fake_addref,fake_release,fake_RegisterSoftwareDevice,fake_GetAdapterCount,fake_GetAdapterIdentifier,fake_GetAdapterModeCount,fake_EnumAdapterModes,fake_GetAdapterDisplayMode,fake_CheckDeviceType,fake_CheckDeviceFormat,fake_CheckDeviceMultiSampleType,fake_CheckDepthStencilMatch,fake_CheckDeviceFormatConversion,fake_GetDeviceCaps,fake_GetAdapterMonitor,fake_device};
 
+static unsigned cube_wrap_calls,cube_wrap_output;
+static IDirect3DDevice9 cube_output;
+static IDirect3DDevice9 *cube_wrap_device(IDirect3DDevice9 *d) {assert(d==&device);cube_wrap_calls++;last_error=555;return cube_wrap_output?&cube_output:d;}
 #include "capture_factory.h"
 static void reset(void) {
  inner.lpVtbl=&table;inner_refs=1;adds=releases=live=allocation_fail=allocated=freed=wrapping_fail=escapes=0;
  factory_calls=factory_null=device_calls=device_fail=recorded_success=forwarded=0;last_error=0;
+ cube_wrap_calls=cube_wrap_output=0;
 }
 int main(void) {
  reset();IDirect3D9 *w=capture_create9(32);assert(w && w!=&inner && allocated==1 && live==1 && inner_refs==1 && last_error==321);
@@ -133,6 +137,11 @@ int main(void) {
  // Addresses intentionally invalid: no success means we must not touch them.
  assert(w->lpVtbl->CreateDevice(w,2,3,(void *)4,5,(void *)1,(void *)1)==E_POINTER);
  assert(!recorded_success && device_calls==1 && last_error==444);
+ assert(!cube_wrap_calls);
  assert(w->lpVtbl->Release(w)==0 && inner_refs==0 && allocated==freed);
+ reset();cube_wrap_output=1;w=capture_create9(32);out=NULL;
+ assert(w->lpVtbl->CreateDevice(w,2,3,(void *)4,5,&pp,&out)==29 && out==&cube_output && cube_wrap_calls==1 && last_error==444);
+ assert(!memcmp(&before,&device,sizeof(device)));
+ assert(w->lpVtbl->Release(w)==0 && inner_refs==1);assert(inner.lpVtbl->Release(&inner)==0);
  puts("Factory capture checks passed: all 17 methods, identity/refcounts, failed allocation/factory/device calls, unchanged device and native factory lifetime");
 }

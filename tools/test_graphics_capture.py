@@ -59,6 +59,9 @@ class GraphicsCaptureTests(unittest.TestCase):
         self.assertEqual(report['installation']['initial']['paths']['matched'],'SystemDirectory')
         self.assertEqual(kernel.buffer.raw,before)
         self.assertEqual((kernel.viewed,kernel.unmapped,kernel.closed),(2,2,1))
+        struct.pack_into('<I',data,12,418)
+        newer=capture.decode_capture(bytes(data),42)
+        self.assertEqual(newer['build'],'0.4.18');self.assertIsNone(newer['rendering_enabled'])
         for offset,replacement in [(168,b'\3\0\0\0'),(172,b'x\0'*260),(172,b'\0\xd8')]:
             invalid=bytearray(data);invalid[offset:offset+len(replacement)]=replacement
             with self.assertRaises(ReaderError):capture.decode_capture(bytes(invalid),42)

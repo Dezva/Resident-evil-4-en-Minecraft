@@ -1,4 +1,29 @@
-# Native RE4 movement, optional look and creation capture, 0.4.17
+# Native RE4 movement, optional look and explicit cube test, 0.4.18
+
+0.4.18 wraps the successful owned CreateDevice result in an external, typed
+119-method device facade. Native object/vtable remain untouched. Initial owned
+reference and later AddRef/Release are balanced independently of native resources.
+All facade calls serialize through a per-device recursive critical section.
+Begin/EndScene/Reset/Present track scene/loss.
+Each delegated call also holds a temporary owned reference through bookkeeping,
+protecting facade/native lifetime if a reentrant callback releases the caller's
+last reference. The reference is released when the call ends.
+Unknown interfaces delegate and disable rendering.
+Resource GetDevice and GetDirect3D still return native identities; coverage and
+identity comparisons with the facade remain a Windows compatibility limitation.
+
+TEST-RE4-CUBE explicitly publishes a32-byte command, guarded by a single-writer
+mutex, complete snapshot and500ms lease. Five-second countdown,30-second test,
+F8/expiry/close stop; loss/Reset require a new explicit test and restore failure
+requires restart. Separate92-byte read-only telemetry records drawing/errors.
+The world-fixed100-unit green wire cube uses the validated Global CAMERA and
+current player, projects/clips12edges and draws only to the backbuffer before
+original EndScene. Temporary D3DSBT_ALL restores every changed state; no GPU
+resource survives a frame. DllMain creates no wrappers/IPC/GPU resources and
+the withdrawn discovery header remains excluded. [Windows test](../docs/RE4-CUBE-0.4.18.md).
+
+Descriptions below document earlier versions; creation-only behavior applies
+to0.4.15–0.4.17, not the explicitly enabled cube test in0.4.18.
 
 0.4.17 compares the loaded D3D9 spelling with both exact paths derived from
 GetSystemDirectoryW/GetSystemWow64DirectoryW. A 32-bit DLL loaded through the

@@ -447,3 +447,35 @@ CreateDevice devolvió dispositivo tipoHAL, adapter0, flags0x44, windowedtrue y
 no métodos de render, vida actual del puntero, estabilidad prolongada, pérdida,
 Reset ni recreación. rendering_enabledfalse. No se modifica DLL ni se repiten
 pruebas cloud por este registro documental; los ZIP publicados se conservan.
+
+## 0.4.18 — dispositivo recibido de CreateDevice y dibujo explícito
+
+La fábrica real invoca cube_wrap_device solo con salida correcta y owned, y
+devuelve la fachada manteniendo HRESULT/LastError; fixture comprueba también
+fallback, ausencia de llamada en fallo con punteros inválidos y bytes nativos
+intactos. Façade119métodos compilada contra SDKMinGW real -Werror; fixture portátil
+envía argumentos/resultados distintos en112slots delegados y comprueba los7
+métodos especiales: identidad/refcounts, objeto/vtable intactos, interfaz nativa
+viva al liberar fachada, escenas correctas/fallidas, Reset/Present, bloqueo y
+fallos de mapping/asignación. La generación usa solo declaraciones estándar SDK.
+Callback reentrante simulado durante Reset vuelve a consultar la fachada sin
+bloqueo; dibujo suspendido durante Reset y cleanup al fallar el bloqueo comprobados.
+La referencia temporal por llamada mantiene vivo el wrapper si ese callback
+libera la última referencia del llamador; se libera al terminar el método.
+
+Renderer real probado con estado/COM simulados:23setters fallidos y DrawPrimitiveUP
+fallido restauran el estado completo capturado, incluyendo efecto de stream0.
+CreateStateBlock/Capture fallidos no cambian estados; Apply fallido libera backup
+y bloquea futuras órdenes. Superficies/stateblocks equilibrados. Targets ajenos,
+cámara ausente, pérdida, F8, caducidad con wrap y anclaje fijo/nueva generación
+comprobados. Reader real de CommandIPC rechaza odd/torn/malformed y no cachea
+activaciones. Seis fixtures nativos pasan ASan/UBSan; no ejecutan driver/RE4.
+
+CLI probado con reloj virtual: countdown, duración, F8, fallo nativo, activación
+con mutex, rechazo de segundo escritor, limpieza incluso en error, permisos6
+solo en comando y4solo en telemetría, snapshots/version/build/PID, cierre y JSON.
+70 pruebas Python/4 suites C pasan; instalador/desinstalador backups/hash propio
+verificados. Sin tests/rebuildJava: mods/API idénticos. No se habilita blocktest
+ni se restaura detector retirado. Falta pruebaWindows para arranque, fachada
+compatible, cubo visible/proyección, cambios de dispositivo y estabilidad real.
+Conteo de DrawPrimitiveUP correcto no acredita por sí solo visibilidad.

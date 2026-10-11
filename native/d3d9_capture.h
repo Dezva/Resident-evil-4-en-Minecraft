@@ -19,7 +19,7 @@ typedef struct {
     CapturePaths initial_paths,latest_paths;
 } CaptureShared;
 _Static_assert(sizeof(CaptureShared)==3296,"Capture diagnostic IPC v3");
-static CaptureShared capture_metrics={.magic=0x52453447,.version=3,.build=417};
+static CaptureShared capture_metrics={.magic=0x52453447,.version=3,.build=418};
 static CaptureShared *capture_shared;
 static HANDLE capture_mapping;
 static SRWLOCK capture_lock=SRWLOCK_INIT;
@@ -86,6 +86,8 @@ static void capture_record_device(HRESULT hr,IDirect3DDevice9 *device,UINT adapt
     capture_metrics.height=parameters?parameters->BackBufferHeight:0;
     capture_publish_locked();ReleaseSRWLockExclusive(&capture_lock);
 }
+#include "cube_ipc.h"
+#include "cube_device.h"
 #include "capture_factory.h"
 
 static const unsigned char *capture_image_read(void *base,uint32_t offset,size_t length) {

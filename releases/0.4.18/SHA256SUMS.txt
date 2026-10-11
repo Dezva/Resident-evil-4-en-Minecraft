@@ -1,0 +1,2 @@
+878ce84483e64a8a6b3eaa9c642eddefc5802c580cb62d04aa1a119bbc7dbfcf  re4bridge-0.4.18-windows.zip
+6ca768f0f5ddae5c5b3a9abff977f9e029b9a7d3500ea21fc0bb84b6f82958ae  re4bridge-0.4.18-source.zip

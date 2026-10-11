@@ -394,8 +394,15 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
     return find_patterns(base,image_size,nt,pattern,length,&found,1) == 1 ? found : NULL;
 }
 
-/* No guessed COM objects, device scans or rendering hooks.
- * The withdrawn block_render.h remains excluded; capture only observes creation. */
+static int cube_camera(float *view,float *fov,uint32_t *player) {
+    *player=current_player();if (!*player || !global_slot || !readable((void *)global_slot,4)) return 0;
+    uint32_t global=*global_slot;
+    if (global<0x10000 || global>0xFFFFFE00 || (global&3u)
+            || !readable((void *)(uintptr_t)(global+0x74),0xF8)) return 0;
+    const unsigned char *camera=(const unsigned char *)(uintptr_t)(global+0x74);
+    memcpy(view,camera+0x30,48);memcpy(fov,camera+0xC0,4);return 1;
+}
+/* Creation-owned facades; withdrawn block_render.h remains excluded. */
 #include "d3d9_capture.h"
 
 static void install_hook(void) {
@@ -420,7 +427,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=417; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=418; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

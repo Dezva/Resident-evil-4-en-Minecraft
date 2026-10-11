@@ -1,5 +1,5 @@
 /* External IDirect3D9 facade over a freshly returned, owned COM reference.
- * Never replaces the original object's vtable and never wraps the device yet.
+ * Never replaces the original object's vtable. Successful devices get a facade.
  * Windows D3D9 declarations / platform functions are supplied by the includer. */
 typedef struct {
     IDirect3D9 iface;
@@ -78,10 +78,11 @@ static HRESULT WINAPI capture_device(IDirect3D9 *iface,UINT adapter,D3DDEVTYPE t
     CaptureFactory *f=(CaptureFactory *)iface;
     HRESULT hr=f->inner->lpVtbl->CreateDevice(f->inner,adapter,type,focus,flags,parameters,out);
     DWORD error=GetLastError();
-    /* Read only the API's successful return. Never dereference/retain the device.
-       Failed calls may leave output/parameters untouched or invalid. */
+    /* Only wrap the API's successful, owned reference. Failed calls may leave
+       output/parameters untouched or invalid. No device address discovery. */
     IDirect3DDevice9 *device=SUCCEEDED(hr) && out?*out:NULL;
     capture_record_device(hr,device,adapter,type,focus,flags,device?parameters:NULL);
+    if (device) *out=cube_wrap_device(device);
     SetLastError(error);return hr;
 }
 static IDirect3D9Vtbl capture_factory_vtable={

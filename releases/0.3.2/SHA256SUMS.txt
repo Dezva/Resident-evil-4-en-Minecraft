@@ -1,0 +1,2 @@
+a5e9f67ecc06afeb6ea4d30d7c73d9225ace92efb89faf2fd2a6ef25b559303c  re4bridge-0.3.2-windows.zip
+a07aa764512d91f21d6d8536f2ae6b34e98172b843e1540f3c28f2c61149ae67  re4bridge-diagnostic-0.3.2.zip

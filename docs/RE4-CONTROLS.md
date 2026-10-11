@@ -1,4 +1,17 @@
-# Paquete 0.3.1: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0)
+# Paquete 0.3.2: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0, DLL 0.3.1)
+
+## Correccion del diagnostico 0.3.2
+
+Corrige la conversion UIntPtr en Windows PowerShell y enumera los modulos
+mediante Toolhelp con soporte WOW64; el aviso anterior DINPUT8 NO CARGADA
+no era fiable. Si el script anterior llego al error UIntPtr, OpenFileMapping
+ya habia abierto el canal, aunque no consiguio leer su estado.
+
+Si ya instalaste 0.3.1, conserva la DLL y el mod. Extrae el ZIP pequeno
+`re4bridge-diagnostic-0.3.2.zip` dentro de la carpeta de tu paquete, aceptando
+reemplazar solo `DIAGNOSE-RE4-CONTROLS.bat` y `.ps1`. Ejecuta el diagnostico
+con RE4 abierto y una partida cargada. El paquete completo tambien contiene
+el script corregido; los binarios de Minecraft y RE4 no cambiaron.
 
 ## Diagnostico y actualizacion desde 0.3.0
 

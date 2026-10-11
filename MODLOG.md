@@ -111,3 +111,12 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   desinstalador del paquete anterior; nunca reemplaza una DLL desconocida.
 - Validacion cloud: compilacion PE32, politica C, 15 pruebas Python y fixtures
   de instalador PowerShell. La causa en Windows y movimiento real siguen pendientes.
+
+## 0.3.2: compatibilidad del diagnostico PowerShell
+
+- Constructor UIntPtr explicito y enumeracion Toolhelp de modulos WOW64.
+- Valida magic/version de IPC antes de mostrar estado/ticks.
+- Pruebas PowerShell compilan el interop real y ejecutan el script con una API
+  sintetica: acceso solo lectura, puntero de 40 bytes, DLL cargada y canal ausente.
+- La captura del usuario fallo despues de abrir IPC: no prueba DLL ausente.
+  Conserva mod 0.3.0 y DLL 0.3.1; se publica ZIP pequeno solo con el diagnostico.

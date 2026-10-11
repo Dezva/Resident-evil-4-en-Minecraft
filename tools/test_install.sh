@@ -13,3 +13,5 @@ root=pathlib.Path(sys.argv[1])
 PY
 XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
   /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_install.ps1 -PackageDir "$installer_stage"
+XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
+  /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_diagnostic.ps1

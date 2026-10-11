@@ -14,6 +14,38 @@ try {
 using System;
 using System.Runtime.InteropServices;
 public static class RE4BridgeDiagnostic {
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+    private struct ModuleEntry {
+        public uint size, moduleId, processId, globalUsage, processUsage;
+        public IntPtr baseAddress;
+        public uint baseSize;
+        public IntPtr module;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=256)] public string name;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=260)] public string path;
+    }
+    [DllImport("kernel32.dll", SetLastError=true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern bool Module32FirstW(IntPtr snapshot, ref ModuleEntry entry);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern bool Module32NextW(IntPtr snapshot, ref ModuleEntry entry);
+    public static string[] DinputPaths(uint pid) {
+        // Include WOW64 modules when the diagnostic runs in 64-bit PowerShell.
+        IntPtr snapshot = CreateToolhelp32Snapshot(0x18, pid);
+        if (snapshot == new IntPtr(-1)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        try {
+            ModuleEntry entry = new ModuleEntry();
+            entry.size = (uint)Marshal.SizeOf(typeof(ModuleEntry));
+            if (!Module32FirstW(snapshot, ref entry)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            var paths = new System.Collections.Generic.List<string>();
+            do {
+                if (String.Equals(entry.name, "dinput8.dll", StringComparison.OrdinalIgnoreCase)) paths.Add(entry.path);
+            } while (Module32NextW(snapshot, ref entry));
+            int error = Marshal.GetLastWin32Error();
+            if (error != 18) throw new System.ComponentModel.Win32Exception(error);
+            return paths.ToArray();
+        } finally { CloseHandle(snapshot); }
+    }
     [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
     public static extern IntPtr OpenFileMapping(uint access, bool inherit, string name);
     [DllImport("kernel32.dll", SetLastError=true)]
@@ -28,9 +60,9 @@ public static class RE4BridgeDiagnostic {
         Write-Host ('RE4 PID: ' + $game.Id)
         try {
             Write-Host ('EXE: ' + $game.MainModule.FileName)
-            $modules = @($game.Modules | Where-Object { $_.ModuleName -ieq 'dinput8.dll' })
+            $modules = @([RE4BridgeDiagnostic]::DinputPaths([uint32]$game.Id))
             if ($modules.Count -eq 0) { Write-Host 'DINPUT8 NO CARGADA en este proceso.' }
-            foreach ($module in $modules) { Write-Host ('DINPUT8 CARGADA: ' + $module.FileName) }
+            foreach ($module in $modules) { Write-Host ('DINPUT8 CARGADA: ' + $module) }
         } catch { Write-Host ('No se pudieron enumerar los modulos: ' + $_.Exception.Message) }
         $handle = [RE4BridgeDiagnostic]::OpenFileMapping(4, $false, ('Local\RE4Bridge-Control-' + $game.Id))
         if ($handle -eq [IntPtr]::Zero) {
@@ -39,11 +71,14 @@ public static class RE4BridgeDiagnostic {
             continue
         }
         try {
-            $view = [RE4BridgeDiagnostic]::MapViewOfFile($handle, 4, 0, 0, [UIntPtr]40)
+            $view = [RE4BridgeDiagnostic]::MapViewOfFile($handle, 4, 0, 0, [UIntPtr]::new([uint32]40))
             if ($view -eq [IntPtr]::Zero) {
                 throw ('MapViewOfFile Windows ' + [Runtime.InteropServices.Marshal]::GetLastWin32Error())
             }
             try {
+                $magic = [Runtime.InteropServices.Marshal]::ReadInt32($view, 0)
+                $version = [Runtime.InteropServices.Marshal]::ReadInt32($view, 4)
+                if ($magic -ne 0x52453443 -or $version -ne 1) { throw 'IPC con identificador/version inesperados.' }
                 $status = [Runtime.InteropServices.Marshal]::ReadInt32($view, 28)
                 $ticks = [Runtime.InteropServices.Marshal]::ReadInt32($view, 32)
                 Write-Host ('IPC PRESENTE, estado: ' + $status + ', ticks: ' + $ticks)

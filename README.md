@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** mod/host 0.4.3 y [actualización de cámara nativa 0.4.4](docs/RE4-CAMERA-0.4.4.md), compatible con los mismos mods. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [paquete completo 0.4.5](docs/RE4-MOVEMENT-0.4.5.md), con mod/host 0.4.3 y DLL 0.4.5: mirada independiente, movimiento horizontal relativo a cámara y ajuste de la vista final. Comportamiento Windows pendiente de prueba. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

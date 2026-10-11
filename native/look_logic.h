@@ -13,6 +13,29 @@ static inline float re4_take_yaw(float total, float *consumed) {
 static inline float re4_wrap_yaw(float yaw) {
     return remainderf(yaw, 6.2831853071795864769f);
 }
+/* RE4 yaw: forward=(sin(yaw),cos(yaw)); right=(-cos(yaw),sin(yaw)). */
+static inline float re4_walk_heading(float gaze, unsigned buttons) {
+    int forward = !!(buttons & 1u) - !!(buttons & 2u);
+    int right = !!(buttons & 4u) - !!(buttons & 8u);
+    return re4_wrap_yaw(gaze - atan2f((float)right,(float)forward));
+}
+/* CAMERA uses right/up/back columns; v_mat is its rigid inverse. */
+static inline void re4_view_frame(const float *eye, float yaw, float pitch,
+        float *camera, float *view, float *right, float *up, float *back) {
+    float p = pitch * (3.14159265358979323846f / 180.f);
+    float s = sinf(yaw), c = cosf(yaw), sp = sinf(p), cp = cosf(p);
+    right[0] = -c; right[1] = 0; right[2] = s;
+    up[0] = s*sp; up[1] = cp; up[2] = c*sp;
+    back[0] = -s*cp; back[1] = sp; back[2] = -c*cp;
+    for (int row=0;row<3;++row) {
+        camera[4*row] = right[row]; camera[4*row+1] = up[row];
+        camera[4*row+2] = back[row]; camera[4*row+3] = eye[row];
+        view[row] = right[row]; view[4+row] = up[row]; view[8+row] = back[row];
+    }
+    view[3] = -(right[0]*eye[0]+right[1]*eye[1]+right[2]*eye[2]);
+    view[7] = -(up[0]*eye[0]+up[1]*eye[1]+up[2]*eye[2]);
+    view[11] = -(back[0]*eye[0]+back[1]*eye[1]+back[2]*eye[2]);
+}
 static inline int re4_valid_look(float total, float pitch, float eye, unsigned flags) {
     return !(flags & ~3u) && (!(flags & 2u) || (flags & 1u))
         && isfinite(total) && fabsf(total) <= 10000000.f

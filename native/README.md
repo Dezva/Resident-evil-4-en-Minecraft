@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.4
+# Native RE4 movement and optional look, 0.4.5
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -94,3 +94,26 @@ Restore happens before native input/camera logic; never dereference old objects
 when ownership changes. Inventory and weapon behavior remain native. The user
 reports idle camera drift and floating weapon in0.4.2; these corrections remain
 Windows-unverified.
+
+## 0.4.5 view-relative locomotion and final camera
+
+Mouse maintains view_yaw independently of the animated player's yaw in FP.
+WASD chooses a normalized horizontal heading relative to view_yaw; native
+forward input drives locomotion/collision. No coordinate writes, collision
+disable, velocity addition or diagonal speed boost. Non-FP retains tank input.
+Disarm restores the current player's heading to view_yaw only while ownership
+still matches; rearm anchors anew. Jump/sprint/crouch are not implemented.
+
+The user's 0.4.4 trace shows Ctrl.Camera_60's final point changing by ~0.209
+radians / 212 position units when stopping, despite unchanged desired gaze.
+Resolve GlobalPtr slot (Game.cpp) and CameraCurrentProjection CALL site (same
+pinned reference). Validate unique executable signatures, slot/module bounds,
+target execute protection before patching the CALL displacement. FP capability
+requires these additions. At that render call, armed/fresh/valid player and
+prepared FP frame fix Ctrl.Camera_60 and Global.Camera_74's camera/view matrices,
+point, up/back/right and distance; projection data stays untouched. Snapshot
+CAMERA bytes for restoration before native input/camera processing. Restore
+Global only while its current slot still identifies that embedded camera.
+No writes to freed/replaced global work storage. Original projection is always
+called. Mathematical inverse/eye/gaze tests pass; hook timing and visual/native
+locomotion behavior still require actual Windows RE4 testing.

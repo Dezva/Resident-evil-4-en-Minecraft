@@ -11,6 +11,8 @@ PAD_SIGNATURE = "E8 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? 6A 04 E8 ? ? ? ? 83 C4 18 E8 ?
 CAMERA_SIGNATURE = "52 8D 85 ? ? ? ? 50 8D 4D ? 51 8B CB E8"
 SMOOTH_SIGNATURE = "E8 ? ? ? ? 80 BB B6 01 00 00 00"
 CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
+GLOBAL_SIGNATURE = "A1 ? ? ? ? B9 FF FF FF 7F 21 48 ? A1"
+PROJECTION_SIGNATURE = "E8 ? ? ? ? 8A 46 30 3C FD"
 
 
 def inspect(read, base, size, query=None):
@@ -32,11 +34,21 @@ def inspect(read, base, size, query=None):
         blobs.append((address, read(address, length)))
     hits = {}
     for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE),
-                            ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE), ("camera_smoothing", SMOOTH_SIGNATURE)]:
+                            ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE), ("camera_smoothing", SMOOTH_SIGNATURE),
+                            ("global", GLOBAL_SIGNATURE), ("projection", PROJECTION_SIGNATURE)]:
         found = [address + hit for address, data in blobs for hit in matches(data, signature)]
         checks[name + "_matches"] = len(found)
         if len(found) == 1:
             hits[name] = found[0]
+    if 'global' in hits:
+        pointer = u32(read(hits['global']+1,4))
+        checks['global_slot_in_module'] = base <= pointer <= base+size-4 and pointer % 4 == 0
+    if 'projection' in hits:
+        call = hits['projection']
+        target = call+5+struct.unpack('<i',read(call+1,4))[0]
+        checks['projection_target_in_module'] = base <= target < base+size
+        if query and checks['projection_target_in_module']:
+            checks['projection_target_executable'] = bool(query(target)['protection'] & (0x20|0x40|0x80))
     if 'camera_ctrl' in hits:
         pointer = u32(read(hits['camera_ctrl'] + 3, 4))
         checks['camera_ctrl_in_module'] = base <= pointer <= base + size - 0x788

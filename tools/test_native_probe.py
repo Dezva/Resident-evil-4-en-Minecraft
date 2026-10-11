@@ -1,7 +1,7 @@
 """Synthetic audit tests. No Windows hook is installed or executed."""
 import struct
 import unittest
-from re4_native_probe import inspect, KEY_SIGNATURE, PAD_SIGNATURE
+from re4_native_probe import inspect, KEY_SIGNATURE, PAD_SIGNATURE, GLOBAL_SIGNATURE, PROJECTION_SIGNATURE
 from test_re4_reader import Memory
 
 
@@ -15,6 +15,20 @@ def fixture():
 
 
 class ProbeTests(unittest.TestCase):
+    def test_render_prerequisites_and_invalid_target_are_read_only(self):
+        m = fixture()
+        m.put_signature(0x1800, GLOBAL_SIGNATURE, m.base+0x3300)
+        m.put_signature(0x1900, PROJECTION_SIGNATURE, (0x1700-0x1905) & 0xFFFFFFFF)
+        before = bytes(m.data)
+        report = inspect(m.read,m.base,m.size,lambda address: {'remaining':m.size,'protection':0x20,'committed':True})
+        self.assertTrue(report['checks']['global_slot_in_module'])
+        self.assertTrue(report['checks']['projection_target_in_module'])
+        self.assertTrue(report['checks']['projection_target_executable'])
+        self.assertEqual(bytes(m.data),before)
+        struct.pack_into('<i',m.data,0x1901,0x6000)
+        report = inspect(m.read,m.base,m.size)
+        self.assertFalse(report['checks']['projection_target_in_module'])
+
     def test_valid_audit_is_read_only_and_reports_split_section(self):
         m = fixture()
         before = bytes(m.data)

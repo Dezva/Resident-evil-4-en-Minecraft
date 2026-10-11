@@ -167,3 +167,31 @@ y 27 pruebas Python pasan. ZIP nativo de 14 archivos validado con Universal
 Modder. Diagnóstico ampliado registra también CameraControl.Camera_60.
 Compilación y pruebas sintéticas no demuestran que el desvío visible esté
 resuelto: queda pendiente la prueba Windows del usuario.
+
+## 0.4.5: cámara final y locomoción relativa
+
+Se inspeccionó el vídeo del usuario y el nuevo registro (219 muestras, DLL
+0.4.4). En 37.828s, yaw deseado/actor=1.841018, pero Ctrl.Camera_60 apunta a
+2.049860; distancia del ojo pedido al punto final ~212 unidades. Look_D0 es
+el eje trasero, no la dirección frontal: la comparación correcta usa su negativo.
+La cámara final difiere al parar incluso con el punto QuasiFPS estable.
+
+Nueva llamada validada a CameraCurrentProjection fija CAMERA matrices/punto/ejes
+de Ctrl y Global justo antes de delegar en proyección; no modifica ProjMat.
+Restauración de CAMERA antes de logica nativa, validación del GlobalPtr actual,
+seqlock/TTL/arm/player y ramas obligatorias para capacidad FP. Pose independiente
+para mirada; WASD elige rumbo de locomoción y envía un único avance nativo.
+No se escriben posiciones ni se cambian flags de colisión; el motor mantiene
+sus restricciones. En FP aplicado_yaw es mirada, mientras yaw del personaje
+puede diferir por el rumbo solicitado. Fuera de FP continúa el modo tanque.
+
+Tres suites C pasan: cardinales/diagonales, inversa de cámara, ojo proyectado
+al origen y dirección en coordenadas del registro, además de controles/TTL.
+29 pruebas Python pasan incluyendo lectura opcional/no mutante de Global.Camera
+y validación de firma/objetivo de proyección.
+Instalación/desinstalación y diagnóstico PowerShell pasan en fixtures. ZIP
+completo de 31 archivos: Universal Modder 0 fallos/avisos. Incluye el JAR
+0.4.3 sin recompilar (sin cambios Java), host/START/view y DLL nueva.
+ABI camera fastcall y projection cdecl inspeccionadas en objdump. No se
+ejecutó la DLL con RE4 Windows; movimiento lateral, render y colisiones reales
+siguen pendientes. No implementa salto/sprint/agachado/física de Minecraft.

@@ -35,6 +35,16 @@ typedef struct { float position[3], target[3], roll, fovy; } CameraPoint;
 static void (__attribute__((fastcall)) *original_camera)(void *, void *, void *, void *, CameraPoint *);
 static uint32_t last_look_sequence, last_arm_id, last_player;
 static float consumed_yaw;
+static float view_yaw;
+static int relative_walk;
+static volatile uint32_t *global_slot;
+static void (__cdecl *original_projection)(void);
+static unsigned char *saved_global_camera;
+static unsigned char saved_global[0xF8], saved_ctrl[0xF8];
+static int render_saved;
+static float render_matrix[12], render_view[12], render_right[3], render_up[3], render_back[3];
+static CameraPoint render_point;
+static uint32_t render_player, render_generation;
 static void *eye_matrix;
 static float saved_eye_matrix[12];
 static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
@@ -108,6 +118,14 @@ static void hide_weapons(uint32_t player) {
 
 /* Restore before native logic. Only restore a model while it is still the same player. */
 static void restore_first_person(void) {
+    if (render_saved) {
+        if (writable(camera_ctrl+0x60,sizeof(saved_ctrl))) memcpy(camera_ctrl+0x60,saved_ctrl,sizeof(saved_ctrl));
+        uint32_t global = global_slot ? *global_slot : 0;
+        if (global && (uintptr_t)saved_global_camera == (uintptr_t)global+0x74
+                && writable(saved_global_camera,sizeof(saved_global)))
+            memcpy(saved_global_camera,saved_global,sizeof(saved_global));
+        render_saved = 0; saved_global_camera = NULL;
+    }
     if (eye_matrix && writable(eye_matrix, sizeof(saved_eye_matrix)))
         memcpy(eye_matrix, saved_eye_matrix, sizeof(saved_eye_matrix));
     eye_matrix = NULL;
@@ -140,7 +158,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     state->camera_active = 0;
     LONG before = state->sequence;
     MemoryBarrier();
-    uint32_t stamp = state->stamp, armed = state->armed, flags = state->look_flags;
+    uint32_t stamp = state->stamp, armed = state->armed, flags = state->look_flags, generation = state->arm_id;
     float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
     MemoryBarrier();
     uint32_t player = current_player();
@@ -157,10 +175,10 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     float frame[12], position[3], target[3];
     float feet[3], yaw;
     memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));
-    memcpy(&yaw, (void *)(uintptr_t)(player + 0xA4), sizeof(yaw));
+    yaw = view_yaw;
     float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
     if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player
-            || !isfinite(fovy) || fovy > 179.f) {
+            || !isfinite(fovy) || fovy > 179.f || last_player != player || last_arm_id != generation) {
         original_camera(self, unused, matrix, offset, point);
         return;
     }
@@ -174,12 +192,50 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     memcpy(point->position,position,sizeof(position)); memcpy(point->target,target,sizeof(target));
     point->roll = 0.f;
     point->fovy = fovy > 0.f ? fovy : 50.f;
+    render_point = *point;
+    for (unsigned i=0;i<3;++i) {
+        render_point.position[i] = frame[4*i+3];
+        render_point.target[i] += render_point.position[i];
+    }
+    re4_view_frame(render_point.position,yaw,pitch,render_matrix,render_view,render_right,render_up,render_back);
+    render_player = player; render_generation = generation;
     uint32_t *draw = (uint32_t *)(uintptr_t)(player + 4);
     hidden_player = player; hidden_vtable = *(uint32_t *)(uintptr_t)player;
     saved_draw_bits = *draw & RE4_MODEL_DRAW_BITS;
     *draw = re4_hide_model(*draw);
     hide_weapons(player);
     state->camera_active = 1;
+}
+
+static void write_render_camera(unsigned char *camera) {
+    memcpy(camera,render_matrix,48); memcpy(camera+0x30,render_view,48);
+    memcpy(camera+0xA4,&render_point,sizeof(render_point));
+    memcpy(camera+0xC4,render_up,12); memcpy(camera+0xD0,render_back,12);
+    memcpy(camera+0xDC,render_right,12);
+    float distance = 1000.f; memcpy(camera+0xF4,&distance,4);
+}
+/* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
+static void __cdecl projection_hook(void) {
+    LONG sequence = state->sequence;
+    MemoryBarrier();
+    uint32_t armed = state->armed, stamp = state->stamp, generation = state->arm_id;
+    MemoryBarrier();
+    uint32_t global = global_slot ? *global_slot : 0;
+    unsigned char *camera = (unsigned char *)(uintptr_t)((uintptr_t)global+0x74);
+    if (sequence == state->sequence && !(sequence & 1) && armed && !state->stop
+            && (uint32_t)(GetTickCount()-stamp) < RE4_TTL_MS && state->camera_active
+            && render_player == current_player() && generation == render_generation
+            && global >= 0x10000 && !(global & 3u) && global <= 0xFFFFFE00
+            && writable(camera,0xF8) && writable(camera_ctrl+0x60,0xF8)) {
+        if (!render_saved) {
+            memcpy(saved_global,camera,sizeof(saved_global)); saved_global_camera = camera;
+            memcpy(saved_ctrl,camera_ctrl+0x60,sizeof(saved_ctrl)); render_saved = 1;
+        }
+        if (camera == saved_global_camera) {
+            write_render_camera(camera_ctrl+0x60); write_render_camera(camera);
+        }
+    } else if (render_saved) restore_first_person();
+    original_projection();
 }
 
 static void __cdecl pad_hook(void) {
@@ -200,8 +256,6 @@ static void __cdecl pad_hook(void) {
         InterlockedCompareExchange(&state->stop, 2, 0);
     if (before == after && !(before & 1) && armed && !state->stop && (uint32_t)(now - stamp) < RE4_TTL_MS) {
         uint32_t input = re4_buttons((uint32_t)before, (uint32_t)after, now, stamp, armed, (uint32_t)state->stop, buttons);
-        *key_on = (*key_on & ~(uint64_t)RE4_MOVEMENT_MASK) | input;
-        state->native_buttons = input;
         if ((state->capabilities & 1u) && (flags & 1u) && re4_valid_look(total,pitch,eye,flags)) {
             uint32_t player = current_player();
             if (player && writable((void *)(uintptr_t)(player + 0xA4),4)) {
@@ -209,19 +263,34 @@ static void __cdecl pad_hook(void) {
                     consumed_yaw = (last_arm_id == generation && last_player != player) ? total : 0;
                     last_arm_id = generation; last_player = player;
                     last_look_sequence = (uint32_t)before - 2u;
+                    memcpy(&view_yaw,(void *)(uintptr_t)(player+0xA4),4);
                 }
                 if (last_look_sequence != (uint32_t)before) {
                     float *yaw = (float *)(uintptr_t)(player + 0xA4);
                     if (*player_slot == player && isfinite(*yaw) && fabsf(*yaw) <= 100000000.f) {
-                        *yaw = re4_wrap_yaw(*yaw + re4_take_yaw(total, &consumed_yaw));
-                        state->applied_yaw = *yaw;
+                        float delta = re4_take_yaw(total, &consumed_yaw);
+                        view_yaw = re4_wrap_yaw(((flags & 2u) ? view_yaw : *yaw) + delta);
+                        *yaw = view_yaw;
+                        state->applied_yaw = view_yaw;
                         InterlockedIncrement(&state->look_applied_count);
                     }
                     last_look_sequence = (uint32_t)before;
                 }
+                if ((state->capabilities & 2u) && (flags & 3u) == 3u && isfinite(view_yaw) && *player_slot == player) {
+                    *(float *)(uintptr_t)(player+0xA4) = input ? re4_walk_heading(view_yaw,input) : view_yaw;
+                    input = input ? 1u : 0u; relative_walk = 1;
+                }
             }
         }
-    } else { state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0; }
+        *key_on = (*key_on & ~(uint64_t)RE4_MOVEMENT_MASK) | input;
+        state->native_buttons = input;
+    } else {
+        uint32_t player = current_player();
+        if (relative_walk && player == last_player && isfinite(view_yaw)
+                && writable((void *)(uintptr_t)(player+0xA4),4))
+            *(float *)(uintptr_t)(player+0xA4) = view_yaw;
+        relative_walk = 0; state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0;
+    }
 }
 
 /* Literal bytes with -1 wildcards; these are interoperable signatures, not absolute addresses. */
@@ -232,6 +301,8 @@ static const int player_pattern[] = {0xA1,-1,-1,-1,-1,0xD8,0xCC,0xD8,0xC9,0xD8,0
 static const int camera_pattern[] = {0x52,0x8D,0x85,-1,-1,-1,-1,0x50,0x8D,0x4D,-1,0x51,0x8B,0xCB,0xE8};
 static const int smooth_pattern[] = {0xE8,-1,-1,-1,-1,0x80,0xBB,0xB6,0x01,0x00,0x00,0x00};
 static const int ctrl_pattern[] = {0xD9,0xEE,0xB9,-1,-1,-1,-1,0xD9,0x9E,0xA4,0x00,0x00,0x00,0xE8,-1,-1,-1,-1,0xD9,0xEE};
+static const int global_pattern[] = {0xA1,-1,-1,-1,-1,0xB9,0xFF,0xFF,0xFF,0x7F,0x21,0x48,-1,0xA1};
+static const int projection_pattern[] = {0xE8,-1,-1,-1,-1,0x8A,0x46,0x30,0x3C,0xFD};
 
 static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
         IMAGE_NT_HEADERS32 *nt, const int *pattern, SIZE_T length) {
@@ -322,7 +393,19 @@ static void install_hook(void) {
     unsigned char *c = unique_pattern(base,size,nt,camera_pattern,sizeof(camera_pattern)/sizeof(int));
     unsigned char *ctrl = unique_pattern(base,size,nt,ctrl_pattern,sizeof(ctrl_pattern)/sizeof(int));
     unsigned char *smooth = unique_pattern(base,size,nt,smooth_pattern,sizeof(smooth_pattern)/sizeof(int));
-    if (!c || !ctrl || !smooth) return;
+    unsigned char *g = unique_pattern(base,size,nt,global_pattern,sizeof(global_pattern)/sizeof(int));
+    unsigned char *projection = unique_pattern(base,size,nt,projection_pattern,sizeof(projection_pattern)/sizeof(int));
+    if (!c || !ctrl || !smooth || !g || !projection) return;
+    uint32_t global_address; memcpy(&global_address,g+1,4);
+    if ((global_address & 3u) || global_address < (uintptr_t)base
+            || global_address > (uintptr_t)base+size-4
+            || !readable((void *)(uintptr_t)global_address,4)) return;
+    memcpy(&displacement,projection+1,4);
+    uintptr_t projection_target = (uintptr_t)(projection+5)+displacement;
+    if (projection_target < (uintptr_t)base || projection_target >= (uintptr_t)base+size
+            || !readable((void *)projection_target,1)) return;
+    VirtualQuery((void *)projection_target,&code_memory,sizeof(code_memory));
+    if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;
     uint32_t ctrl_address; memcpy(&ctrl_address,ctrl+3,4);
     if (ctrl_address < (uintptr_t)base || ctrl_address > (uintptr_t)base+size-0x788
             || !readable((void *)(uintptr_t)ctrl_address,0x788)) return;
@@ -351,6 +434,13 @@ static void install_hook(void) {
     memcpy(patch+1,&replacement,4); memcpy(cmp,patch,7);
     FlushInstructionCache(GetCurrentProcess(),cmp,7);
     if (!VirtualProtect(cmp,7,old_protect,&ignored)) return;
+    global_slot = (volatile uint32_t *)(uintptr_t)global_address;
+    original_projection = (void (__cdecl *)(void))projection_target;
+    if (!VirtualProtect(projection,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
+    replacement = (int32_t)((uintptr_t)projection_hook-(uintptr_t)(projection+5));
+    memcpy(projection+1,&replacement,4);
+    FlushInstructionCache(GetCurrentProcess(),projection,5);
+    if (!VirtualProtect(projection,5,old_protect,&ignored)) return;
     state->capabilities |= 2u;
 }
 

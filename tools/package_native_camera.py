@@ -4,6 +4,8 @@ from pathlib import Path
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
+if hashlib.sha256((root/'native/build/dinput8.dll').read_bytes()).hexdigest() != 'a01d582a0548b052a7e77c5a61b9ba342b4941132a1a2c07eb3f18d44cd8f8db':
+    raise SystemExit('This packager is pinned to native 0.4.4. Use package_windows.py for current 0.4.5.')
 destination = root / 'dist' / 'native-camera-0.4.4'
 destination.mkdir(parents=True, exist_ok=True)
 package = destination / 're4bridge-camera-0.4.4-windows.zip'

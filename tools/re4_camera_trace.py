@@ -12,10 +12,11 @@ import time
 
 from re4_reader import (DEFAULT_EXE, ReaderError, WindowsProcess, code_sections,
                         find_pid, locate_player_slot, matches, sample_player, u32)
-from re4_native_probe import CAMERA_CTRL_SIGNATURE
+from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "2e8165188db6a22f4d03f4e2ca0297d1e2346187956952de98e214a9939f995d": "0.4.5",
     "a01d582a0548b052a7e77c5a61b9ba342b4941132a1a2c07eb3f18d44cd8f8db": "0.4.4",
     "a66e6c7c01adb212b30f8918593a7d9b0cdc85ca37ba22e0f65648eddb0e7012": "0.4.0",
     "1b4d42141885c6ef7fbdf3312fcd8ea861cab199fddf7bd3718e3e8c542eba96": "0.4.1",
@@ -38,6 +39,11 @@ def camera_addresses(read, base, size):
             raise ReaderError("Camara fuera del modulo; no se usara una direccion alternativa.")
         read(pointer, length)
         result[name] = pointer
+    hits = [address + index for address,data in blobs for index in matches(data,GLOBAL_SIGNATURE)]
+    if len(hits) == 1:
+        pointer = u32(read(hits[0]+1,4))
+        if base <= pointer <= base+size-4 and pointer % 4 == 0:
+            result['global_slot'] = pointer
     return result
 
 
@@ -72,6 +78,13 @@ def observation(read, base, size, slot, addresses):
     if 'smooth' in addresses:
         row['smooth_point'] = point(read, addresses['smooth']+0xA4)
         row['smooth_ratio'] = floats(read, addresses['smooth']+0xFC, 1)[0]
+    if 'global_slot' in addresses:
+        global_pointer = u32(read(addresses['global_slot'],4))
+        if global_pointer >= 0x10000 and global_pointer <= 0xFFFFFE00 and global_pointer % 4 == 0:
+            camera = global_pointer+0x74
+            row['global_camera_point'] = point(read,camera+0xA4)
+            row['global_camera_view_matrix'] = floats(read,camera+0x30,12)
+            row['global_camera_look'] = floats(read,camera+0xD0,3)
     return row
 
 

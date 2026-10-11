@@ -234,3 +234,15 @@ precisión float en coordenadas grandes. Sin nuevos hooks ni cambios de IPC,
 mod Minecraft o host. ZIP de actualización solo nativa incluye diagnóstico
 ampliado de CameraControl.Camera_60 y reversión mediante instaladores propios.
 Tres suites C y 27 pruebas Python pasan; eficacia visual pendiente de Windows.
+
+## 0.4.5
+
+Vídeo y registro 0.4.4 muestran mejora pero saltos y controles tanque. El punto
+final Ctrl.Camera_60 conserva un desvío ~12° al detenerse. Se fija la cámara
+final de Ctrl/Global en una llamada de proyección validada, con matrices/ejes
+coherentes y restauración del estado original. La mirada del ratón pasa a ser
+independiente del rumbo de locomoción: WASD lateral/diagonal relativo a la vista
+solo en FP, mediante avance nativo orientado, sin modificar coordenadas ni
+desactivar colisiones. Paquete completo con JAR/host 0.4.3, DLL 0.4.5 y todos
+los START/view/instaladores/trace; conserva compatibilidad IPC. Tres suites C,
+29 pruebas Python y fixtures PowerShell pasan. Windows queda por verificar.

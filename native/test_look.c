@@ -57,5 +57,26 @@ int main(void) {
     assert(re4_restore_model(hidden | 0x80000000u,saved) == (saved | 0x80000000u));
     assert(re4_restore_model(re4_hide_model(0x21),0x21) == 0x21);
     assert(fabsf(re4_wrap_yaw(7)) <= 3.141593f);
+    assert(fabsf(re4_walk_heading(0,1)) < 0.00001f);
+    assert(fabsf(re4_walk_heading(0,4)+1.570796327f) < 0.00001f);
+    assert(fabsf(re4_walk_heading(0,8)-1.570796327f) < 0.00001f);
+    assert(fabsf(fabsf(re4_walk_heading(0,2))-3.141592654f) < 0.00001f);
+    assert(fabsf(re4_walk_heading(0,5)+0.785398163f) < 0.00001f);
+    assert(fabsf(re4_walk_heading(0,9)-0.785398163f) < 0.00001f);
+    /* Walk direction never alters gaze; all diagonals use one native forward
+       input rather than adding independent world velocities. */
+    float camera[12], view[12], right[3], up[3], back[3];
+    float eye[3] = {-91878.88f,1568.57f,-4360.27f};
+    re4_view_frame(eye,1.841018f,4.349857f,camera,view,right,up,back);
+    for (int row=0;row<3;++row) {
+        float projected_eye=view[4*row]*eye[0]+view[4*row+1]*eye[1]+view[4*row+2]*eye[2]+view[4*row+3];
+        assert(fabsf(projected_eye) < 0.02f);
+        for (int col=0;col<3;++col) {
+            float product=0;
+            for (int k=0;k<3;++k) product+=view[4*row+k]*camera[4*k+col];
+            assert(fabsf(product-(row==col)) < 0.00001f);
+        }
+    }
+    assert(fabsf(re4_wrap_yaw(atan2f(-back[0],-back[2])-1.841018f)) < 0.00001f);
     puts("Native look policy: cumulative yaw, bounds, pitch and eye-point math passed");
 }

@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.3"
+    version = "0.4.5"
     mod_version = "0.4.3"
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
@@ -55,7 +55,10 @@ def main():
                            (root / "tools/re4_live_host.py", "tools/re4_live_host.py"),
                            (root / "tools/re4_control.py", "tools/re4_control.py"),
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
-                           (root / "docs/RE4-MOUSE-CAMERA.md", "README.md"),
+                           (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
+                           (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
+                           (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
+                           (root / "docs/RE4-MOVEMENT-0.4.5.md", "README.md"),
                            (root / "docs/RE4-CONTROLS.md", "docs/RE4-CONTROLS.md"),
                            (root / "docs/RE4-LIVE.md", "docs/RE4-LIVE.md"),
                            (root / "docs/VALIDATION.md", "docs/VALIDATION.md"),
@@ -73,7 +76,7 @@ def main():
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
                  "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
-                 "PROBE-RE4-NATIVE.bat", "VIEW-RE4.bat", "VIEW-RE4.ps1",
+                 "PROBE-RE4-NATIVE.bat", "VIEW-RE4.bat", "VIEW-RE4.ps1", "TRACE-RE4-CAMERA.bat",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

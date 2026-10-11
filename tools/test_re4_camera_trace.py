@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from re4_camera_trace import (CAMERA_CTRL_SIGNATURE, SMOOTH_CTRL_SIGNATURE,
                               ReadOnlyIPC, camera_addresses, decode_ipc, observation)
 from re4_reader import ReaderError
+from re4_native_probe import GLOBAL_SIGNATURE
 from test_re4_reader import Memory
 
 
@@ -51,6 +52,19 @@ class CameraTraceTests(unittest.TestCase):
         addresses = camera_addresses(m.read, m.base, m.size)
         struct.pack_into('<f', m.data, 0x2238, math.nan)
         with self.assertRaises(ReaderError): observation(m.read, m.base, m.size, m.slot, addresses)
+
+    def test_global_camera_snapshot_is_read_only_and_optional(self):
+        m = self.memory()
+        m.put_signature(0x1700, GLOBAL_SIGNATURE, m.base+0x3200)
+        struct.pack_into('<I', m.data, 0x3200, m.base+0x3800)
+        struct.pack_into('<8f',m.data,0x3800+0x74+0xA4,1,2,3,2,2,3,0,50)
+        before = bytes(m.data)
+        addresses = camera_addresses(m.read,m.base,m.size)
+        row = observation(m.read,m.base,m.size,m.slot,addresses)
+        self.assertAlmostEqual(row['global_camera_point']['yaw_from_points'],math.pi/2)
+        self.assertEqual(bytes(m.data),before)
+        struct.pack_into('<I',m.data,0x3200,0)
+        self.assertNotIn('global_camera_point',observation(m.read,m.base,m.size,m.slot,addresses))
 
     def frame(self):
         data = bytearray(80)

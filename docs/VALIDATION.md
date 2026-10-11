@@ -321,3 +321,20 @@ different introspection methods, factory mismatch/refcount balance and existing
 region/ambiguity protections.48 Python tests and4 C suites pass, PE32 builds with
 warnings as errors. Preview IPCv1/v2/v3 preserves native counters. Minecraft
 mod unchanged. No real driver/game execution; render remains pending Windows.
+## Recuperación 0.4.14 tras regresión de arranque
+
+El usuario probó 0.4.13 tres veces y RE4 se cerró antes del menú principal.
+Las pruebas sintéticas de descubrimiento no detectan objetos COM muertos ni
+validan una tabla real del controlador: no eran evidencia suficiente para ese
+hook. El detector se excluye por completo del binario de recuperación; inspección
+con MinGW nm confirma ausencia de símbolos block_* y conserva pad_hook,
+install_hook y DirectInput8Create. El header retirado tiene #error para impedir
+reactivación accidental. No se modifica el algoritmo de controles/cámara.
+
+PE32 compila con -Werror y pasan4 suites C/48 pruebas Python. Las fixtures del
+renderer retirado son históricas y no acreditan gráficos habilitados. Cuatro
+fixtures PowerShell verifican extracción de Application Error/WER y exclusión
+de eventos ajenos/identidad ausente. Get-WinEvent y RE4 no se ejecutan en Linux.
+Instalador verifica copias y DLL; desinstalador elimina únicamente hash propio.
+Minecraft/API no cambian, por lo que se reutilizan los JAR ya validados.
+Arranque de 0.4.14 y causa exacta del cierre pendientes del equipo Windows.

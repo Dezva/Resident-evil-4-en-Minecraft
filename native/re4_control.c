@@ -85,7 +85,6 @@ static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
 typedef struct { uint32_t controller, object, vtable, draw_bits, slot; } HiddenWeapon;
 static HiddenWeapon hidden_weapons[2];
 static unsigned char *smooth_continue __attribute__((used));
-static void block_poll(void);
 /* Only integer reads; the mid-function hook must not disturb x87/SSE state. */
 static unsigned __attribute__((cdecl,noinline,used)) camera_smoothing_flags(unsigned flags, void *self) {
     int active = state && state->camera_active && state->armed && !state->stop
@@ -304,7 +303,6 @@ static void __cdecl pad_hook(void) {
     state->camera_active = 0;
     original_pad();
     InterlockedIncrement(&state->hook_ticks);
-    block_poll();
     if (GetAsyncKeyState(VK_F8) & 0x8000) InterlockedExchange(&state->stop, 1);
     ControlFrame control = {0};
     int complete = read_control_frame(&control);
@@ -396,7 +394,8 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
     return find_patterns(base,image_size,nt,pattern,length,&found,1) == 1 ? found : NULL;
 }
 
-#include "block_render.h"
+/* Recovery 0.4.14: no guessed COM objects, device scans or graphics hooks.
+ * block_render.h is withdrawn and deliberately excluded from this binary. */
 
 static void install_hook(void) {
     wchar_t name[80];
@@ -408,7 +407,6 @@ static void install_hook(void) {
     if (!state) { CloseHandle(mapping); return; }
     shared_mapping = mapping;
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
-    block_initialize();
     swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
     HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
     if (telemetry) {
@@ -420,7 +418,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=413; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=414; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

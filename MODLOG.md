@@ -358,3 +358,17 @@ raíces únicas limitadas, ningún offset absoluto del informe. Fábrica debe se
 vigente al enganchar. IPC visual100bytesv3 añade probe_valid/factory_rejected,
 host admitev1/v2/v3; mod0.4.11 conservado.48 Python y4 suites C pasan; render
 Windows pendiente. No se sustituye cámara ni se añade colisión.
+## 0.4.14 — recuperación, detector gráfico retirado
+
+El usuario informa tres cierres antes del menú principal después de instalar
+0.4.13 correctamente. No se atribuye el fallo a Minecraft ni a la primera persona.
+La búsqueda ejecutaba métodos sobre objetos COM candidatos y sustituía su tabla;
+validar direcciones no demuestra vida del objeto ni tamaño completo de su tabla.
+Causa exacta pendiente del evento de Windows. Se excluye block_render.h de la
+compilación y se impide su inclusión accidental con #error: sin sondeo, IPC visual,
+llamadas COM ni hooks gráficos. Host avisa que blocktest queda desactivado.
+Se preservan controles, cámara, correr y F8; mod0.4.11/API sin cambios.
+Colector de eventos1000/1001 anteriores de bio4.exe, sin acceder al proceso ni
+provocar otro cierre. Compilación PE32, 48 pruebas Python,4 suites C y4 fixtures
+de eventos pasan. Instalador/desinstalador probados con hash propio y copias.
+Arranque Windows pendiente; 0.4.13 retirada, sin sobrescribir artefactos antiguos.

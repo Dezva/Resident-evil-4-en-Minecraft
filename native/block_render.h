@@ -1,4 +1,6 @@
-/* Independent D3D9 diagnostic renderer. No game entities or collision writes. */
+/* WITHDRAWN after the 0.4.13 startup crash report. Historical fixtures only:
+ * readable tables cannot prove COM object lifetime; never include in a DLL. */
+#error "Unsafe graphics discovery withdrawn: capture a live device before implementing rendering"
 #define COBJMACROS
 #include <d3d9.h>
 #include "block_geometry.h"

@@ -1,3 +1,7 @@
+# RETIRADA: 0.4.13 provoca cierres antes del menú en el equipo del usuario.
+Usa [la recuperación 0.4.14](RE4-RECOVERY-0.4.14.md). Las descripciones siguientes
+son históricas; este detector ya no se incluye en la DLL actual.
+
 # 0.4.13: tablas gráficas privadas observadas en el diagnóstico
 
 El informe graphics-probe081059 muestra Direct3D9 oficial de Windows y una

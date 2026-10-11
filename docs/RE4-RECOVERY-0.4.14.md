@@ -39,6 +39,10 @@ está instalada y reinstala 0.4.12. Esa versión abría en la prueba del usuario
 aunque su detector no encontraba el dispositivo y no aparecían bloques.
 
 Validación cloud: la compilación y los checks del protocolo no equivalen a
-ejecutar el juego en Windows. El arranque de esta recuperación requiere prueba
-en el equipo del usuario. La integración gráfica necesitará capturar un
-dispositivo vivo desde su creación, antes de volver a intentar dibujar.
+ejecutar el juego en Windows. El usuario confirmó posteriormente que 0.4.14 abre
+y carga una partida sin problemas. El informe re4-crash-20261011-054530.json
+contiene events: []: no permite identificar módulo, excepción ni dirección del
+cierre anterior. Esta prueba acredita arranque/carga, no dibujo de bloques ni
+una nueva comprobación de todas las funciones del puente. La integración gráfica
+necesitará capturar un dispositivo vivo desde su creación, antes de volver a
+intentar dibujar.

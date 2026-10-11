@@ -371,4 +371,12 @@ Se preservan controles, cámara, correr y F8; mod0.4.11/API sin cambios.
 Colector de eventos1000/1001 anteriores de bio4.exe, sin acceder al proceso ni
 provocar otro cierre. Compilación PE32, 48 pruebas Python,4 suites C y4 fixtures
 de eventos pasan. Instalador/desinstalador probados con hash propio y copias.
-Arranque Windows pendiente; 0.4.13 retirada, sin sobrescribir artefactos antiguos.
+0.4.13 retirada, sin sobrescribir artefactos antiguos.
+
+## Confirmación del usuario de la recuperación 0.4.14
+
+RE4 abre y carga una partida sin problemas tras instalar0.4.14. El colector
+re4-crash-20261011-054530.json devuelve events: [] para los últimos siete días;
+sin módulo, excepción ni offset para atribuir la causa exacta de0.4.13. Se
+documenta éxito de arranque/carga y se conserva0.4.14 como base, con renderer
+desactivado. No se republica ZIP ni se requiere reinstalación para esta evidencia.

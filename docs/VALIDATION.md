@@ -337,4 +337,10 @@ fixtures PowerShell verifican extracción de Application Error/WER y exclusión
 de eventos ajenos/identidad ausente. Get-WinEvent y RE4 no se ejecutan en Linux.
 Instalador verifica copias y DLL; desinstalador elimina únicamente hash propio.
 Minecraft/API no cambian, por lo que se reutilizan los JAR ya validados.
-Arranque de 0.4.14 y causa exacta del cierre pendientes del equipo Windows.
+El usuario confirmó después que 0.4.14 inicia y carga una partida de RE4 sin
+problemas. Su informe re4-crash-20261011-054530.json, generado a08:45:30 UTC,
+contiene events: [] para el intervalo consultado de siete días. Esto no demuestra
+ausencia de cierres anteriores ni identifica módulo/excepción/dirección. Retirar
+el detector elimina el fallo observado en esta prueba; la causa exacta anterior
+sigue sin confirmar. No se probó dibujo (desactivado) ni se repitió una prueba
+completa de controles/cámara en esta confirmación de arranque.

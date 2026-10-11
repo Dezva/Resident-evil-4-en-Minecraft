@@ -302,3 +302,19 @@ dirección. Mod/host/DLL0.4.10 requieren actualización conjunta. Sin cambios
 al algoritmo de cámara, velocidad/posiciones, partidas o inventario.
 TRACE muestra transcurrido/restante en consola, sin overlay nuevo.
 15 pruebas core,2 Minecraft,37 Python y tres suites C pasan en Linux.
+
+## 0.4.11 — primer bloque visual
+
+Usuario confirma sprint0.4.10 y autoriza avanzar a bloque visible fijo. Selecciona
+bloque colocado mediante /re4bridge blocktest: caja fija inicialmente a3 tamaños
+delante de Leon, tamaño1000 ajustable, sin escala Minecraft↔RE4 aún validada.
+Romper el bloque seleccionado/cambiar mundo/dimensión/desconectar retira preview.
+No copia terreno superplano ni mobs. Dibuja aristas verdes sobre imagen RE4,
+sin profundidad/texturas/colisión; no se presenta como objeto físico nativo.
+IPC separado68bytes y preview opcional sobre TCP autenticado. TTL/generación,
+stop/F8 y armado completo requeridos. Detector D3D9 compara tabla exacta de sonda
+oficial y exige dispositivo único de ventana del proceso; vtable privada cambia
+solo EndScene. Contadores visibles en status. Cámara/controles0.4.10 conservados.
+17 pruebas core,2 Minecraft,41 Python y4 suites C pasan; callback EndScene real
+se ejercita con COM simulado para verificar restauración incluso al fallar.
+Detección del dispositivo y visualización efectiva requieren Windows del usuario.

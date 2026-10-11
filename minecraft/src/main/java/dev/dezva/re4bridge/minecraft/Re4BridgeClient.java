@@ -5,6 +5,9 @@ import com.google.gson.JsonObject;
 import dev.dezva.re4bridge.BridgeConfig;
 import dev.dezva.re4bridge.BridgeConnection;
 import dev.dezva.re4bridge.Re4Calibration;
+import dev.dezva.re4bridge.BlockPreview;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import java.io.IOException;
@@ -51,6 +54,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
     private double eyeHeight = 1600;
+    private BlockPreview blockPreview;
+    private BlockPos previewBlock;
+    private String previewDimension;
 
     @Override public void onInitializeClient() {
         try {
@@ -107,6 +113,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     return 1;
                 }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
+                .then(literal("blocktest").executes(ctx -> blockTest(ctx.getSource().getClient(),1000))
+                    .then(literal("off").executes(ctx -> {
+                        blockPreview=null;previewBlock=null;
+                        say(ctx.getSource().getClient(),"Bloque visual retirado.");return 1;
+                    }))
+                    .then(argument("size",DoubleArgumentType.doubleArg(40,2500))
+                        .executes(ctx -> blockTest(ctx.getSource().getClient(),DoubleArgumentType.getDouble(ctx,"size")))))
                 .then(literal("scale").then(argument("units", DoubleArgumentType.doubleArg(1, 10000)).executes(ctx -> {
                     unitsPerBlock = DoubleArgumentType.getDouble(ctx, "units");
                     return calibrate(ctx.getSource().getClient());
@@ -151,6 +164,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         "Control: solicitado=" + controlArming.active() + "; causa=" + controlArming.reason() + "; nativo=" + bridge.nativeArmed() + "; parada="
                         + bridge.nativeStop() + "; ticks=" + bridge.nativeTicks()));
                     if (bridge != null && bridge.readerMode()) {
+                        if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
+                            "Bloque visual: estado="+bridge.previewStatus()+"; frames="+bridge.previewFrames()+"; dibujos="+bridge.previewDraws()
+                            +"; fallos="+bridge.previewFailures()+"; HRESULT=0x"+Long.toHexString(bridge.previewHresult())
+                            +" (1=listo; 2=sonda D3D fallo; 3=dispositivo no hallado; 4=ambiguo)."));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -188,6 +205,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private void disconnect(MinecraftClient client) {
         stopDriving();
         mouseEnabled = false; firstPersonEnabled = false;
+        blockPreview=null;previewBlock=null;previewDimension=null;
         if (bridge != null) bridge.close();
         bridge = null;
         following = false;
@@ -208,6 +226,23 @@ public final class Re4BridgeClient implements ClientModInitializer {
         controlArming.stop("desarmado");
         mouseLook.reset();
         if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, controlArming.generation());
+    }
+
+    private int blockTest(MinecraftClient client,double size) {
+        var current=bridge;
+        var sample=current==null?null:current.re4Sample();
+        if (client.world==null || current==null || !current.controllerMode()
+                || !current.status().connected() || sample==null || !sample.fresh(System.nanoTime())
+                || !(client.crosshairTarget instanceof BlockHitResult hit)
+                || hit.getType()!=HitResult.Type.BLOCK || client.world.getBlockState(hit.getBlockPos()).isAir()) {
+            say(client,"Conecta controller y mira un bloque colocado en Minecraft antes de blocktest.");return 0;
+        }
+        try {blockPreview=BlockPreview.ahead(sample,size);}
+        catch (IllegalArgumentException error) {say(client,"Posicion RE4 fuera del rango de prueba.");return 0;}
+        previewBlock=hit.getBlockPos().toImmutable();
+        previewDimension=client.world.getRegistryKey().getValue().toString();
+        say(client,"Cubo de lineas fijado delante de Leon, tamano="+(int)size+". Usa arm; romper este bloque lo retira. F8 detiene.");
+        return 1;
     }
 
     private int calibrate(MinecraftClient client) {
@@ -232,7 +267,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         BridgeConnection current = bridge;
         if (current == null) return;
         MinecraftServer server = client.getServer();
-        if (client.player == null || server == null || !client.isInSingleplayer()) {
+        if (client.player == null || client.world == null || server == null || !client.isInSingleplayer()) {
             disconnect(client);
             return;
         }
@@ -266,7 +301,12 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 try { look = mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
-            current.publishControl(controlArming.active(), buttons, controlArming.generation(), look);
+            if (blockPreview!=null && (previewBlock==null
+                    || !client.world.getRegistryKey().getValue().toString().equals(previewDimension)
+                    || client.world.getBlockState(previewBlock).isAir())) {
+                blockPreview=null;previewBlock=null;
+            }
+            current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
                 "RE4: " + controlArming.reason() + " | arm=" + (current.nativeArmed() ? "si" : "no")
                 + " | teclas=" + buttons + "/" + current.nativeButtons()

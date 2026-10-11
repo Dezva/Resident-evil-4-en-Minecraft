@@ -11,3 +11,5 @@ gcc -std=c11 -Wall -Wextra -Werror native/test_branch.c -o native/build/test-bra
 native/build/test-branch
 gcc -std=c11 -Wall -Wextra -Werror native/test_look.c -o native/build/test-look -lm
 native/build/test-look
+gcc -std=c11 -Wall -Wextra -Werror native/test_block_geometry.c -o native/build/test-block-geometry -lm
+native/build/test-block-geometry

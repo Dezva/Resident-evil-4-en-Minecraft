@@ -39,6 +39,10 @@ class ControlTests {
             await(() -> bridge.nativeButtons() == 69);
             bridge.publishControl(true, 5, 1);
             await(() -> bridge.nativeButtons() == 5); // Releasing sprint keeps ordinary movement.
+            bridge.publishControl(true, 5, 1, null, new BlockPreview(1,2,3003,1000));
+            await(() -> { try { return Files.readString(log).contains("PREVIEW enabled=True"); } catch (Exception e) { return false; } });
+            assertEquals(1,bridge.previewStatus());assertEquals(99,bridge.previewFrames());assertEquals(20,bridge.previewDraws());
+            bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.
             await(() -> !bridge.nativeArmed());
             assertTrue(bridge.status().connected());

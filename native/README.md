@@ -191,3 +191,29 @@ to mouse1/FP2 and replaces only these five permitted bits after PadRead.
 Opposite directions cancel; run with no remaining direction is removed.
 FP relative movement translates direction to forward1 while preserving run64.
 No speed/position/collision/animation-state edits. Diagnostic build is410.
+
+## 0.4.11 one visual block
+
+Separate BlockPreview mapping68bytes, control48bytes + native counters20bytes.
+EndScene requires a coherent complete control/preview, matching generation,
+fresh original leases, live armed and no stop. F8 also latches stop in EndScene.
+No control protocol or movement/camera algorithm change; diagnostic build411.
+
+An official absolute-system-path Direct3D9 hidden-window probe provides the
+exact IDirect3DDevice9 vtable pointer. Search only writable non-executable PE
+data sections for readable/writable interface pointers with that same vtable;
+GetCreationParameters must identify a visible window of the current process
+and current thread, constraining discovery to the game window thread.
+Require one unique candidate (aliases allowed); atomically replace only its
+interface vtable pointer with a private copy, changing EndScene alone. No
+function prologue patching, device-address guesses or shared system-vtable edits.
+Discovery tries at most5 times,2s apart, after120 pad ticks. Ex/wrappers may fail
+validation; skip renderer and preserve input. No dummy window receives focus.
+
+Draw world-anchored green diagnostic edges in screen coordinates using actual
+Global CAMERA.v_mat and FOV. Near-plane/viewport clipping, finite/bounded inputs,
+and orthonormal-row checks prevent giant/invalid draw vertices. No terrain depth,
+collision, textures or native entity creation yet. Capture D3DSBT_ALL, change only
+states needed to draw, apply backup and release even on setter/draw failure;
+always return original EndScene result. No persistent default-pool resources.
+Device Reset preserves the interface; whole-device recreation needs game restart.

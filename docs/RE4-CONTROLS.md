@@ -1,5 +1,8 @@
 # Controles Minecraft -> RE4 UHD 1.1.0
 
+Prueba visual nueva: [0.4.11, bloque seleccionado](RE4-BLOCK-0.4.11.md).
+El usuario ya confirmó que correr funciona. Esta versión conserva ese control.
+
 Actualización vigente: [0.4.10 con correr](RE4-RUN-0.4.10.md). Requiere
 mod0.4.10, host y DLL nuevos. Mantén la tecla de sprint de Minecraft (Ctrl
 izquierdo por defecto) mientras avanzas. La velocidad la calcula RE4.

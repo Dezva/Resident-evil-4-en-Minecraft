@@ -24,7 +24,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path, required=True)
 args = parser.parse_args()
 config = load_config(args.config)
-policy = ControlPolicy(Writer())
+class Preview:
+    def publish(self,enabled,generation,bounds=None):
+        print(f'PREVIEW enabled={enabled} generation={generation} bounds={bounds}',flush=True)
+    def status(self):return {'status':1,'frames':99,'draws':20,'failures':0,'last_hresult':0}
+policy = ControlPolicy(Writer(),Preview())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)

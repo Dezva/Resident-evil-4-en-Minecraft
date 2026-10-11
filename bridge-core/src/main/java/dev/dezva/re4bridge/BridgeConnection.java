@@ -43,16 +43,28 @@ public final class BridgeConnection implements AutoCloseable {
     public int nativeButtons() { return nativeButtons; }
     public String nativeReason() { return nativeReason; }
     public int nativeCapabilities() { return nativeCapabilities; }
+    private volatile int previewStatus = -1;
+    private volatile long previewFrames, previewDraws;
+    private volatile long previewFailures,previewHresult;
+    public int previewStatus() { return previewStatus; }
+    public long previewFrames() { return previewFrames; }
+    public long previewDraws() { return previewDraws; }
+    public long previewFailures() { return previewFailures; }
+    public long previewHresult() { return previewHresult; }
     public boolean cameraActive() { return cameraActive; }
     public long nativeLookPackets() { return nativeLookPackets; }
     public void publishControl(boolean armed, int buttons, int generation) {
         publishControl(armed, buttons, generation, null);
     }
     public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look) {
+        publishControl(armed,buttons,generation,look,null);
+    }
+    public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look, BlockPreview preview) {
         if (buttons < 0 || (buttons & ~79) != 0 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
+        if (armed && preview != null) frame.add("preview",preview.toJson());
         if (look != null && armed) {
             JsonObject data = new JsonObject();
             data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
@@ -168,6 +180,14 @@ public final class BridgeConnection implements AutoCloseable {
                             nativeReason = value.getAsString();
                         }
                         if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 7);
+                        if (state.has("preview_state")) {
+                            var preview=state.getAsJsonObject("preview_state");
+                            previewStatus=boundedInteger(preview,"status",4);
+                            previewFrames=unsignedCounter(preview,"frames");
+                            previewDraws=unsignedCounter(preview,"draws");
+                            previewFailures=unsignedCounter(preview,"failures");
+                            previewHresult=unsignedCounter(preview,"last_hresult");
+                        }
                         if (state.has("camera_active")) {
                             if (!state.getAsJsonPrimitive("camera_active").isBoolean()) throw new IOException("Invalid camera state");
                             cameraActive = state.get("camera_active").getAsBoolean();
@@ -198,6 +218,12 @@ public final class BridgeConnection implements AutoCloseable {
 
     private static String string(JsonObject frame, String key) {
         return frame.has(key) && frame.get(key).isJsonPrimitive() ? frame.get(key).getAsString() : "";
+    }
+    private static long unsignedCounter(JsonObject frame,String key) throws IOException {
+        var value=frame.getAsJsonPrimitive(key);long result=value.getAsLong();
+        if (!value.isNumber() || result<0 || result>0xFFFFFFFFL || !value.getAsString().equals(Long.toString(result)))
+            throw new IOException("Invalid "+key);
+        return result;
     }
     private static int boundedInteger(JsonObject frame, String key, int max) throws IOException {
         var value = frame.getAsJsonPrimitive(key);

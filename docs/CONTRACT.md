@@ -136,6 +136,30 @@ versión real 1.1.0, junto con sus matrices y el campo de visión.
 
 ## Colisión
 
+### Prueba visual0.4.11
+
+El frame `re4_control` puede incluir `preview: {bounds:[minX,minY,minZ,maxX,maxY,maxZ]}`.
+Es una única caja en unidades nativas RE4, finita, dentro de±20000000 y con
+tamaños por eje40..2500. No es `collision_snapshot` ni una entidad con colisión.
+El mod fija esa caja explícitamente delante de Leon mediante blocktest,
+mantiene el bloque Minecraft seleccionado y retira la caja si se rompe,
+cambia mundo/dimensión o se desconecta. No envía el superplano completo.
+
+El host opcionalmente devuelve `control_state.preview_state` con status0..4
+(pendiente/listo/sonda fallida/no hallado/ambiguo), frames, draws, failures y
+last_hresult. Los contadores son uint32 y no forman parte del control.
+La memoria independiente `Local\RE4Bridge-BlockPreview-PID` mide68bytes:
+magic0x52453442,version1,sequence,stamp,enabled,generation,6floats de caja;
+después status,frames,draws,failures,last_hresult. Host publica únicamente
+los campos de control con secuencia impar/par; DLL escribe solo contadores.
+Dibujo exige controles armados/frescos y misma generación, caja completa y
+fresca (TTL500ms), sin stop. La ausencia de preview desactiva el dibujo.
+F8/stop/desarmado tienen prioridad. No afecta el IPC principal80bytes/v2.
+
+Las líneas se proyectan con la cámara actual y no usan profundidad del terreno.
+Los estados gráficos se restauran antes de EndScene original. Esta prueba no
+demuestra todavía conversión espacial general, texturas o colisión de bloques.
+
 `type: "collision_snapshot"` contiene `sample_ns`, `dimension`, `center`,
 `complete` y `blocks`. El área es de 9 × 5 × 9 bloques alrededor del centro
 entero (radios X/Z = 4, Y = 2), aproximadamente 4 Hz. Solo se consultan chunks

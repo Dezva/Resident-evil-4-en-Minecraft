@@ -265,3 +265,19 @@ cancelled axes/no-direction stripping run, stop/disarm/TTL. Gradle executed
 suites pass. Native PE32 compiled; gameplay run speed not tested on Windows.
 Trace022618 confirms loaded build409 and zero projection writes despite
 increasing entries. Camera algorithm preserved; no claim of visual fix.
+
+## 0.4.11 visual block
+
+User confirmed0.4.10 sprint in Windows. Added selected-block diagnostic cube,
+fixed native bounds, live TCP preview/renderer status and independent68-byte IPC.
+17 core tests and2 Minecraft tests pass (no skips); control fixture authenticates
+and transmits preview, status and sprint; immutable native box anchoring tested.
+41 Python tests pass, including bounds, preview removal/disarm/F8/generation/TTL
+and a fixture compiling the actual native EndScene body with synthetic COM calls.
+For each setter/draw error, graphics backup is applied before original EndScene;
+capture failure does not mutate graphics; resources released. Four portable C
+suites pass, including near-plane/viewport clipping and stationary-world anchor
+under viewer movement. PE32 DLL compiled with warnings treated as errors.
+Actual D3D9 device discovery/rendering not executed on Linux; public reference
+was consulted for SDK, not copied as a wrapper. No textures/occlusion/collision,
+no save/entity/position edits. Windows visual test remains required.

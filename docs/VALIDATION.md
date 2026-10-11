@@ -122,3 +122,17 @@ nuestro punto local use exactamente el mismo espacio. Se conserva ajuste
 manual y signo. No cambia el giro, el hook, el protocolo ni los cortes de entrada.
 Regresiones Java/Python/C cubren rango, transporte IPC y direccion a altura
 alta. La posicion final de primera persona necesita prueba en Windows.
+
+## 0.4.2: ojo anclado y cuerpo oculto
+
+El usuario confirma que 0.4.1 situa la camara dentro del modelo de Leon y
+solicita primera persona sin orbitas ni cuerpo visible. Se reemplaza la matriz
+de camara por ejes identidad y traslacion pies + altura; mirada mundial yaw/pitch
+normalizada. Se conserva giro nativo W/S/A/D y raton. cUnit be_flag_4 documenta
+Trans 0x2 y DrawFootShadow 0x10: se limpian temporalmente solo esos bits del
+jugador validado, con restauracion antes de logica nativa y sin escribir objetos
+anteriores tras cambio de PlayerPtr. El argumento de matriz puede ser local;
+solo se retiene copia si es la matriz estatica CamCtrl/QuasiFPS documentada.
+Regresiones C comprueban que girar no desplaza el ojo, pitch vertical y mirada
+unitaria, valores no finitos y conservacion de bits Alive/Move/ajenos al restaurar.
+La efectividad del dibujo y la transformacion final siguen pendientes de Windows.

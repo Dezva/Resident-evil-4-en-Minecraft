@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.1
+# Native RE4 movement and optional look, 0.4.2
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -35,12 +35,18 @@ The verified player-slot signature locates cCoord ang_A0.y; mouse writes only
 its yaw, validates object/vtable/ranges and bounds finite deltas per sequence.
 Optional CameraQuasiFPS::hitCheck and CamCtrl signatures come from Trainer.cpp
 and Game.cpp of the pinned public reference. A fastcall wrapper forwards the
-original before overriding this frame's point for that QuasiFPS instance only.
-Roll/FOV and player collision remain native. Missing optional signatures
-leave movement working. The user confirmed movement and mouse yaw in Windows.
-The 0.4.0 eye point was at leg height; 0.4.1 accepts signed heights up to 2500
-(default client height 1600), guided by the reference freecam elevation of 2000.
-This is provisional; the first-person eye position still needs Windows validation.
+original, then overrides the argument matrix and eye point for that instance.
+0.4.2 uses identity axes with world translation feet + eye height and a normalized
+world yaw/pitch sight line, removing a rotating orbit offset. Argument matrices
+may be stack-local: never retain them. Only the static player matrix at
+CamCtrl+0x278+0x178 is backed up and restored before the next native update.
+The validated player's cUnit be_flag_4 drawing bits Trans (0x2) and foot shadow
+(0x10) are temporarily cleared; Alive/Move and collision flags remain unchanged.
+Restore only those bits, preserving other changes, and only while PlayerPtr and
+vtable still identify the same object; never write a departed/freed player.
+Restoration runs before PadRead and camera calls, including stop/stale input.
+This rendering interpretation needs Windows validation; weapons/child effects
+may still draw. Mouse yaw is user-confirmed; first-person anchoring/hiding is not.
 Odd/changed sequence, nonmovement bits, opposite directions or expired input
 produce zero remote movement. TTL is 500 ms, with uint32 tick wrap handled.
 Stop 1 is F8 and stop 2 is expired armed input; either requires a new explicit

@@ -35,6 +35,10 @@ typedef struct { float position[3], target[3], roll, fovy; } CameraPoint;
 static void (__attribute__((fastcall)) *original_camera)(void *, void *, void *, void *, CameraPoint *);
 static uint32_t last_look_sequence, last_arm_id, last_player;
 static float consumed_yaw;
+static void *eye_matrix;
+static float saved_eye_matrix[12];
+static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
+
 
 static int writable(const void *pointer, SIZE_T length) {
     MEMORY_BASIC_INFORMATION m;
@@ -66,8 +70,23 @@ static uint32_t current_player(void) {
     return player;
 }
 
+/* Restore before native logic. Only restore a model while it is still the same player. */
+static void restore_first_person(void) {
+    if (eye_matrix && writable(eye_matrix, sizeof(saved_eye_matrix)))
+        memcpy(eye_matrix, saved_eye_matrix, sizeof(saved_eye_matrix));
+    eye_matrix = NULL;
+    uint32_t player = current_player();
+    if (hidden_player && player == hidden_player && *(uint32_t *)(uintptr_t)player == hidden_vtable
+            && writable((void *)(uintptr_t)(player + 4), 4)) {
+        uint32_t *flags = (uint32_t *)(uintptr_t)(player + 4);
+        *flags = re4_restore_model(*flags, saved_draw_bits);
+    }
+    hidden_player = 0;
+}
+
 static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
         void *matrix, void *offset, CameraPoint *point) {
+    restore_first_person();
     original_camera(self, unused, matrix, offset, point);
     InterlockedIncrement(&state->camera_ticks);
     state->camera_active = 0;
@@ -76,16 +95,34 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     uint32_t stamp = state->stamp, armed = state->armed, flags = state->look_flags;
     float total = state->look_total, pitch = state->pitch, eye = state->eye_height;
     MemoryBarrier();
+    uint32_t player = current_player();
     if (before != state->sequence || (before & 1) || !armed || state->stop
             || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
-            || !re4_valid_look(total,pitch,eye,flags) || !current_player()
-            || self != camera_ctrl + 0x278 || !writable(point,sizeof(*point))) return;
-    /* Override only this frame's camera point; retain game's roll/FOV and player collision. */
-    re4_eye_point(pitch, eye, point->position, point->target);
+            || !re4_valid_look(total,pitch,eye,flags) || !player
+            || self != camera_ctrl + 0x278
+            || !writable(matrix,48) || !writable(point,sizeof(*point))
+            || !writable((void *)(uintptr_t)(player + 4),4)) return;
+    float frame[12], position[3], target[3];
+    float feet[3], yaw;
+    memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));
+    memcpy(&yaw, (void *)(uintptr_t)(player + 0xA4), sizeof(yaw));
+    if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player) return;
+    /* Preserve the game's matrix for the next update; no accumulation across frames. */
+    if (matrix == camera_ctrl + 0x278 + 0x178) {
+        memcpy(saved_eye_matrix,matrix,sizeof(saved_eye_matrix)); eye_matrix = matrix;
+    } /* Stack-local argument matrices must never be retained beyond this call. */
+    memcpy(matrix,frame,sizeof(frame));
+    memcpy(point->position,position,sizeof(position)); memcpy(point->target,target,sizeof(target));
+    uint32_t *draw = (uint32_t *)(uintptr_t)(player + 4);
+    hidden_player = player; hidden_vtable = *(uint32_t *)(uintptr_t)player;
+    saved_draw_bits = *draw & RE4_MODEL_DRAW_BITS;
+    *draw = re4_hide_model(*draw);
     state->camera_active = 1;
 }
 
 static void __cdecl pad_hook(void) {
+    restore_first_person();
+    state->camera_active = 0;
     original_pad();
     InterlockedIncrement(&state->hook_ticks);
     if (GetAsyncKeyState(VK_F8) & 0x8000) InterlockedExchange(&state->stop, 1);

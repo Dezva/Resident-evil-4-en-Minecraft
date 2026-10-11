@@ -1,18 +1,21 @@
-# 0.4.1: raton y camara experimental en RE4
+# 0.4.2: raton y camara experimental en RE4
 
-El usuario confirmo W/S, A/D y giro por raton con Minecraft enfocado y RE4
-en ventana. En 0.4.0 la camara activa quedo a la altura de las piernas.
-0.4.1 aumenta la altura inicial de 160 a 1600 unidades y amplia su ajuste
-hasta 2500. Es una correccion para probar: la altura exacta y el espacio de
-camara aun necesitan validacion en Windows; no se ejecuta RE4 en cloud. No se convierte el personaje en Steve ni se oculta el modelo de Leon.
+El usuario confirma movimiento y raton. 0.4.1 elevo el ojo, pero seguia mostrando
+el interior de Leon y una orientacion incorrecta. 0.4.2 cambia la construccion
+de camara: matriz con ejes fijos, traslacion a la posicion del jugador mas altura,
+y direccion normalizada con yaw de Leon y pitch del raton. El ojo no orbita
+al girar. Se ocultan temporalmente los bits Trans/DrawFootShadow del jugador;
+Alive/Move y colisiones se conservan. Modelo y matriz persistente se restauran
+antes del siguiente update nativo o al salir de primera persona. Esto necesita
+prueba real en Windows: las regresiones cloud no demuestran el render final.
 
-## Actualizar desde 0.4.0 (o 0.3.5)
+## Actualizar desde 0.4.1 (o versiones anteriores)
 
 1. Cierra RE4, Minecraft y el host Python.
 2. Ejecuta `UNINSTALL-RE4-CONTROLS.bat` desde la carpeta anterior. Solo retira
    la DLL de ese paquete si el hash coincide; si falla, conserva el archivo.
-3. Extrae 0.4.1 en una carpeta nueva. Retira el JAR anterior de RE4 Bridge
-   de `.minecraft\mods` y coloca `mods/re4bridge-0.4.1.jar`. Conserva Fabric API.
+3. Extrae 0.4.2 en una carpeta nueva. Retira el JAR anterior de RE4 Bridge
+   de `.minecraft\mods` y coloca `mods/re4bridge-0.4.2.jar`. Conserva Fabric API.
 4. Ejecuta el nuevo `INSTALL-RE4-CONTROLS.bat`. Verifica el backup de Saves
    antes de instalar. No copia encima de DLL existentes; no la copies a mano.
 5. Abre RE4 en ventana con partida cargada y el mundo Minecraft de prueba.
@@ -68,13 +71,14 @@ para comprobar el eje Y opuesto. La altura no se guarda al reiniciar Minecraft. 
 grados; FOV y roll se conservan de la rutina original. No se modifican colision
 del personaje ni guardados, ni se enlaza apuntado de armas con Minecraft.
 Solo cambia la camara QuasiFPS durante entrada armada/fresca; no reemplaza
-globalmente otras camaras, escenas o efectos. El modelo puede verse o recortar.
+globalmente otras camaras, escenas o efectos. Se intenta ocultar el cuerpo de Leon; armas/efectos independientes pueden seguir visibles.
+No se cambia A/D a desplazamiento lateral: sigue siendo giro nativo.
 
 F8, perder foco, abrir UI/pausa o perder muestras desarman. El siguiente
 frame calcula la camara original. No se rearma automaticamente. TTL 500 ms
 y muestras cliente maximas de 200 ms. Repite firstperson para apagar esa
 opcion; mouse apaga ambas. Disconnect limpia las opciones. Para retirar la
-DLL, cierra RE4 y usa el UNINSTALL de 0.4.1. Conserva backups y partidas.
+DLL, cierra RE4 y usa el UNINSTALL de 0.4.2. Conserva backups y partidas.
 
 ## Evidencia
 

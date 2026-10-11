@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "a01d582a0548b052a7e77c5a61b9ba342b4941132a1a2c07eb3f18d44cd8f8db": "0.4.4",
     "a66e6c7c01adb212b30f8918593a7d9b0cdc85ca37ba22e0f65648eddb0e7012": "0.4.0",
     "1b4d42141885c6ef7fbdf3312fcd8ea861cab199fddf7bd3718e3e8c542eba96": "0.4.1",
     "fa452d6fad8c8ddc931c51b76325124920c2c16aef11db2a6c1c7713dded35f2": "0.4.2",
@@ -60,6 +61,10 @@ def observation(read, base, size, slot, addresses):
     player = sample_player(read, slot, base, size)
     ctrl = addresses['ctrl']
     row = {"player": player, "ctrl_point": point(read, ctrl+0x38),
+           "ctrl_camera_point": point(read, ctrl+0x60+0xA4),
+           "ctrl_camera_matrix": floats(read, ctrl+0x60, 12),
+           "ctrl_camera_view_matrix": floats(read, ctrl+0x60+0x30, 12),
+           "ctrl_camera_look": floats(read, ctrl+0x60+0xD0, 3),
            "quasi_point": point(read, ctrl+0x278+0xA4),
            "quasi_matrix": floats(read, ctrl+0x278+0x178, 12),
            "quasi_player_direction": floats(read, ctrl+0x278+0x16C, 3),

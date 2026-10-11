@@ -136,7 +136,6 @@ static void restore_first_person(void) {
 static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
         void *matrix, void *offset, CameraPoint *point) {
     restore_first_person();
-    original_camera(self, unused, matrix, offset, point);
     InterlockedIncrement(&state->camera_ticks);
     state->camera_active = 0;
     LONG before = state->sequence;
@@ -150,18 +149,31 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
             || !(state->capabilities & 2u) || !re4_valid_look(total,pitch,eye,flags) || !player
             || self != camera_ctrl + 0x278
             || !writable(matrix,48) || !writable(point,sizeof(*point))
-            || !writable((void *)(uintptr_t)(player + 4),4)) return;
+            || !writable((void *)(uintptr_t)(player + 4),4)
+            || !readable(offset,0x2C)) {
+        original_camera(self, unused, matrix, offset, point);
+        return;
+    }
     float frame[12], position[3], target[3];
     float feet[3], yaw;
     memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));
     memcpy(&yaw, (void *)(uintptr_t)(player + 0xA4), sizeof(yaw));
-    if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player) return;
+    float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
+    if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player
+            || !isfinite(fovy) || fovy > 179.f) {
+        original_camera(self, unused, matrix, offset, point);
+        return;
+    }
+    /* Active FP replaces hitCheck, as in the documented freecam reference.
+       Calling it first leaves native orbit/collision side effects in QuasiFPS. */
     /* Preserve the game's matrix for the next update; no accumulation across frames. */
     if (matrix == camera_ctrl + 0x278 + 0x178) {
         memcpy(saved_eye_matrix,matrix,sizeof(saved_eye_matrix)); eye_matrix = matrix;
     } /* Stack-local argument matrices must never be retained beyond this call. */
     memcpy(matrix,frame,sizeof(frame));
     memcpy(point->position,position,sizeof(position)); memcpy(point->target,target,sizeof(target));
+    point->roll = 0.f;
+    point->fovy = fovy > 0.f ? fovy : 50.f;
     uint32_t *draw = (uint32_t *)(uintptr_t)(player + 4);
     hidden_player = player; hidden_vtable = *(uint32_t *)(uintptr_t)player;
     saved_draw_bits = *draw & RE4_MODEL_DRAW_BITS;

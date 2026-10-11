@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.3
+# Native RE4 movement and optional look, 0.4.4
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -34,10 +34,14 @@ arm ID, capabilities, applied yaw, camera ticks, look samples and camera-active.
 The verified player-slot signature locates cCoord ang_A0.y; mouse writes only
 its yaw, validates object/vtable/ranges and bounds finite deltas per sequence.
 Optional CameraQuasiFPS::hitCheck and CamCtrl signatures come from Trainer.cpp
-and Game.cpp of the pinned public reference. A fastcall wrapper forwards the
-original, then overrides the argument matrix and eye point for that instance.
-0.4.3 uses identity axes with world translation feet + eye height and a normalized
-world yaw/pitch sight line, removing a rotating orbit offset. Argument matrices
+and Game.cpp of the pinned public reference. A fastcall wrapper calls the
+original when FP is inactive or validation fails. Active FP replaces hitCheck
+without executing the original collision/orbit adjustment first, matching the
+reference's freecam control flow. It sets roll to zero and takes FOV from the
+validated QFPS_OFFSET, defaulting to 50 when nonpositive.
+0.4.4 uses identity axes with world translation feet + eye height and a
+1000-unit world yaw/pitch sight line to retain float precision after translation.
+Argument matrices
 may be stack-local: never retain them. Only the static player matrix at
 CamCtrl+0x278+0x178 is backed up and restored before the next native update.
 The validated player's cUnit be_flag_4 drawing bits Trans (0x2) and foot shadow

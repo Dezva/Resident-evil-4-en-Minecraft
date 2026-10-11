@@ -5,7 +5,7 @@ las etapas de cámara y el estado del puente. Solo lee: no instala DLL, no cambi
 mods, no activa controles ni modifica el inventario. Usa el Python 3.10 o posterior
 que ya requiere el host.
 
-1. Extrae este ZIP en una carpeta nueva. Mantén tu instalación 0.4.3 y abre RE4 con
+1. Extrae este ZIP en una carpeta nueva. Mantén tus mods y la DLL que estás probando; abre RE4 con
    una partida cargada, Minecraft y el host de controles como de costumbre.
 2. Ejecuta **TRACE-RE4-CAMERA.bat como administrador** si RE4 también requiere ese
    nivel de permisos. Comenzará el registro inmediatamente.

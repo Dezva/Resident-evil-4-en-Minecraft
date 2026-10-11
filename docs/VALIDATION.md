@@ -149,3 +149,21 @@ no se cambia inventario. Vista oculta panel totalmente al F9; Application.Run
 conserva timer al ocultar. F8 ejecuta retorno directamente, sin PerformClick
 sobre un boton oculto; F9 vuelve al panel. No se presentan las regresiones y
 compilacion como prueba Windows de la nueva camara/render/WinForms.
+
+## Cámara nativa 0.4.4 (mod/host 0.4.3)
+
+El registro recibido de Windows contiene 223 muestras, DLL 0.4.3 en disco,
+157 muestras armed/camera_active y 17 armed fuera del instante camera_active.
+Con ratón inmóvil, yaw del jugador y los puntos Ctrl/QuasiFPS permanecen
+estables al soltar W; no prueba cuál transformación de render provoca el
+desvío visual. No se incluye el registro privado completo en el repositorio.
+FP ahora reemplaza hitCheck en lugar de llamarlo primero, siguiendo el flujo
+de cámara libre de la referencia. Roll cero, FOV desde QFPS_OFFSET validado;
+cualquier fallo de validación conserva hitCheck original. La mirada usa
+1000 unidades para reducir pérdida de precisión al sumar posiciones grandes.
+Regresión C reproduce coordenadas/yaw/pitch del registro y verifica error
+angular menor que 0.00002 radianes tras traducción float. Tres suites nativas
+y 27 pruebas Python pasan. ZIP nativo de 14 archivos validado con Universal
+Modder. Diagnóstico ampliado registra también CameraControl.Camera_60.
+Compilación y pruebas sintéticas no demuestran que el desvío visible esté
+resuelto: queda pendiente la prueba Windows del usuario.

@@ -30,9 +30,11 @@ static inline int re4_eye_frame(const float *feet, float yaw, float pitch, float
     matrix[0] = matrix[5] = matrix[10] = 1;
     matrix[3] = feet[0]; matrix[7] = feet[1] + eye; matrix[11] = feet[2];
     position[0] = position[1] = position[2] = 0;
-    target[0] = sinf(yaw) * cosf(radians);
-    target[1] = -sinf(radians);
-    target[2] = cosf(yaw) * cosf(radians);
+    /* The caller adds world translation. A unit target loses float precision
+       near RE4's +/-100000 coordinates; retain a 1000-unit sight line. */
+    target[0] = 1000.f * sinf(yaw) * cosf(radians);
+    target[1] = -1000.f * sinf(radians);
+    target[2] = 1000.f * cosf(yaw) * cosf(radians);
     return 1;
 }
 static inline unsigned re4_smoothing_flags(unsigned flags, int first_person) {

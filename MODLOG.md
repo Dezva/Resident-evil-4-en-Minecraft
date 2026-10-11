@@ -223,3 +223,14 @@ no se cambia inventario. Vista oculta panel totalmente al F9; Application.Run
 conserva timer al ocultar. F8 ejecuta retorno directamente, sin PerformClick
 sobre un boton oculto; F9 vuelve al panel. No se presentan las regresiones y
 compilacion como prueba Windows de la nueva camara/render/WinForms.
+
+## Cámara nativa 0.4.4
+
+El usuario confirma que 0.4.3 sigue desviándose en reposo. Su registro muestra
+yaw/puntos de mirada estables durante la transición caminar/parar. Se evita
+ejecutar hitCheck antes del reemplazo FP, se bloquea roll, se conserva FOV
+desde QFPS_OFFSET y se alarga la mirada a 1000 unidades para preservar
+precisión float en coordenadas grandes. Sin nuevos hooks ni cambios de IPC,
+mod Minecraft o host. ZIP de actualización solo nativa incluye diagnóstico
+ampliado de CameraControl.Camera_60 y reversión mediante instaladores propios.
+Tres suites C y 27 pruebas Python pasan; eficacia visual pendiente de Windows.

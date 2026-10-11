@@ -22,16 +22,22 @@ int main(void) {
     assert(re4_eye_frame(feet,0,0,1600,frame,pos,target));
     assert(frame[3] == feet[0] && frame[7] == 1370 && frame[11] == feet[2]);
     assert(pos[0] == 0 && pos[1] == 0 && pos[2] == 0);
-    assert(target[0] == 0 && target[1] == 0 && target[2] == 1);
+    assert(target[0] == 0 && target[1] == 0 && target[2] == 1000);
     /* Turning changes only gaze, never the eye's world position. */
     assert(re4_eye_frame(feet,1.570796327f,0,1600,frame,pos,target));
-    assert(target[0] > 0.999f && fabsf(target[2]) < 0.00001f);
+    assert(target[0] > 999.f && fabsf(target[2]) < 0.001f);
     assert(frame[3] == feet[0] && frame[7] == 1370 && frame[11] == feet[2]);
     for (int sign = -1; sign <= 1; sign += 2) {
         assert(re4_eye_frame(feet,2,sign*85,2500,frame,pos,target));
         float length = target[0]*target[0] + target[1]*target[1] + target[2]*target[2];
-        assert(fabsf(length-1) < 0.00001f && target[1]*sign < 0);
+        assert(fabsf(length-1000000.f) < 1.f && target[1]*sign < 0);
     }
+    /* Reproduce the uploaded trace: large world X, yaw -2.297626, pitch 54.
+       Compare the gaze after single-precision world translation. */
+    assert(re4_eye_frame(feet,-2.297626f,54.f,1600,frame,pos,target));
+    float world_x = frame[3] + target[0], world_z = frame[11] + target[2];
+    float observed = atan2f(world_x-frame[3],world_z-frame[11]);
+    assert(fabsf(observed-(-2.297626f)) < 0.00002f);
     assert(!re4_eye_frame(feet,NAN,0,1600,frame,pos,target));
     feet[1] = INFINITY;
     assert(!re4_eye_frame(feet,0,0,1600,frame,pos,target));

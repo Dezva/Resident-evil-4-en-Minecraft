@@ -45,6 +45,12 @@ public final class BridgeConnection implements AutoCloseable {
     public int nativeCapabilities() { return nativeCapabilities; }
     private volatile int previewStatus = -1;
     private volatile boolean previewAvailable;
+    private volatile boolean previewRequested;
+    private volatile long previewSkipped;
+    private volatile String previewReason = "sin estado";
+    public boolean previewRequested() { return previewRequested; }
+    public long previewSkipped() { return previewSkipped; }
+    public String previewReason() { return previewReason; }
     public boolean previewAvailable() { return previewAvailable; }
     private volatile long previewFrames, previewDraws;
     private volatile long previewFailures,previewHresult;
@@ -189,6 +195,18 @@ public final class BridgeConnection implements AutoCloseable {
                             previewDraws=unsignedCounter(preview,"draws");
                             previewFailures=unsignedCounter(preview,"failures");
                             previewHresult=unsignedCounter(preview,"last_hresult");
+                            if (preview.has("requested")) {
+                                var value=preview.getAsJsonPrimitive("requested");
+                                if (!value.isBoolean()) throw new IOException("Invalid preview request status");
+                                previewRequested=value.getAsBoolean();
+                            }
+                            if (preview.has("skipped_passes")) previewSkipped=unsignedCounter(preview,"skipped_passes");
+                            if (preview.has("reason")) {
+                                var value=preview.getAsJsonPrimitive("reason");
+                                if (!value.isString() || value.getAsString().length()>160)
+                                    throw new IOException("Invalid preview reason");
+                                previewReason=value.getAsString();
+                            }
                         }
                         if (state.has("preview_available")) {
                             var available=state.getAsJsonPrimitive("preview_available");
@@ -218,6 +236,7 @@ public final class BridgeConnection implements AutoCloseable {
             running = false;
             re4Sample = null;
             nativeArmed = false;
+            previewRequested = false;
             socket = null;
             if (status.connected()) status = new Status(false, "disconnected", status.acknowledgedSequence());
         }
@@ -242,6 +261,7 @@ public final class BridgeConnection implements AutoCloseable {
 
     @Override public void close() {
         running = false;
+        previewRequested = false;
         Socket peer = socket;
         if (peer != null) {
             try { peer.close(); } catch (IOException ignored) { }

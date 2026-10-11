@@ -25,6 +25,10 @@ class ControlTests {
             await(() -> bridge.nativeTicks() == 123);
             await(bridge::previewAvailable);
             assertFalse(bridge.nativeArmed());
+            bridge.publishControl(false,0,0,null,new BlockPreview(1,2,3003,1000));
+            await(() -> bridge.status().acknowledgedSequence()>=2);
+            assertFalse(bridge.previewRequested());
+            assertFalse(Files.readString(log).contains("PREVIEW enabled=True"));
             bridge.publishControl(true, 5, 1);
             await(bridge::nativeArmed);
             await(() -> bridge.nativeButtons() == 5);
@@ -42,10 +46,13 @@ class ControlTests {
             await(() -> bridge.nativeButtons() == 5); // Releasing sprint keeps ordinary movement.
             bridge.publishControl(true, 5, 1, null, new BlockPreview(1,2,3003,1000));
             await(() -> { try { return Files.readString(log).contains("PREVIEW enabled=True"); } catch (Exception e) { return false; } });
+            await(bridge::previewRequested);
+            assertEquals(12,bridge.previewSkipped());assertEquals("pase omitido",bridge.previewReason());
             assertEquals(1,bridge.previewStatus());assertEquals(99,bridge.previewFrames());assertEquals(20,bridge.previewDraws());
             bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.
             await(() -> !bridge.nativeArmed());
+            await(() -> !bridge.previewRequested());
             assertTrue(bridge.status().connected());
             bridge.publishControl(true, 2, 2);
             await(bridge::nativeArmed);

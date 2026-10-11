@@ -22,6 +22,7 @@ class NativePreview:
     def __init__(self,pid,k=None,user=None):
         from re4_cube_test import CubeSession,read_cube_status
         self.session=None;self.key=None;self.baseline=None;self.generation=0;self.epoch_started=0
+        self.requested=False;self.bounds=None
         kernel=k if k is not None else ctypes.WinDLL('kernel32',use_last_error=True)
         try:
             self.session=CubeSession(kernel,pid,user=user)
@@ -53,6 +54,8 @@ class NativePreview:
                 self.epoch_started=time.monotonic()
         # Retain the epoch through removal/disarm. A new arm or placement rearms it.
         self.session.publish(enabled,bounds if enabled else None)
+        self.requested=bool(enabled)
+        self.bounds=list(bounds) if enabled else None
 
     def status(self):
         from re4_cube_test import read_cube_status
@@ -69,8 +72,11 @@ class NativePreview:
                 'failures':snapshot['failures']+snapshot['restore_failures'],
                 'last_hresult':int(snapshot['last_hresult'],16),
                 'reason':snapshot['reason'],'blocked':bool(blocked),
-                'stop_reason':snapshot['stop_reason']}
+                'stop_reason':snapshot['stop_reason'],'requested':self.requested,'bounds':self.bounds,
+                'skipped_passes':snapshot['skipped_passes'],
+                'camera_rejections':snapshot['camera_rejections'],'lease_rejections':snapshot['lease_rejections']}
 
     def close(self):
         if self.session is not None:
             self.session.close();self.session=None
+        self.requested=False;self.bounds=None

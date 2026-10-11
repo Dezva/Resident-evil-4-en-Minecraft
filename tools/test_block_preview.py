@@ -29,8 +29,12 @@ class PreviewTests(unittest.TestCase):
         self.assertFalse(words[2]&1);self.assertEqual(words[4:8],(1,epoch,1,0))
         self.assertEqual(list(words[8:]),self.bounds)
         self.assertEqual(kernel.telemetry.raw,before)
+        report=preview.status()
+        self.assertTrue(report['requested']);self.assertEqual(report['bounds'],self.bounds)
+        self.assertIn('skipped_passes',report);self.assertIn('camera_rejections',report)
         preview.publish(True,7,self.bounds);self.assertEqual(preview.session.epoch,epoch)
         preview.publish(False,7);self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        self.assertFalse(preview.status()['requested']);self.assertIsNone(preview.status()['bounds'])
         preview.publish(True,7,self.bounds);self.assertEqual(preview.session.epoch,epoch)
         # A new placement updates the immutable world bounds, not the camera anchor.
         changed=[x+100 for x in self.bounds]
@@ -42,6 +46,21 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
         self.assertEqual(kernel.released,1)
         self.assertIn((11,6,56),kernel.map_requests)
+
+    def test_observed_block_cannot_activate_native_channel_until_armed(self):
+        from test_cube_test import Kernel
+        import struct
+        kernel=Kernel(version=2,build=419);visual=NativePreview(42,kernel,user=kernel)
+        writer=Writer();policy=ControlPolicy(writer,visual);sample={'state':'player'}
+        frame=dict(self.frame(),armed=False,buttons=0)
+        self.assertFalse(policy.apply(frame,sample)['preview_state']['requested'])
+        self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        result=policy.apply(dict(frame,armed=True,arm_id=2),sample)
+        self.assertTrue(result['armed']);self.assertTrue(result['preview_state']['requested'])
+        epoch=visual.session.epoch
+        policy.apply(dict(frame,armed=True,arm_id=2),sample)
+        self.assertEqual(visual.session.epoch,epoch)
+        policy.stop();self.assertFalse(visual.status()['requested']);visual.close()
 
     def test_rejects_old_mapping_wrong_build_and_second_writer_without_activation(self):
         from test_cube_test import Kernel
@@ -61,6 +80,7 @@ class PreviewTests(unittest.TestCase):
         struct.pack_into('<I',kernel.telemetry,44,1)
         struct.pack_into('<I',kernel.telemetry,64,9)
         result=policy.apply(frame,sample);self.assertFalse(result['armed'])
+        self.assertFalse(result['preview_state']['requested'])
         self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
         self.assertFalse(policy.apply(frame,sample)['armed'])
         # A stale reason from the last scene cannot reject a newly requested epoch.

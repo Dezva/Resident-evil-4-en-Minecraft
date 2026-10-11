@@ -538,3 +538,20 @@ Cajas invertidas/NaN no dibujan; snapshot v2 real rechaza reservado, modo,
 versiones y publicaciones incompletas. Restauración/refs/Reset/fallback mantienen
 su cobertura anterior. Instalador/desinstalador verifica backups/hash y no pisa
 DLL ajena. APIs simuladas no acreditan driver o visibilidad de esta integración.
+
+## 0.4.20 — captura duplicada, tamaño y telemetría de solicitud
+
+73 pruebas Python, 17 bridge-core y 10 Minecraft pasan; mod0.4.20 compilado
+con JDK21/Fabric. Tracker verificado contra registro real: callback/tick
+duplicados retienen el primer anclaje, segunda mano/intento no borra una
+confirmación retrasada, tecla mantenida no extiende plazo, material equivocado
+no confirma, último confirmado prevalece, dimensión/clear cancela, cola≤16.
+TCP autenticado transmite requested/skipped/reason; caja detectada desarmada
+no habilita canal, nueva arm lo habilita, cese de muestras/parada lo retira.
+Telemetría nativa permanece intacta y epoch no cambia con renovaciones.
+
+Fabric lifecycle0.116.6+1.21.1 confirma START_CLIENT_TICK en HEAD de tick y END
+en RETURN. Esto valida el punto de observación previo a la interacción, no
+prueba la GUI real. Manual100 visible pero diminuto en captura del usuario;
+default1000 provisional, pendiente de calibración y colocación automática real.
+DLL conserva hash/build419; no se modificó ni recompiló código nativo.

@@ -5,6 +5,9 @@ import com.google.gson.JsonObject;
 
 /** One fixed native-world box, anchored explicitly ahead of the sampled player. */
 public record BlockPreview(double x, double y, double z, double size) {
+    /** Initial visual scale: 1600-unit experimental eye height / 1.6 Minecraft blocks.
+     * This is adjustable and is not a measured metric conversion for every RE4 room. */
+    public static final double DEFAULT_SIZE = 1000;
     public BlockPreview {
         if (!Double.isFinite(x+y+z+size) || Math.abs(x)>19_990_000 || Math.abs(y)>19_990_000
                 || Math.abs(z)>19_990_000 || size<40 || size>2500)

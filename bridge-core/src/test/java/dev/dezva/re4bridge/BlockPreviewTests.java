@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class BlockPreviewTests {
     @Test void boxIsAnchoredOnceAheadAtFeetHeight() {
         var sample=new Re4Sample(10,20,30,0,0);
-        var box=BlockPreview.ahead(sample,1000);
+        assertEquals(1000,BlockPreview.DEFAULT_SIZE);
+        var box=BlockPreview.ahead(sample,BlockPreview.DEFAULT_SIZE);
         assertEquals(10,box.x());assertEquals(20,box.y());assertEquals(3030,box.z());
         var bounds=box.toJson().getAsJsonArray("bounds");
         assertEquals(6,bounds.size());assertEquals(20,bounds.get(1).getAsDouble());

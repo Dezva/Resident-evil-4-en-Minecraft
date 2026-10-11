@@ -88,6 +88,7 @@ class ControlPolicy:
                 self.preview.publish(False,frame['arm_id'])
                 result['armed']=False
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
+                result['preview_state']=self.preview.status()
         return result
 
     def stop(self):

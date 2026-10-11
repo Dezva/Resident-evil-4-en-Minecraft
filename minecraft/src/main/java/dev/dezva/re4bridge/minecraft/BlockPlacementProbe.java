@@ -33,4 +33,7 @@ final class BlockPlacementProbe {
         return null;
     }
     boolean finished() { return remaining == 0; }
+    boolean sameAttempt(BlockPos candidate, BlockState state, Block block, String world) {
+        return pos.equals(candidate) && before.equals(state) && expected==block && dimension.equals(world);
+    }
 }

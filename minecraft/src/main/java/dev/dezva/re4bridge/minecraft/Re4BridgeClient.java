@@ -21,6 +21,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.fabricmc.loader.api.FabricLoader;
 import dev.dezva.re4bridge.ControlArming;
 import dev.dezva.re4bridge.MouseLook;
@@ -64,8 +65,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private String previewDimension;
     private BlockState previewState;
     private boolean blocksEnabled;
-    private double blockSize = 100;
-    private BlockPlacementProbe placementProbe;
+    private double blockSize = BlockPreview.DEFAULT_SIZE;
+    private final BlockPlacementTracker placementTracker = new BlockPlacementTracker();
+    private long placementEvents, placementTicks, placementsConfirmed;
 
     @Override public void onInitializeClient() {
         try {
@@ -123,14 +125,14 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("blocks")
-                    .then(literal("on").executes(ctx -> enableBlocks(ctx.getSource().getClient(),100))
+                    .then(literal("on").executes(ctx -> enableBlocks(ctx.getSource().getClient(),BlockPreview.DEFAULT_SIZE))
                         .then(argument("size",DoubleArgumentType.doubleArg(40,2500)).executes(ctx ->
                             enableBlocks(ctx.getSource().getClient(),DoubleArgumentType.getDouble(ctx,"size")))))
                     .then(literal("off").executes(ctx -> {
                         blocksEnabled=false;clearBlock();
                         say(ctx.getSource().getClient(),"Construccion visual desactivada.");return 1;
                     })))
-                .then(literal("blocktest").executes(ctx -> blockTest(ctx.getSource().getClient(),100))
+                .then(literal("blocktest").executes(ctx -> blockTest(ctx.getSource().getClient(),BlockPreview.DEFAULT_SIZE))
                     .then(literal("off").executes(ctx -> {
                         clearBlock();
                         say(ctx.getSource().getClient(),"Bloque visual retirado.");return 1;
@@ -184,7 +186,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Bloque visual: estado="+bridge.previewStatus()+"; frames="+bridge.previewFrames()+"; dibujos="+bridge.previewDraws()
                             +"; fallos="+bridge.previewFailures()+"; HRESULT=0x"+Long.toHexString(bridge.previewHresult())
-                            +" (0=sin estado; 1=canal listo; 2=dibujo detenido; 3=sin dispositivo). Construccion="+blocksEnabled));
+                            +"; solicitado al host="+bridge.previewRequested()+"; pases omitidos="+bridge.previewSkipped()
+                            +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
+                        if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
+                            "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null)+"; tamano="+(int)blockSize));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -193,25 +199,44 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     }
                     return 1;
                 }))));
+        ClientTickEvents.START_CLIENT_TICK.register(this::beforeTick);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
         UseBlockCallback.EVENT.register((player,world,hand,hit) -> {
             MinecraftClient client=MinecraftClient.getInstance();
-            var current=bridge;
-            var sample=current==null?null:current.re4Sample();
-            if (world.isClient && player==client.player && !player.isSpectator()
-                    && client.isInSingleplayer() && blocksEnabled && controlArming.active()
-                    && current!=null && current.controllerMode() && current.status().connected()
-                    && sample!=null && sample.fresh(System.nanoTime())
-                    && player.getStackInHand(hand).getItem() instanceof BlockItem item) {
-                ItemPlacementContext context=new ItemPlacementContext(player,hand,player.getStackInHand(hand),hit);
-                BlockPos pos=context.getBlockPos();
-                try {
-                    placementProbe=new BlockPlacementProbe(pos,world.getBlockState(pos),item.getBlock(),
-                        BlockPreview.ahead(sample,blockSize),world.getRegistryKey().getValue().toString());
-                } catch (IllegalArgumentException error) { say(client,"Posicion fuera del rango del bloque visual."); }
-            }
+            if (world.isClient && player==client.player) capturePlacement(client,hand,hit,true);
             return ActionResult.PASS;
         });
+    }
+
+    private void beforeTick(MinecraftClient client) {
+        // START runs before vanilla processes item use. Observe before prediction,
+        // even on the tick that closes arm's chat; publishing remains arm-gated.
+        if (client.options.useKey.isPressed() && client.crosshairTarget instanceof BlockHitResult hit
+                && hit.getType()==HitResult.Type.BLOCK) {
+            capturePlacement(client,Hand.MAIN_HAND,hit,false);
+            capturePlacement(client,Hand.OFF_HAND,hit,false);
+        }
+    }
+
+    private void capturePlacement(MinecraftClient client,Hand hand,BlockHitResult hit,boolean event) {
+        var current=bridge;
+        var sample=current==null?null:current.re4Sample();
+        if (!blocksEnabled || client.world==null || client.player==null || client.player.isSpectator()
+                || !client.isInSingleplayer() || client.currentScreen!=null || client.isPaused() || !client.isWindowFocused()
+                || current==null || !current.controllerMode() || !current.status().connected()
+                || sample==null || !sample.fresh(System.nanoTime())
+                || !(client.player.getStackInHand(hand).getItem() instanceof BlockItem item)) return;
+        try {
+            var box=BlockPreview.ahead(sample,blockSize);
+            var dimension=client.world.getRegistryKey().getValue().toString();
+            var context=new ItemPlacementContext(client.player,hand,client.player.getStackInHand(hand),hit);
+            // Include direct replacement and adjacent placement; confirmation still
+            // requires a real change to the expected material, never just a click.
+            for (var pos : new BlockPos[]{context.getBlockPos(),hit.getBlockPos(),hit.getBlockPos().offset(hit.getSide())}) {
+                placementTracker.attempt(pos,client.world.getBlockState(pos),item.getBlock(),box,dimension);
+            }
+            if (event) placementEvents++; else placementTicks++;
+        } catch (IllegalArgumentException error) { /* Invalid RE4 coordinates create no selection. */ }
     }
 
     private int connect(MinecraftClient client, boolean readerMode) {
@@ -259,21 +284,22 @@ public final class Re4BridgeClient implements ClientModInitializer {
 
     private void stopDriving() {
         controlArming.stop("desarmado");
-        placementProbe=null;
+        placementTracker.clear();
         mouseLook.reset();
         if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, controlArming.generation());
     }
 
     private void clearBlock() {
-        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementProbe=null;
+        blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();
     }
 
     private int enableBlocks(MinecraftClient client,double size) {
         if (bridge==null || !bridge.controllerMode() || !bridge.status().connected() || !bridge.previewAvailable()) {
-            say(client,"Conecta /re4bridge controller al host 0.4.19 antes de activar bloques.");return 0;
+            say(client,"Conecta /re4bridge controller al host 0.4.20 antes de activar bloques.");return 0;
         }
         stopDriving();clearBlock();blocksEnabled=true;blockSize=size;
-        say(client,"Un bloque visual activo. Usa arm y coloca un bloque: cubo fijo delante de Leon; romperlo lo retira. F8 detiene.");
+        placementEvents=placementTicks=placementsConfirmed=0;
+        say(client,"Un bloque visual activo, tamano="+(int)size+". Usa arm y coloca un bloque: cubo fijo delante de Leon; romperlo lo retira. F8 detiene.");
         return 1;
     }
 
@@ -291,7 +317,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         previewBlock=hit.getBlockPos().toImmutable();
         previewDimension=client.world.getRegistryKey().getValue().toString();
         previewState=client.world.getBlockState(previewBlock);
-        placementProbe=null;
+        placementTracker.clear();
         say(client,"Cubo de lineas fijado delante de Leon, tamano="+(int)size+". Usa arm; romper este bloque lo retira. F8 detiene.");
         return 1;
     }
@@ -352,13 +378,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 try { look = mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
-            if (!controlArming.active()) placementProbe=null;
-            if (placementProbe!=null) {
-                var placed=placementProbe.poll(client.world::getBlockState,client.world.getRegistryKey().getValue().toString());
-                if (placed!=null) {
-                    blockPreview=placed.box();previewBlock=placed.pos();previewState=placed.state();previewDimension=placed.dimension();
-                }
-                if (placementProbe.finished()) placementProbe=null;
+            var placed=placementTracker.poll(client.world::getBlockState,client.world.getRegistryKey().getValue().toString());
+            if (placed!=null) {
+                blockPreview=placed.box();previewBlock=placed.pos();previewState=placed.state();previewDimension=placed.dimension();
+                placementsConfirmed++;
+                say(client,"Bloque colocado detectado. Cubo de "+(int)blockSize+" unidades; arm habilita el dibujo.");
             }
             if (blockPreview!=null && (previewBlock==null
                     || !client.world.getRegistryKey().getValue().toString().equals(previewDimension)
@@ -372,6 +396,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
                 + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
+                + (blocksEnabled || blockPreview!=null ? " | bloque="+(blockPreview!=null ? "detectado" : "esperando")
+                    +" | enviado="+(current.previewRequested() ? "si" : "no")+" | dibujos="+current.previewDraws() : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }
         if (client.isPaused()) return;

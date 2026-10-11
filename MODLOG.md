@@ -524,3 +524,18 @@ nativos ASan/UBSan pasan con APIs simuladas; intercambio TCP real con comandos
 en mappings Windows simulados. DLL/JAR compilados, respaldo/desinstalación propios
 verificados. La nueva colocación/retirada visual requiere prueba real en Windows.
 0.4.18 queda como recuperación y sus ZIP se conservan intactos.
+
+## 0.4.20 — escala provisional y detección observable
+
+Usuario confirma blocktest100 diminuto cerca del suelo; blocks on no visible.
+No se demuestra una causa única de la ausencia automática. Default100→1000
+(es ajustable, aún sin calibración física), un solo bloque de aristas.
+START_CLIENT_TICK observa uso antes de vanilla además del callback; cola16,
+confirmación10ticks, deduplicación sin reiniciar plazo ni anclaje. Se observa
+aun en primer tick de arm y se sigue publicando solo armado. HUD/estado muestran
+selección, confirmaciones y orden al host; log incluye bounds y pases omitidos.
+
+73 pruebas Python, 17 bridge-core, 10 Minecraft pasan; JAR0.4.20 compilado.
+DLL SHA256 80ea2448268e72492bf1421a7f232b44031e5cfd927ba14e08ebfc8565a0e885
+idéntica a0.4.19, build419/ABI conservados; no reinstalación nativa requerida.
+Causa/visibilidad automática y escala siguen pendientes de prueba Windows.

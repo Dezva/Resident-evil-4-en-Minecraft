@@ -136,7 +136,7 @@ versión real 1.1.0, junto con sus matrices y el campo de visión.
 
 ## Colisión
 
-### Bloque visual 0.4.19
+### Bloque visual 0.4.19 / cliente y host 0.4.20
 
 El frame `re4_control` incluye opcionalmente `preview: {bounds:[minX,minY,minZ,maxX,maxY,maxZ]}`,
 con los mismos límites de caja 40..2500 y coordenadas finitas ±20000000.
@@ -150,6 +150,20 @@ con status (1=canal listo, 2=dibujo detenido, 3=sin dispositivo), contadores uin
 HRESULT y motivo. Listo no implica un dibujo visible ni una autorización vigente.
 Los clientes anteriores pueden ignorar la capacidad adicional; el mod 0.4.19
 requiere esa capacidad para activar blocks/blocktest.
+
+En 0.4.20 el tamaño inicial de blocks on/blocktest sin argumento es 1000
+unidades, configurable 40..2500. Es provisional, no una calibración de la
+cuadrícula compartida. Se capturan intentos antes del uso del ítem mediante
+START_CLIENT_TICK y UseBlockCallback, con cola de hasta 16 probes de diez ticks.
+Duplicados no reinician el plazo ni cambian el anclaje. La observación puede
+ocurrir desarmada, pero tanto cliente como host excluyen la orden de dibujo
+hasta arm. La selección sigue siendo una sola caja.
+
+preview_state añade requested (bool, orden publicada), bounds (seis números o
+null), skipped_passes, camera_rejections y lease_rejections (uint32). El cliente
+valida requested, skipped_passes y reason (cadena de hasta 160 caracteres).
+Ninguno acredita visibilidad; el estado de última escena puede ser antiguo.
+DLL/build sigue siendo 419 y su ABI no cambia.
 
 El host escribe **CubeCommand v2, 56 bytes**, en `Local\RE4Bridge-CubeCommand-PID`:
 8 uint32 `magic=0x52453454, version=2, sequence, stamp, enabled, epoch, mode, reserved`,

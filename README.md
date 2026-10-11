@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.18: prueba explícita de un cubo de aristas verdes](docs/RE4-CUBE-0.4.18.md), pendiente de validación visual en Windows. Parte de0.4.17, cuya captura gráfica confirmó el usuario. Activación mediante TEST-RE4-CUBE,30segundos/F8, todavía sin colisiones ni colocación desde Minecraft. Mod0.4.11/API sin cambios. **0.4.13 está retirada**; conserva0.4.17 como recuperación para esta prueba. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
+**Estado actual:** [0.4.18: prueba explícita de un cubo de aristas verdes](docs/RE4-CUBE-0.4.18.md), visible en RE4 y confirmado por el usuario en Windows. Su informe registra 1.766 dibujos adicionales en 30 segundos sin fallos nuevos de dibujo ni restauración. Activación mediante TEST-RE4-CUBE, 30 segundos/F8, todavía sin colisiones ni colocación desde Minecraft. Mod 0.4.11/API sin cambios. **0.4.13 está retirada**; conserva 0.4.17 como recuperación para esta prueba. Incluye [raton y camara experimental](docs/RE4-MOUSE-CAMERA.md), y [controles nativos
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada W/S/A/D fue confirmado por el usuario. Raton y nueva camara requieren

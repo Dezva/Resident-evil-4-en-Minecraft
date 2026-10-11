@@ -479,3 +479,20 @@ verificados. Sin tests/rebuildJava: mods/API idénticos. No se habilita blocktes
 ni se restaura detector retirado. Falta pruebaWindows para arranque, fachada
 compatible, cubo visible/proyección, cambios de dispositivo y estabilidad real.
 Conteo de DrawPrimitiveUP correcto no acredita por sí solo visibilidad.
+
+### Confirmación visual del usuario en Windows — 0.4.18
+
+El usuario confirmó que el cubo apareció correctamente y adjuntó una captura de
+RE4 con las aristas verdes visibles. `cube-test-20261011-151401.json` identifica
+build 418, un dispositivo vivo y parada por duración tras 30,04 segundos.
+Los dibujos aumentan de 1.734 a 3.500 (1.766 adicionales); los fallos de dibujo
+y restauración permanecen en cero, con HRESULT final 0x00000000 para ambos.
+Sin interfaces escapadas ni fallos de wrapping/cámara. Reset permanece en 3,
+fallos de Reset en cero y fallos de Present en 138: estos últimos ya estaban
+presentes antes de la prueba, no surgieron durante ella. `last_scene_active`
+describe el último frame antes de desactivar, no una autorización vigente.
+
+Esto acredita arranque y dibujo visible durante esta prueba. No acredita todavía
+anclaje/proyección precisa al moverse, recuperación de pérdida/Reset durante
+el dibujo, estabilidad prolongada, colisiones ni colocación desde Minecraft.
+Registro documental sin reconstruir la DLL ni modificar los ZIP publicados.

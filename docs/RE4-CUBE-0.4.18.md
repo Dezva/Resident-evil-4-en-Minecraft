@@ -6,6 +6,14 @@ o girar debería cambiar su posición en pantalla. Todavía no tiene textura,
 ocultación por terreno, colisión ni colocación desde Minecraft. Esta prueba
 verifica el dibujo antes de conectar los bloques del mod.
 
+**Resultado en Windows confirmado por el usuario:** el cubo aparece en RE4,
+con captura visual e informe `cube-test-20261011-151401.json`. Durante 30,04
+segundos se registraron 1.766 dibujos adicionales y ningún fallo nuevo de dibujo,
+restauración, Reset o Present. El informe ya tenía 3 Reset y 138 fallos de Present
+antes de iniciar; ambos contadores permanecieron iguales. Esta evidencia confirma
+la visibilidad durante la prueba, sin acreditar todavía la precisión del anclaje
+al caminar, la estabilidad prolongada o la recuperación tras pérdida de dispositivo.
+
 Se parte de0.4.17, cuya captura gráfica confirmó tu informe. Los JAR del mod
 Minecraft0.4.11 y Fabric API siguen iguales. Controles/cámara/correr no cambian.
 No se activa dibujo al abrir RE4, el host o CAPTURE-RE4-GRAPHICS.
@@ -87,5 +95,7 @@ referencias temporales equilibradas, target auxiliar, cámara ausente, lease/F8
 y anclaje fijo. Reader nativo rechaza publicaciones incompletas y no reutiliza
 activaciones. CLI verifica snapshot sin escritura, mutex, limpieza/cierre,
 cuenta atrás/duración/F8/parada nativa con reloj virtual e informe al fallar.
-La nube no ejecuta RE4/Direct3D real: el arranque, el cubo visible y la proyección
-correcta siguen pendientes de tu prueba; los contadores por sí solos no los prueban.
+La nube no ejecuta RE4/Direct3D real. El usuario confirmó después el arranque y
+el cubo visible en Windows mediante la captura y el informe descritos arriba.
+La precisión de la proyección al caminar y la recuperación tras cambios de
+dispositivo requieren pruebas adicionales; los contadores por sí solos no las prueban.

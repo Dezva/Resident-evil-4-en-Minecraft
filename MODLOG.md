@@ -487,3 +487,13 @@ incluyen contadores inicial/final y parada; CAPTURE no activa dibujo.
 comprobados con APIs simuladas. Instalador/respaldo/hash propio verificados.
 Mods/API conservados. Arranque/cubo visible/compatibilidad real pendientes de
 Windows;0.4.17 se conserva como recuperación y sus ZIP no se sobrescriben.
+
+### 0.4.18 — cubo visible confirmado en Windows
+
+El usuario confirmó el cubo visible en RE4 y aportó captura e informe
+`cube-test-20261011-151401.json`. En 30,04 segundos hubo 1.766 dibujos adicionales,
+cero fallos de dibujo/restauración y ningún incremento de fallos de Present o
+Reset. Los 138 fallos de Present y 3 Reset eran anteriores al inicio de esta
+prueba. Pendientes la precisión del anclaje al moverse, recuperación del dispositivo
+y estabilidad prolongada. Colocación/eliminación desde Minecraft y colisiones
+siguen sin implementar. Se conserva el paquete publicado sin reconstruirlo.

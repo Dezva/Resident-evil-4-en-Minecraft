@@ -1,6 +1,15 @@
-# Paquete 0.3.2: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0, DLL 0.3.1)
+# Paquete 0.3.3: controles Minecraft -> RE4 UHD 1.1.0 (mod 0.3.0, DLL 0.3.1)
 
 ## Correccion del diagnostico 0.3.2
+
+Con DLL cargada e IPC estado 2, ejecuta `PROBE-RE4-NATIVE.bat` como
+administrador con partida cargada. El informe lee las firmas de version,
+entrada y PadRead, sus punteros/llamadas y protecciones de las secciones.
+No modifica memoria ni instala un hook. Esto distingue firmas ausentes o
+ambiguas, llamadas incompatibles y secciones que abarcan varias regiones
+VirtualQuery (el comprobador nativo actual exige una sola).
+El paquete pequeno `re4bridge-native-probe-0.3.3.zip` se extrae en la carpeta
+del paquete existente. Conserva la DLL, mods y configuraciones.
 
 Corrige la conversion UIntPtr en Windows PowerShell y enumera los modulos
 mediante Toolhelp con soporte WOW64; el aviso anterior DINPUT8 NO CARGADA

@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.3.2"
+    version = "0.3.3"
     mod_version = "0.3.0"  # Native/host hotfix; the Minecraft mod is unchanged.
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
@@ -41,6 +41,8 @@ def main():
                            (root / "START-RE4-CONTROLS.bat", "START-RE4-CONTROLS.bat"),
                            (root / "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.bat"),
                            (root / "DIAGNOSE-RE4-CONTROLS.ps1", "DIAGNOSE-RE4-CONTROLS.ps1"),
+                           (root / "PROBE-RE4-NATIVE.bat", "PROBE-RE4-NATIVE.bat"),
+                           (root / "tools/re4_native_probe.py", "tools/re4_native_probe.py"),
                            (root / "INSTALL-RE4-CONTROLS.ps1", "INSTALL-RE4-CONTROLS.ps1"),
                            (root / "UNINSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1"),
                            (root / "INSTALL-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.bat"),
@@ -66,6 +68,7 @@ def main():
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
                  "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
+                 "PROBE-RE4-NATIVE.bat",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

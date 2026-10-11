@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** paquete 0.3.2 (mod 0.3.0, DLL 0.3.1) con [controles nativos experimentales
+**Estado actual:** paquete 0.3.3 (mod 0.3.0, DLL 0.3.1) con [controles nativos experimentales
 Minecraft -> RE4](docs/RE4-CONTROLS.md). El usuario ya verifico la lectura y el
 [seguimiento RE4 -> Minecraft](docs/RE4-LIVE.md) de 0.2.0. El modulo nuevo de
 entrada requiere prueba en Windows. Todavia no hay composicion de imagenes,

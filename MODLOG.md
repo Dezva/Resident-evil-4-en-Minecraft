@@ -120,3 +120,13 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   sintetica: acceso solo lectura, puntero de 40 bytes, DLL cargada y canal ausente.
 - La captura del usuario fallo despues de abrir IPC: no prueba DLL ausente.
   Conserva mod 0.3.0 y DLL 0.3.1; se publica ZIP pequeno solo con el diagnostico.
+
+## Auditoria de prerequisitos nativos
+
+- Usuario confirma DLL local y del sistema cargadas, IPC presente estado 2/ticks 0.
+- Se agrega lector de solo lectura de firmas, punteros, llamadas y regiones
+  VirtualQuery para distinguir la comprobacion rechazada sin reemplazar DLL.
+- Tres pruebas sinteticas comprueban lectura sin modificaciones, regiones
+  divididas, firmas ausentes/ambiguas y version/llamada no compatibles.
+- Aun pendiente la salida del lector en el ejecutable real; no se relajan
+  comprobaciones ni se activan hooks basandose solo en pruebas sinteticas.

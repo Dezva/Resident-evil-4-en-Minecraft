@@ -32,7 +32,14 @@ typedef int IDirect3DIndexBuffer9;
 typedef int IDirect3DPixelShader9;
 typedef int IDirect3DQuery9;
 typedef int IDirect3DSwapChain9;
-typedef int IDirect3DTexture9;
+typedef struct IDirect3DTexture9 IDirect3DTexture9;
+typedef struct {int32_t Pitch;void *pBits;} D3DLOCKED_RECT;
+typedef struct {
+    uint32_t (*Release)(IDirect3DTexture9 *);
+    int32_t (*LockRect)(IDirect3DTexture9 *,uint32_t,D3DLOCKED_RECT *,const void *,uint32_t);
+    int32_t (*UnlockRect)(IDirect3DTexture9 *,uint32_t);
+} TestTextureVtbl;
+struct IDirect3DTexture9 {TestTextureVtbl *lpVtbl;};
 typedef int IDirect3DVertexBuffer9;
 typedef int IDirect3DVertexDeclaration9;
 typedef int IDirect3DVertexShader9;

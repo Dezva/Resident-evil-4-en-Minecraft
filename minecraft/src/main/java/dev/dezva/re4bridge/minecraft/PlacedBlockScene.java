@@ -92,7 +92,7 @@ final class PlacedBlockScene {
         height=value;
     }
     int size() {return blocks.size();}
-    void style(int value) {if (value<0 || value>1) throw new IllegalArgumentException("Invalid scene style");style=value;}
+    void style(int value) {if (value<0 || value>2) throw new IllegalArgumentException("Invalid scene style");style=value;}
     int style() {return style;}
     boolean anchored() {return anchor!=null;}
     String dimension() {return dimension;}

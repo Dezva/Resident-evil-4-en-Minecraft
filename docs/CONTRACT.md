@@ -180,6 +180,34 @@ El dispositivo proviene de CreateDevice y se envuelve sin alterar su objeto o ta
 nativos. Se conserva el dibujo/restauración de estados de 0.4.18. El canal retirado
 BlockPreview-PID no se abre ni se utiliza en esta versión.
 
+### Textura visual0.4.23
+
+style acepta entero estricto0(wire),1(solid),2(stone). Host anuncia texture_available
+bool solo con CubeCommandv5/build423. Un style2 incompatible desarma antes de
+publicar input y desactiva el lease; NativePreview/CubeSession rechazan la petición
+antes de modificar el mapping. surface_available admitev4/v5, scene_availablev3+.
+Cliente valida preview_state.style0..2. No se amplía el payload ni se envían imágenes.
+
+CubeCommandv5 conserva3152bytes/offsets; mode2 admite style0..2; mode0/1 requieren
+count0/style0. Headerreserved0, cantidad1..128, secuencia consistente, TTL500ms,
+F8/mutex/borra-slots y límites previos. Reader nativo exigev5. Host acepta parejas
+(v2,419),(v3,421),(v4,422),(v5,423) y capacidades según canal, con build423 en
+CubeTelemetryv1/92 y CaptureIPCv3/3296. Requiere nuevo JAR/host/DLL de0.4.23.
+
+Solid/stone usan vertices28bytes XYZRHW/diffuse/UV; stone añade TEX1. UV0..1 por
+cara interpoladas durante clipping, rhw=1/depth para perspectiva. Se mantiene
+orden aproximado de caras y sin profundidad RE4. Stone genera tesela propia
+16×16 A8R8G8B8, point filtering/clamp/sinmips, sombra multiplicativa. Se aplica
+al mismo material provisional en todas las formas y puede estirar losas; no
+exporta materiales, resourcepacks ni texturas originales. Mesh463872bytes.
+
+La textura transitoria se crea después de respaldo/captura dentro de la escena
+visible, lock DISCARD, pitch64..65536 válido/pBits presente, copia16filas, unlock.
+Error libera recurso; Release tras Apply y liberación de scratch antes de retornar.
+30setters para wire/solid y38 para stone, SBT_ALL; fallos de restauración latchean
+fatal. No recurso GPU propio persistente ni cambios de creación/cámara/control.
+Crear una textura por dibujo tiene coste de driver pendiente de comprobación.
+
 ### Caras visuales 0.4.22
 
 Preview de escena acepta style opcional, entero estricto0(wire)/1(solid); ausencia

@@ -2,7 +2,7 @@
 #include "cube_policy.h"
 #include "block_surface.h"
 typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;} CubeDevice;
-typedef struct {DWORD render[256],stage[2][8],fvf,vertex,pixel,texture,stream,decl;} TestState;
+typedef struct {DWORD render[256],stage[2][32],sampler[16],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
 static unsigned create_fail,capture_fail,apply_fail,setter_fail,draw_fail,offscreen,camera_invalid,viewport_fail,back_fail;
@@ -10,6 +10,9 @@ static unsigned allocations,frees,heap_fail;
 static void *GetProcessHeap(void) {return (void*)1;}
 static void *HeapAlloc(void *heap,unsigned flags,size_t size) {assert(heap==(void*)1 && !flags && size==sizeof(BlockSurfaceMesh));if(heap_fail)return NULL;allocations++;return malloc(size);}
 static int HeapFree(void *heap,unsigned flags,void *p) {assert(heap==(void*)1 && !flags && p && frees<allocations);frees++;free(p);return 1;}
+static unsigned texture_creates,texture_refs,texture_releases,texture_locks,texture_unlocks;
+static unsigned texture_create_fail,texture_null,texture_lock_fail,texture_unlock_fail,texture_bad_pitch,texture_null_bits;
+static uint32_t tile[16][20];
 static unsigned f8;static uint32_t player_id=42;static uint32_t now=1000;static float shift;
 static unsigned last_vertices;
 static float first_x;
@@ -36,23 +39,52 @@ static HRESULT create_backup(IDirect3DDevice9 *d,D3DSTATEBLOCKTYPE type,IDirect3
 static HRESULT changed(void) {setters++;return setter_fail==setters?E_FAIL:S_OK;}
 static HRESULT vertex_shader(IDirect3DDevice9 *d,IDirect3DVertexShader9 *shader) {(void)d;assert(!shader);current.vertex=0;return changed();}
 static HRESULT pixel_shader(IDirect3DDevice9 *d,IDirect3DPixelShader9 *shader) {(void)d;assert(!shader);current.pixel=0;return changed();}
-static HRESULT fvf(IDirect3DDevice9 *d,DWORD flags) {(void)d;assert(flags==(D3DFVF_XYZRHW|D3DFVF_DIFFUSE));current.fvf=flags;current.decl=0;return changed();}
-static HRESULT texture(IDirect3DDevice9 *d,DWORD stage,IDirect3DBaseTexture9 *t) {(void)d;assert(!stage && !t);current.texture=0;return changed();}
-static HRESULT stage(IDirect3DDevice9 *d,DWORD n,D3DTEXTURESTAGESTATETYPE type,DWORD value) {(void)d;assert(n<2 && type<8);current.stage[n][type]=value;return changed();}
+static HRESULT fvf(IDirect3DDevice9 *d,DWORD flags) {(void)d;assert(flags==(D3DFVF_XYZRHW|D3DFVF_DIFFUSE) || flags==(D3DFVF_XYZRHW|D3DFVF_DIFFUSE|D3DFVF_TEX1));current.fvf=flags;current.decl=0;return changed();}
+static HRESULT texture(IDirect3DDevice9 *d,DWORD stage,IDirect3DBaseTexture9 *t) {(void)d;assert(!stage);current.texture=t?1:0;return changed();}
+static HRESULT stage(IDirect3DDevice9 *d,DWORD n,D3DTEXTURESTAGESTATETYPE type,DWORD value) {(void)d;assert(n<2 && type<32);current.stage[n][type]=value;return changed();}
 static HRESULT render(IDirect3DDevice9 *d,D3DRENDERSTATETYPE type,DWORD value) {(void)d;assert(type<256);current.render[type]=value;return changed();}
+static HRESULT sampler_state(IDirect3DDevice9 *d,DWORD n,D3DSAMPLERSTATETYPE type,DWORD value) {(void)d;assert(!n && type<16);current.sampler[type]=value;return changed();}
+static ULONG texture_release(IDirect3DTexture9 *t) {(void)t;assert(texture_refs);texture_releases++;return --texture_refs;}
+static HRESULT texture_lock(IDirect3DTexture9 *t,UINT level,D3DLOCKED_RECT *out,const void *rect,DWORD flags) {
+    (void)t;assert(!level && !rect && flags==D3DLOCK_DISCARD);texture_locks++;
+    if(texture_lock_fail)return E_FAIL;
+    out->Pitch=texture_bad_pitch?60:80;out->pBits=texture_null_bits?NULL:tile;return S_OK;
+}
+static HRESULT texture_unlock(IDirect3DTexture9 *t,UINT level) {(void)t;assert(!level);texture_unlocks++;return texture_unlock_fail?E_FAIL:S_OK;}
+static TestTextureVtbl texture_table={texture_release,texture_lock,texture_unlock};
+static IDirect3DTexture9 stone_texture={&texture_table};
+static HRESULT texture_create(IDirect3DDevice9 *d,UINT width,UINT height,UINT levels,DWORD usage,D3DFORMAT format,D3DPOOL pool,IDirect3DTexture9 **out,HANDLE *shared) {
+    (void)d;assert(width==16 && height==16 && levels==1 && usage==D3DUSAGE_DYNAMIC && format==D3DFMT_A8R8G8B8 && pool==D3DPOOL_DEFAULT && !shared);
+    texture_creates++;if(texture_create_fail)return E_FAIL;if(texture_null){*out=NULL;return S_OK;}
+    texture_refs++;*out=&stone_texture;memset(tile,0xBA,sizeof(tile));return S_OK;
+}
 static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride) {
-    (void)d;assert((type==D3DPT_LINELIST || type==D3DPT_TRIANGLELIST) && count>0 && stride==20);assert(count<=(type==D3DPT_LINELIST?12*CUBE_MAX_BOXES:BLOCK_SURFACE_MAX_VERTICES/3));const BlockVertex *vertices=data;
-    last_vertices=count*(type==D3DPT_LINELIST?2:3);first_x=vertices[0].x;
-    for(unsigned i=0;i<last_vertices;++i) {assert(isfinite(vertices[i].x+vertices[i].y) && vertices[i].x>=10 && vertices[i].x<=650 && vertices[i].y>=20 && vertices[i].y<=500);if(type==D3DPT_LINELIST)assert(vertices[i].color==0xFF40FF40);else assert((vertices[i].color>>24)==255 && (vertices[i].color&255)==((vertices[i].color>>8)&255));}
+    (void)d;assert((type==D3DPT_LINELIST || type==D3DPT_TRIANGLELIST) && count>0);
+    assert(stride==(type==D3DPT_LINELIST?20:28));assert(count<=(type==D3DPT_LINELIST?12*CUBE_MAX_BOXES:BLOCK_SURFACE_MAX_VERTICES/3));
+    last_vertices=count*(type==D3DPT_LINELIST?2:3);
+    for(unsigned i=0;i<last_vertices;++i) {
+        BlockVertex v;memcpy(&v,(const unsigned char*)data+stride*i,sizeof(v));if(!i)first_x=v.x;
+        assert(isfinite(v.x+v.y) && v.x>=10 && v.x<=650 && v.y>=20 && v.y<=500);
+        if(type==D3DPT_LINELIST)assert(v.color==0xFF40FF40);
+        else {assert((v.color>>24)==255 && (v.color&255)==((v.color>>8)&255));const BlockSurfaceVertex *textured=data;assert(textured[i].rhw>0 && textured[i].rhw<=1);}
+    }
+    if(command.style==2) {
+        assert(texture_refs==1 && current.texture==1 && current.fvf==(D3DFVF_XYZRHW|D3DFVF_DIFFUSE|D3DFVF_TEX1));
+        assert(current.stage[0][D3DTSS_COLOROP]==D3DTOP_MODULATE && current.stage[0][D3DTSS_COLORARG1]==D3DTA_TEXTURE);
+        assert(current.sampler[D3DSAMP_MINFILTER]==D3DTEXF_POINT && current.sampler[D3DSAMP_MIPFILTER]==D3DTEXF_NONE);
+        for(unsigned y=0;y<16;++y)for(unsigned x=16;x<20;++x)assert(tile[y][x]==0xBABABABA); // Respect row pitch.
+    }
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
 static IDirect3DDevice9Vtbl table={.GetRenderTarget=get_target,.GetBackBuffer=get_back,.GetViewport=get_view,
     .CreateStateBlock=create_backup,.SetVertexShader=vertex_shader,.SetPixelShader=pixel_shader,.SetFVF=fvf,
-    .SetTexture=texture,.SetTextureStageState=stage,.SetRenderState=render,.DrawPrimitiveUP=draw};
+    .CreateTexture=texture_create,.SetSamplerState=sampler_state,.SetTexture=texture,.SetTextureStageState=stage,.SetRenderState=render,.DrawPrimitiveUP=draw};
 static IDirect3DDevice9 inner={&table};
 #include "cube_draw.h"
 static CubeDevice reset(void) {
     memset(events,0,sizeof(events));memset(&current,0x37,sizeof(current));original=current;
+    assert(allocations==frees && !texture_refs);texture_creates=texture_releases=texture_locks=texture_unlocks=0;
+    texture_create_fail=texture_null=texture_lock_fail=texture_unlock_fail=texture_bad_pitch=texture_null_bits=0;
     assert(allocations==frees);allocations=frees=heap_fail=0;
     surface_refs=backup_refs=creates=captures=applies=releases=setters=draws=0;
     create_fail=capture_fail=apply_fail=setter_fail=draw_fail=offscreen=camera_invalid=viewport_fail=back_fail=f8=0;
@@ -94,7 +126,7 @@ int main(void) {
     for (unsigned i=0;i<CUBE_MAX_BOXES;++i) memcpy(command.boxes[i],cube,sizeof(cube));
     cube_render_device(&f);assert(last_vertices==24*CUBE_MAX_BOXES && draws==1 && creates==1 && applies==1 && !surface_refs && !backup_refs);
     command.count=CUBE_MAX_BOXES+1;cube_render_device(&f);assert(draws==1);
-    for(unsigned failure=1;failure<=24;++failure) {
+    for(unsigned failure=1;failure<=30;++failure) {
         f=reset();setter_fail=failure;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
     }
     f=reset();draw_fail=1;cube_render_device(&f);assert(draws==1 && events[CUBE_FAILURE]==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
@@ -116,9 +148,9 @@ int main(void) {
     /* Filled path uses the same scene/state policy and releases scratch on every exit. */
     f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;
     memcpy(command.boxes[0],cube,sizeof(cube));cube_render_device(&f);
-    assert(draws==1 && last_vertices==6 && allocations==1 && frees==1 && setters==24 && !memcmp(&current,&original,sizeof(current)));
+    assert(draws==1 && last_vertices==6 && allocations==1 && frees==1 && setters==30 && !memcmp(&current,&original,sizeof(current)));
     command.style=0;cube_render_device(&f);assert(draws==2 && last_vertices==24 && allocations==1 && frees==1);
-    for(unsigned failure=1;failure<=24;++failure) {
+    for(unsigned failure=1;failure<=30;++failure) {
         f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
         setter_fail=failure;cube_render_device(&f);
         assert(!draws && applies==1 && allocations==1 && frees==1 && !memcmp(&current,&original,sizeof(current)));
@@ -139,5 +171,42 @@ int main(void) {
     f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
     f8=1;cube_render_device(&f);assert(!allocations && !creates);f8=0;command.epoch++;cube_render_device(&f);assert(draws==1 && allocations==frees);
     now=1500;cube_render_device(&f);assert(draws==1 && allocations==frees);
+    /* Texture create/lock/unlock, sampler failures and restoration use actual draw code. */
+    f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+    cube_render_device(&f);assert(draws==1 && setters==38 && texture_creates==1 && texture_releases==1 && texture_locks==1 && texture_unlocks==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
+    command.style=1;cube_render_device(&f);assert(draws==2 && texture_creates==1);
+    f=reset();command.mode=2;command.style=2;command.count=CUBE_MAX_BOXES;command.origin[2]=-600;
+    for(unsigned i=0;i<CUBE_MAX_BOXES;++i)memcpy(command.boxes[i],cube,sizeof(cube));
+    cube_render_device(&f);assert(draws==1 && last_vertices==6*CUBE_MAX_BOXES && texture_creates==1 && texture_releases==1 && allocations==frees);
+    f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+    f8=1;cube_render_device(&f);assert(!texture_creates && !allocations);f8=0;command.epoch++;cube_render_device(&f);assert(draws==1 && !texture_refs);
+    now=1500;cube_render_device(&f);assert(draws==1 && texture_creates==1);
+    /* Padded rows are checked at draw time; pixel pattern is deterministic and opaque. */
+    unsigned dark=255,light=0;
+    for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x){uint32_t pixel=block_stone_pixel(x,y);assert((pixel>>24)==255 && (pixel&255)==((pixel>>8)&255));unsigned value=pixel&255;if(value<dark)dark=value;if(value>light)light=value;}
+    assert(light-dark>=40);
+    for(unsigned failure=1;failure<=38;++failure) {
+        f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+        setter_fail=failure;cube_render_device(&f);assert(!draws && applies==1 && texture_creates==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
+    }
+    for(unsigned failure=0;failure<12;++failure) {
+        f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+        if(failure==0)texture_create_fail=1;
+        if(failure==1)texture_null=1;
+        if(failure==2)texture_lock_fail=1;
+        if(failure==3)texture_unlock_fail=1;
+        if(failure==4)texture_bad_pitch=1;
+        if(failure==5)texture_null_bits=1;
+        if(failure==6)capture_fail=1;
+        if(failure==7)create_fail=1;
+        if(failure==8)heap_fail=1;
+        if(failure==9)apply_fail=1;
+        if(failure==10)draw_fail=1;
+        if(failure==11)command.enabled=0;
+        cube_render_device(&f);assert(!texture_refs && allocations==frees && !surface_refs && !backup_refs);
+        if(failure!=9)assert(!memcmp(&current,&original,sizeof(current)));
+        if(failure<6)assert(!draws && !setters && applies==1 && events[CUBE_FAILURE]==1);
+        if(failure==9)assert(f.gate.fatal);
+    }
     puts("Cube rendering: all setter/draw failures restore full state, temporary resources balanced, restore-failure latch, F8/TTL, offscreen rejection and world anchor passed");
 }

@@ -17,7 +17,8 @@ class BlockSceneTests {
         var box=new BlockScene.Bounds(0,0,0,1000,1000,1000);
         var scene=new BlockScene(1,2,3,0,List.of(box),1);
         assertEquals(1,scene.toJson().get("style").getAsInt());
-        assertThrows(IllegalArgumentException.class,()->new BlockScene(1,2,3,0,List.of(box),2));
+        assertEquals(2,new BlockScene(1,2,3,0,List.of(box),2).toJson().get("style").getAsInt());
+        assertThrows(IllegalArgumentException.class,()->new BlockScene(1,2,3,0,List.of(box),3));
         assertThrows(IllegalArgumentException.class,()->new BlockScene(1,2,3,0,List.of(box),-1));
     }
     @Test void rejectsMalformedAndUnboundedSceneBeforeTransmission() {

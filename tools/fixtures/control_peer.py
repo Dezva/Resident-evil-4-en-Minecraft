@@ -27,6 +27,7 @@ config = load_config(args.config)
 class Preview:
     scene_available=True
     surface_available=True
+    texture_available=True
     def __init__(self): self.enabled=False;self.count=0;self.style=0
     def publish(self,enabled,generation,bounds=None):
         self.enabled=enabled

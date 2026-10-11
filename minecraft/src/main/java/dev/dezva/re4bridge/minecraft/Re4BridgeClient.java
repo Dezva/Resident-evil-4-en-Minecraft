@@ -127,6 +127,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("blocks")
                     .then(literal("style")
+                        .then(literal("stone").executes(ctx -> blockStyle(ctx.getSource().getClient(),2)))
                         .then(literal("solid").executes(ctx -> blockStyle(ctx.getSource().getClient(),1)))
                         .then(literal("wire").executes(ctx -> blockStyle(ctx.getSource().getClient(),0))))
                     .then(literal("height").then(argument("offset",DoubleArgumentType.doubleArg(-2500,2500)).executes(ctx -> {
@@ -198,7 +199,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+(bridge.previewStyle()==1?"caras":"aristas")+"; tamano="+(int)blockSize));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; tamano="+(int)blockSize));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -312,17 +313,20 @@ public final class Re4BridgeClient implements ClientModInitializer {
         }
         stopDriving();clearBlock();blocksEnabled=true;blockSize=size;
         placementEvents=placementTicks=placementsConfirmed=0;
-        placedScene.style(bridge.surfaceAvailable()?1:0);
-        say(client,"Cuadricula visual activa, tamano="+(int)size+". Usa arm y coloca bloques: la primera colocacion fija la referencia. Maximo 64 bloques. Modo="+(placedScene.style()==1?"caras":"aristas")+". F8 detiene.");
+        placedScene.style(bridge.textureAvailable()?2:bridge.surfaceAvailable()?1:0);
+        say(client,"Cuadricula visual activa, tamano="+(int)size+". Usa arm y coloca bloques: la primera colocacion fija la referencia. Maximo 64 bloques. Modo="+blockStyleName(placedScene.style())+". F8 detiene.");
         return 1;
     }
 
+    private static String blockStyleName(int style) {return style==2?"piedra":style==1?"caras":"aristas";}
+
     private int blockStyle(MinecraftClient client,int style) {
+        if (style==2 && (bridge==null || !bridge.textureAvailable())) {say(client,"Textura requiere host y DLL 0.4.23 conectados.");return 0;}
         if (style==1 && (bridge==null || !bridge.surfaceAvailable())) {
             say(client,"Caras rellenas requieren host y DLL 0.4.22 conectados.");return 0;
         }
         placedScene.style(style);
-        say(client,"Modo visual: "+(style==1?"caras grises":"aristas verdes")+". Usa arm para verlo.");return 1;
+        say(client,"Modo visual: "+blockStyleName(style)+". Usa arm para verlo.");return 1;
     }
 
     private int blockTest(MinecraftClient client,double size) {
@@ -427,7 +431,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
                 + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
-                + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()+" | modo="+(placedScene.style()==1?"caras":"aristas")
+                + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()+" | modo="+blockStyleName(placedScene.style())
                     +" | enviado="+(current.previewRequested() ? "si" : "no")+" | dibujos="+current.previewDraws() : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }

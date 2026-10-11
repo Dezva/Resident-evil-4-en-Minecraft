@@ -27,8 +27,8 @@ INSTALL_REASONS={0:'sin intento',1:'importacion instalada',2:'cabecera DOS no va
 def layout(data,pid):
     if len(data)<24:raise ReaderError('Cabecera de captura incompleta.')
     magic,version,_,build,owner=struct.unpack_from('<5I',data)
-    if magic!=MAGIC or (version,build) not in {(1,415),(2,416),(3,417),(3,418),(3,419),(3,421),(3,422)} or owner!=pid:
-        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL0.4.15 a0.4.22.')
+    if magic!=MAGIC or (version,build) not in {(1,415),(2,416),(3,417),(3,418),(3,419),(3,421),(3,422),(3,423)} or owner!=pid:
+        raise ReaderError('Cabecera/build/PID de captura incompatible; se requiere DLL0.4.15 a0.4.23.')
     return version,SIZES[version],f'0.4.{build-400}'
 
 
@@ -47,7 +47,7 @@ def decode_capture(data,pid):
                 width=words[20],height=words[21],focus_window=f'0x{words[22]:08x}',
                 escaped_interfaces=words[23],creation_observed=words[11]>0,
                 address_semantics='Historical API return values; no current device lifetime is asserted.',
-                rendering_enabled=None if build in ('0.4.18','0.4.19','0.4.21','0.4.22') else False)
+                rendering_enabled=None if build in ('0.4.18','0.4.19','0.4.21','0.4.22','0.4.23') else False)
     if version>=2:
         phases={0:'sin intento',1:'DLL_PROCESS_ATTACH',2:'DirectInput8Create'}
         if words[24] not in phases or words[25]>2:raise ReaderError('Fase/intentos de captura no validos.')
@@ -108,7 +108,7 @@ def main(argv=None):
     parser.add_argument('--game-exe',default=DEFAULT_EXE)
     parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1])
     args=parser.parse_args(argv)
-    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.22',
+    process=None;report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.23',
                          'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     result=0
     try:
@@ -116,7 +116,7 @@ def main(argv=None):
         report['capture']=read_capture(process.k,pid)
         state=report['capture']
         print(f"Captura grafica: {state['hook_description']}; creaciones correctas={state['device_success']}.")
-        if state['build'] in ('0.4.18','0.4.19','0.4.21','0.4.22'):
+        if state['build'] in ('0.4.18','0.4.19','0.4.21','0.4.22','0.4.23'):
             from re4_cube_test import read_cube_status
             try:
                 state['cube']=read_cube_status(process.k,pid)

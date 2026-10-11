@@ -31,7 +31,7 @@ def configure(k):
 def read_cube_status(k,pid):
     configure(k)
     handle=k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-CubeTelemetry-{pid}')
-    if not handle:raise ReaderError('Canal de cubo ausente; requiere DLL0.4.18/0.4.19/0.4.21/0.4.22 y creacion grafica correcta.')
+    if not handle:raise ReaderError('Canal de cubo ausente; requiere DLL0.4.18/0.4.19/0.4.21/0.4.22/0.4.23 y creacion grafica correcta.')
     view=None
     try:
         view=k.MapViewOfFile(handle,4,0,0,92)
@@ -42,7 +42,7 @@ def read_cube_status(k,pid):
             data=ctypes.string_at(view,92);words=struct.unpack('<23I',data)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422) or words[4]!=pid:
+            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423) or words[4]!=pid:
                 raise ReaderError('Version/build/PID de cubo incompatible.')
             report=dict(zip(FIELDS,words[3:]))
             if report['stop_reason'] not in REASONS or report['last_scene_active'] not in (0,1):
@@ -73,10 +73,10 @@ class CubeSession:
             self.address=k.MapViewOfFile(self.handle,6,0,0,32)
             if not self.address:raise ReaderError('No se pudo abrir activacion del cubo.')
             self.words=(ctypes.c_uint32*8).from_address(self.address)
-            if self.words[0]!=0x52453454 or self.words[1] not in (1,2,3,4):
+            if self.words[0]!=0x52453454 or self.words[1] not in (1,2,3,4,5):
                 raise ReaderError('Canal de activacion del cubo incompatible.')
             self.version=self.words[1]
-            if self.version in (2,3,4):
+            if self.version in (2,3,4,5):
                 k.UnmapViewOfFile(self.address);self.address=None
                 self.address=k.MapViewOfFile(self.handle,6,0,0,3152 if self.version>=3 else 56)
                 if not self.address:raise ReaderError('Canal de cubo incompleto.')
@@ -90,17 +90,18 @@ class CubeSession:
         if bounds is not None:
             from re4_block_preview import validate_preview
             validate_preview({'bounds':bounds})
-            if self.version not in (2,3,4):raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21.')
+            if self.version not in (2,3,4,5):raise ReaderError('Bloques requieren DLL0.4.19 o0.4.21.')
         if scene is not None:
             from re4_block_preview import validate_preview
             validate_preview(scene)
-            if self.version not in (3,4):raise ReaderError('Cuadricula requiere DLL0.4.21.')
+            if self.version not in (3,4,5):raise ReaderError('Cuadricula requiere DLL0.4.21.')
             if bounds is not None:raise ReaderError('No mezclar cubo y cuadricula.')
-            if scene.get('style',0) and self.version!=4:raise ReaderError('Caras rellenas requieren DLL0.4.22.')
+            if scene.get('style',0) and self.version<4:raise ReaderError('Caras rellenas requieren DLL0.4.22.')
+            if scene.get('style',0)==2 and self.version!=5:raise ReaderError('Textura requiere DLL0.4.23.')
         seq=(self.words[2]+1)|1;self.words[2]=seq&0xffffffff
         self.words[3]=self.k.GetTickCount();self.words[4]=int(enabled);self.words[5]=self.epoch
         self.words[6]=2 if enabled and scene is not None else int(enabled and bounds is not None);self.words[7]=0
-        if self.version in (2,3,4):
+        if self.version in (2,3,4,5):
             for i,value in enumerate(bounds if enabled and bounds is not None else [0]*6):
                 ctypes.c_float.from_address(self.address+32+4*i).value=value
         if self.version>=3:
@@ -154,7 +155,7 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if not 1<=args.seconds<=120:parser.error('--seconds debe estar entre1 y120')
     process=session=None;result=0
-    report={'diagnostic':'0.4.22','mode':'EXPLICIT CUBE LEASE; no process-memory writes',
+    report={'diagnostic':'0.4.23','mode':'EXPLICIT CUBE LEASE; no process-memory writes',
             'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     try:
         pid=find_pid();process=WindowsProcess(pid,args.game_exe);session=CubeSession(process.k,pid)

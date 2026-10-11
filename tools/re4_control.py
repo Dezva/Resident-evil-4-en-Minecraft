@@ -74,6 +74,9 @@ class ControlPolicy:
         if box and box.get('style',0) and (self.preview is None or not getattr(self.preview,'surface_available',False)):
             self.armed=False
             reason='caras rellenas requieren DLL0.4.22; usa modo wire'
+        if box and box.get('style',0)==2 and (self.preview is None or not getattr(self.preview,'texture_available',False)):
+            self.armed=False
+            reason='textura requiere DLL0.4.23; usa solid o wire'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
         result = {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
@@ -85,6 +88,7 @@ class ControlPolicy:
             result['preview_available']=True
             result['scene_available']=getattr(self.preview,'scene_available',False)
             result['surface_available']=getattr(self.preview,'surface_available',False)
+            result['texture_available']=getattr(self.preview,'texture_available',False)
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
             result['preview_state']=self.preview.status()

@@ -597,3 +597,32 @@ estilo, límites, estado/referencias/heap y fallos cubiertos. Instaladores y
 respaldo propios pasan. DLL PE32: imports KERNEL32/msvcrt/USER32. SHA nativa:
 4decaf42a3b6dc99b9846522ccc234de2cf621dd7b7bd43a0d48abc32b458c2e.
 0.4.21 intacta para recuperación. Arranque/dibujo/rendimiento Windows pendientes.
+
+## 0.4.23 — textura procedural de piedra y comparación de modos
+
+Usuario confirma caras/aristas0.4.22 con dos capturas de la misma construcción.
+Este paso añade tile propia16×16 A8R8G8B8, sombreado multiplicativo y filtro POINT;
+se aplica a todas las cajas como prueba, sin materiales/resourcepacks de Minecraft.
+Cada cara usa tesela completa, por lo que una losa puede estirar el lateral.
+No cambia suelo/cámara/física/ocultación RE4. wire/solid conservan escena y anclaje.
+
+UVs se interpolan durante recorte en camera space, vertices28bytes con rhw=1/depth,
+FVF TEX1 para textura. Mesh acotada a463872bytes/16128vértices. Texture transitoria
+16×16 se crea/lock DISCARD/copia respetando pitch/unlock después de Capture, dentro
+de escena visible explícita, y Release tras Apply. No recurso GPU propio retenido
+entre frames. Coste de crear textura por dibujo pendiente de driver/prueba Windows.
+Setters completos:30 wire/solid,38 textura incluyendo sampler/stages/wrap/alpha.
+Fallos restauran/liberan y bloquean el epoch; Apply fallido exige reinicio.
+
+CubeCommandv5/3152, style2=stone además de0/1, build423, telemetríav1/92 y Capturev3/3296.
+texture_available anuncia soporte; estilo2 incompatible desarma antes de escribir
+input/mapping. Host acepta(v2,419),(v3,421),(v4,422),(v5,423) con capacidades distintas.
+Se mantienen TTL/F8/TCP, retirada/slots vacíos, validación completa y hooks previos.
+
+88 Python,20 bridge-core,16 Minecraft,4 suitesC pasan. Siete fixtures ASan/UBSan,
+UV clipping/perspectiva/2000 escenas/cotas, textura opaca/variada/pitch, máximos,
+fallos de recursos y todos los setters, estado/COM/heap, F8/TTL y rollback pasan.
+Instaladores/copias/hashes/desinstalación/diagnóstico propios pasan simulados.
+DLL PE32 importaKERNEL32/msvcrt/USER32; SHA256:
+20cf5143e37054031b10ce925c82c73cb2e81565cfda7fbc5c40a9fc7f57dbdc.
+0.4.22 se conserva intacta. Prueba real de arranque/textura/rendimiento pendiente.

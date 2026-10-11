@@ -28,7 +28,7 @@ public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxe
         if (!Double.isFinite(yaw) || Math.abs(yaw)>Math.PI) throw new IllegalArgumentException("Invalid grid yaw");
         boxes=List.copyOf(boxes);
         if (boxes.isEmpty() || boxes.size()>MAX_BOXES) throw new IllegalArgumentException("Scene shape limit");
-        if (style<0 || style>1) throw new IllegalArgumentException("Invalid scene style");
+        if (style<0 || style>2) throw new IllegalArgumentException("Invalid scene style");
     }
     public JsonObject toJson() {
         var result=new JsonObject();var origin=new JsonArray();

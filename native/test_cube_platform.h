@@ -26,6 +26,7 @@
 #define D3DTSS_COLOROP 1
 #define D3DTSS_COLORARG1 2
 #define D3DTSS_ALPHAOP 4
+#define D3DTSS_ALPHAARG1 5
 #define D3DTOP_SELECTARG1 2
 #define D3DTOP_DISABLE 1
 #define D3DTA_DIFFUSE 0
@@ -60,3 +61,29 @@ typedef struct {ULONG (*Release)(IDirect3DSurface9 *);} TestSurfaceVtbl;
 struct IDirect3DSurface9 {TestSurfaceVtbl *lpVtbl;};
 typedef struct {unsigned held;} CRITICAL_SECTION;
 #include "test_device_api.h"
+
+#define D3DFVF_TEX1 256
+#define D3DUSAGE_DYNAMIC 512
+#define D3DFMT_A8R8G8B8 21
+#define D3DPOOL_DEFAULT 0
+#define D3DLOCK_DISCARD 8192
+#define D3DTSS_COLORARG2 3
+#define D3DTSS_TEXCOORDINDEX 11
+#define D3DTSS_TEXTURETRANSFORMFLAGS 24
+#define D3DTSS_RESULTARG 28
+#define D3DTTFF_DISABLE 0
+#define D3DTA_CURRENT 1
+#define D3DTA_TEXTURE 2
+#define D3DTOP_MODULATE 4
+#define D3DTADDRESS_CLAMP 3
+#define D3DTEXF_POINT 1
+#define D3DTEXF_NONE 0
+#define D3DSAMP_ADDRESSU 1
+#define D3DSAMP_ADDRESSV 2
+#define D3DSAMP_MAGFILTER 5
+#define D3DSAMP_MINFILTER 6
+#define D3DSAMP_MIPFILTER 7
+#define D3DSAMP_MIPMAPLODBIAS 8
+#define D3DSAMP_MAXMIPLEVEL 9
+#define D3DSAMP_SRGBTEXTURE 11
+#define D3DRS_WRAP0 128

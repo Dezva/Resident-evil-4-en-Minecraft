@@ -26,6 +26,7 @@ class ControlTests {
             await(bridge::previewAvailable);
             await(bridge::sceneAvailable);
             await(bridge::surfaceAvailable);
+            await(bridge::textureAvailable);
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(false,0,0,null,new BlockPreview(1,2,3003,1000));
             await(() -> bridge.status().acknowledgedSequence()>=2);
@@ -57,6 +58,8 @@ class ControlTests {
             await(() -> bridge.previewBoxCount()==2 && bridge.previewStyle()==1);
             bridge.publishSceneControl(true,5,1,null,new BlockScene(scene.x(),scene.y(),scene.z(),scene.yaw(),scene.boxes(),0));
             await(() -> bridge.previewStyle()==0);
+            bridge.publishSceneControl(true,5,1,null,new BlockScene(scene.x(),scene.y(),scene.z(),scene.yaw(),scene.boxes(),2));
+            await(() -> bridge.previewStyle()==2);
             assertTrue(Files.readString(log).contains("'origin': [10.0, 20.0, 30.0, 0.0]"));
             bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.

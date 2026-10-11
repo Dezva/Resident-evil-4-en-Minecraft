@@ -15,7 +15,7 @@ def validate_preview(preview):
     boxes=preview['boxes'] if scene else [preview['bounds']]
     if not isinstance(boxes,list) or not 1<=len(boxes)<=MAX_BOXES: raise ProtocolError('Invalid scene size')
     if scene:
-        if type(preview.get('style',0)) is not int or preview.get('style',0) not in (0,1):raise ProtocolError('Invalid scene style')
+        if type(preview.get('style',0)) is not int or preview.get('style',0) not in (0,1,2):raise ProtocolError('Invalid scene style')
         origin=preview['origin']
         if not isinstance(origin,list) or len(origin)!=4 or any(type(x) not in (int,float)
                 or not math.isfinite(x) or abs(x)> (math.pi if i==3 else 20000000) for i,x in enumerate(origin)):
@@ -37,11 +37,11 @@ class NativePreview:
         kernel=k if k is not None else ctypes.WinDLL('kernel32',use_last_error=True)
         try:
             self.session=CubeSession(kernel,pid,user=user)
-            if self.session.version not in (2,3,4):
-                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22; conserva los controles desactivados.')
+            if self.session.version not in (2,3,4,5):
+                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23; conserva los controles desactivados.')
             self.baseline=read_cube_status(kernel,pid)
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422)) or not self.baseline['live_devices']:
-                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22 y dispositivo grafico activo.')
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423)) or not self.baseline['live_devices']:
+                raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23 y dispositivo grafico activo.')
             if self.baseline['restore_failures'] or self.baseline['escaped_interfaces']:
                 raise ReaderError('Dibujo bloqueado; reinicia RE4 y envia CAPTURE-RE4-GRAPHICS.')
         except Exception:
@@ -51,7 +51,10 @@ class NativePreview:
     def scene_available(self):return self.session.version>=3
 
     @property
-    def surface_available(self):return self.session.version==4
+    def surface_available(self):return self.session.version>=4
+
+    @property
+    def texture_available(self):return self.session.version==5
 
     def publish(self,enabled,generation,bounds=None):
         scene=bounds if isinstance(bounds,dict) else None
@@ -59,6 +62,7 @@ class NativePreview:
             validate_preview(scene if scene is not None else {'bounds':bounds})
             if scene is not None and not self.scene_available:raise ReaderError('Cuadricula requiere DLL0.4.21 o0.4.22.')
             if scene is not None and scene.get('style',0) and not self.surface_available:raise ReaderError('Caras rellenas requieren DLL0.4.22.')
+            if scene is not None and scene.get('style',0)==2 and not self.texture_available:raise ReaderError('Textura requiere DLL0.4.23.')
             if type(generation) is not int or generation<=0:
                 raise ProtocolError('Bloque requiere arm explicito')
             if generation!=self.generation:

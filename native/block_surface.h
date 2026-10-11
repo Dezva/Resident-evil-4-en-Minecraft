@@ -8,14 +8,16 @@
 #define BLOCK_SURFACE_MAX_BOXES 128u
 #define BLOCK_SURFACE_MAX_FACES (6u*BLOCK_SURFACE_MAX_BOXES)
 #define BLOCK_SURFACE_MAX_VERTICES (21u*BLOCK_SURFACE_MAX_FACES)
-typedef struct {float v[3];} BlockPoint;
+typedef struct {float v[3],uv[2];} BlockPoint;
+typedef struct {float x,y,z,rhw;uint32_t color;float u,v;} BlockSurfaceVertex;
+_Static_assert(sizeof(BlockSurfaceVertex)==28,"Textured surface vertex layout");
 typedef struct {unsigned box,axis,side;float depth;} BlockFace;
 typedef struct {
     BlockFace faces[BLOCK_SURFACE_MAX_FACES];
-    BlockVertex vertices[BLOCK_SURFACE_MAX_VERTICES];
+    BlockSurfaceVertex vertices[BLOCK_SURFACE_MAX_VERTICES];
 } BlockSurfaceMesh;
 static inline BlockPoint block_transform(const float *view,const float *point) {
-    BlockPoint result={{0}};
+    BlockPoint result={{0},{0}};
     for (unsigned r=0;r<3;++r) {
         result.v[r]=view[4*r+3];
         for (unsigned c=0;c<3;++c) result.v[r]+=view[4*r+c]*point[c];
@@ -43,6 +45,7 @@ static inline unsigned block_clip_face(BlockPoint *points,unsigned count,float h
                 float ratio=prior/(prior-current);
                 for (unsigned axis=0;axis<3;++axis)
                     temporary[output].v[axis]=previous.v[axis]+ratio*(points[i].v[axis]-previous.v[axis]);
+                for (unsigned axis=0;axis<2;++axis) temporary[output].uv[axis]=previous.uv[axis]+ratio*(points[i].uv[axis]-previous.uv[axis]);
                 output++;
             }
             if (current>=0) {if (output==12) return 0;temporary[output++]=points[i];}
@@ -70,7 +73,7 @@ static inline int block_face_covered(const float boxes[][6],unsigned count,unsig
     return 0;
 }
 /* Painter ordering applies only to this grid. No game depth buffer or terrain
- * occlusion is assumed; grey face shading is provisional, with no textures. */
+ * occlusion is assumed; face shading and clipped UVs are provisional. */
 static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,const float *view,
         float fovy,float width,float height,BlockSurfaceMesh *mesh) {
     if (!box_count || box_count>BLOCK_SURFACE_MAX_BOXES || !block_valid_view(view,fovy,width,height)) return 0;
@@ -99,15 +102,17 @@ static inline unsigned block_surfaces(const float boxes[][6],unsigned box_count,
             float point[3];point[face.axis]=box[face.axis+(face.side?3:0)];
             point[u]=box[u+(corners[corner][0]?3:0)];point[v]=box[v+(corners[corner][1]?3:0)];
             polygon[corner]=block_transform(view,point);
+            polygon[corner].uv[0]=(point[u]-box[u])/(box[u+3]-box[u]);
+            polygon[corner].uv[1]=(box[v+3]-point[v])/(box[v+3]-box[v]);
         }
         unsigned n=block_clip_face(polygon,4,horizontal,vertical);
         if (n<3) continue;
-        BlockVertex projected[9];
+        BlockSurfaceVertex projected[9];
         for (unsigned corner=0;corner<n;++corner) {
             float depth=fmaxf(1.f,-polygon[corner].v[2]);
             float x=width/2+focal*polygon[corner].v[0]/depth,y=height/2-focal*polygon[corner].v[1]/depth;
             if (!isfinite(x+y)) return 0;
-            projected[corner]=(BlockVertex){fminf(width,fmaxf(0,x)),fminf(height,fmaxf(0,y)),0,1,colors[face.axis][face.side]};
+            projected[corner]=(BlockSurfaceVertex){fminf(width,fmaxf(0,x)),fminf(height,fmaxf(0,y)),0,1.f/depth,colors[face.axis][face.side],polygon[corner].uv[0],polygon[corner].uv[1]};
         }
         for (unsigned corner=1;corner+1<n;++corner) {
             float area=(projected[corner].x-projected[0].x)*(projected[corner+1].y-projected[0].y)

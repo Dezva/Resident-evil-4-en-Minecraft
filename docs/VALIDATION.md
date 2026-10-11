@@ -609,3 +609,23 @@ verifican copia de partidas, hashes, no sobrescritura, retirada solo de DLL
 propia e interop de diagnóstico mediante fixtures PowerShell. El paquete debe
 incluir ambos mods, host, DLL y scripts completos. Apariencia y rendimiento de
 caras, arranque de RE4 y driver D3D9 reales requieren la prueba del usuario.
+
+## 0.4.23 — textura de prueba y confirmación manual de caras
+
+Usuario confirma0.4.22: dos capturas muestran una construcción con caras grises
+rellenas y la misma en aristas. No acreditan profundidad compartida ni física.
+
+88 pruebas Python,20 bridge-core,16 Minecraft y4 suitesC pasan; siete fixtures
+nativos ASan/UBSan. La geometría valida UV de intersección near interpoladas antes
+de proyectar, rhw positivo1/depth, recorte finito y extremos/2000 escenas rotadas.
+Draw ejecuta código real con COM simulado: tile opaca/variada16×16, pitch80bytes
+para filas64bytes,128cajas en una llamada, fallos de38 setters(textura)/30(otros),
+CreateTexture/Lock/Unlock/Capture/Apply/Draw/heap, recursos liberados, F8/TTL y
+restauración completa. TCP real transmite escena/style2, retirada individual y
+cierre al mappingv5; estilo2 incompatible no publica input ni activa dibujo.
+
+JAR0.4.23 remapeado y DLL PE32 compilada con warnings C como errores; imports solo
+KERNEL32/msvcrt/USER32. Instaladores y diagnósticos validados con archivos/APIs
+simuladas. Se conservan la creación/interceptación D3D9 y hooks de entrada/cámara.
+Apariencia/rendimiento/arranque real de textura requieren Windows/RE4/driver.
+No se distribuyen imágenes originales de Minecraft; patrón generado por código.

@@ -33,22 +33,36 @@ def inspect(read, base, size, query=None):
         report["sections"].append(row)
         blobs.append((address, read(address, length)))
     hits = {}
+    projection_calls = []
     for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE),
                             ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE), ("camera_smoothing", SMOOTH_SIGNATURE),
                             ("global", GLOBAL_SIGNATURE), ("projection", PROJECTION_SIGNATURE)]:
         found = [address + hit for address, data in blobs for hit in matches(data, signature)]
         checks[name + "_matches"] = len(found)
+        if name == 'projection': projection_calls = found
         if len(found) == 1:
             hits[name] = found[0]
     if 'global' in hits:
         pointer = u32(read(hits['global']+1,4))
         checks['global_slot_in_module'] = base <= pointer <= base+size-4 and pointer % 4 == 0
-    if 'projection' in hits:
-        call = hits['projection']
-        target = call+5+struct.unpack('<i',read(call+1,4))[0]
-        checks['projection_target_in_module'] = base <= target < base+size
+    if projection_calls:
+        rows = []
+        targets = []
+        for call in projection_calls:
+            target = call+5+struct.unpack('<i',read(call+1,4))[0]
+            targets.append(target)
+            inside = base <= target < base+size
+            row = {'call_rva':hex(call-base),'target_rva':hex(target-base), 'target_in_module':inside}
+            if inside:
+                row['target_bytes'] = read(target,min(16,base+size-target)).hex(' ')
+                if query: row['target_executable'] = bool(query(target)['protection'] & (0x20|0x40|0x80))
+            rows.append(row)
+        report['projection_calls'] = rows
+        checks['projection_unique_targets'] = len(set(targets))
+        checks['projection_target_in_module'] = all(row['target_in_module'] for row in rows)
+        checks['projection_shared_target'] = len(set(targets)) == 1 and checks['projection_target_in_module'] and len(rows) <= 32
         if query and checks['projection_target_in_module']:
-            checks['projection_target_executable'] = bool(query(target)['protection'] & (0x20|0x40|0x80))
+            checks['projection_target_executable'] = all(row['target_executable'] for row in rows)
     if 'camera_ctrl' in hits:
         pointer = u32(read(hits['camera_ctrl'] + 3, 4))
         checks['camera_ctrl_in_module'] = base <= pointer <= base + size - 0x788

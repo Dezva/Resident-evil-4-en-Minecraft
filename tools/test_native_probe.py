@@ -15,6 +15,23 @@ def fixture():
 
 
 class ProbeTests(unittest.TestCase):
+    def test_seven_projection_calls_require_one_target(self):
+        m = fixture()
+        for i in range(7):
+            rva = 0x1800+0x20*i
+            m.put_signature(rva,PROJECTION_SIGNATURE,(0x1700-rva-5) & 0xFFFFFFFF)
+        before = bytes(m.data)
+        report = inspect(m.read,m.base,m.size)
+        self.assertEqual(report['checks']['projection_matches'],7)
+        self.assertEqual(report['checks']['projection_unique_targets'],1)
+        self.assertTrue(report['checks']['projection_shared_target'])
+        self.assertEqual(len(report['projection_calls']),7)
+        self.assertEqual(bytes(m.data),before)
+        struct.pack_into('<i',m.data,0x1801,0x1701-0x1805)
+        report = inspect(m.read,m.base,m.size)
+        self.assertFalse(report['checks']['projection_shared_target'])
+        self.assertEqual(report['checks']['projection_unique_targets'],2)
+
     def test_render_prerequisites_and_invalid_target_are_read_only(self):
         m = fixture()
         m.put_signature(0x1800, GLOBAL_SIGNATURE, m.base+0x3300)

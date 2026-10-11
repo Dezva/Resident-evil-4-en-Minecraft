@@ -304,24 +304,33 @@ static const int ctrl_pattern[] = {0xD9,0xEE,0xB9,-1,-1,-1,-1,0xD9,0x9E,0xA4,0x0
 static const int global_pattern[] = {0xA1,-1,-1,-1,-1,0xB9,0xFF,0xFF,0xFF,0x7F,0x21,0x48,-1,0xA1};
 static const int projection_pattern[] = {0xE8,-1,-1,-1,-1,0x8A,0x46,0x30,0x3C,0xFD};
 
-static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
-        IMAGE_NT_HEADERS32 *nt, const int *pattern, SIZE_T length) {
-    unsigned char *found = NULL;
+static unsigned find_patterns(unsigned char *base, DWORD image_size,
+        IMAGE_NT_HEADERS32 *nt, const int *pattern, SIZE_T length,
+        unsigned char **found, unsigned capacity) {
+    unsigned count = 0;
     IMAGE_SECTION_HEADER *sections = IMAGE_FIRST_SECTION(nt);
-    if (!readable(sections, nt->FileHeader.NumberOfSections * sizeof(*sections))) return NULL;
+    if (!readable(sections, nt->FileHeader.NumberOfSections * sizeof(*sections))) return 0;
     for (unsigned s = 0; s < nt->FileHeader.NumberOfSections; ++s) {
         DWORD rva = sections[s].VirtualAddress, size = sections[s].Misc.VirtualSize;
         if (!(sections[s].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
         if (rva >= image_size || size > image_size - rva || size > 32u*1024u*1024u || size < length
-                || !readable(base + rva, size)) return NULL;
+                || !readable(base + rva, size)) return 0;
         for (SIZE_T i = 0; i <= size - length; ++i) {
             if (base[rva + i] != pattern[0]) continue;
             SIZE_T j;
             for (j = 1; j < length; ++j) if (pattern[j] >= 0 && base[rva+i+j] != pattern[j]) break;
-            if (j == length) { if (found) return NULL; found = base+rva+i; }
+            if (j == length) {
+                if (count == capacity) return 0;
+                found[count++] = base+rva+i;
+            }
         }
     }
-    return found;
+    return count;
+}
+static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
+        IMAGE_NT_HEADERS32 *nt, const int *pattern, SIZE_T length) {
+    unsigned char *found;
+    return find_patterns(base,image_size,nt,pattern,length,&found,1) == 1 ? found : NULL;
 }
 
 static void install_hook(void) {
@@ -394,14 +403,20 @@ static void install_hook(void) {
     unsigned char *ctrl = unique_pattern(base,size,nt,ctrl_pattern,sizeof(ctrl_pattern)/sizeof(int));
     unsigned char *smooth = unique_pattern(base,size,nt,smooth_pattern,sizeof(smooth_pattern)/sizeof(int));
     unsigned char *g = unique_pattern(base,size,nt,global_pattern,sizeof(global_pattern)/sizeof(int));
-    unsigned char *projection = unique_pattern(base,size,nt,projection_pattern,sizeof(projection_pattern)/sizeof(int));
-    if (!c || !ctrl || !smooth || !g || !projection) return;
+    unsigned char *projections[32];
+    uint32_t projection_rvas[32];
+    unsigned projection_count = find_patterns(base,size,nt,projection_pattern,
+            sizeof(projection_pattern)/sizeof(int),projections,32);
+    if (!c || !ctrl || !smooth || !g || !projection_count) return;
     uint32_t global_address; memcpy(&global_address,g+1,4);
     if ((global_address & 3u) || global_address < (uintptr_t)base
             || global_address > (uintptr_t)base+size-4
             || !readable((void *)(uintptr_t)global_address,4)) return;
-    memcpy(&displacement,projection+1,4);
-    uintptr_t projection_target = (uintptr_t)(projection+5)+displacement;
+    for (unsigned i=0;i<projection_count;++i) projection_rvas[i] = (uint32_t)(projections[i]-base);
+    uint32_t projection_target_rva;
+    if (!re4_shared_call_target((const unsigned char *const *)projections,projection_rvas,
+            projection_count,size,&projection_target_rva)) return;
+    uintptr_t projection_target = (uintptr_t)base+projection_target_rva;
     if (projection_target < (uintptr_t)base || projection_target >= (uintptr_t)base+size
             || !readable((void *)projection_target,1)) return;
     VirtualQuery((void *)projection_target,&code_memory,sizeof(code_memory));
@@ -436,11 +451,14 @@ static void install_hook(void) {
     if (!VirtualProtect(cmp,7,old_protect,&ignored)) return;
     global_slot = (volatile uint32_t *)(uintptr_t)global_address;
     original_projection = (void (__cdecl *)(void))projection_target;
-    if (!VirtualProtect(projection,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
-    replacement = (int32_t)((uintptr_t)projection_hook-(uintptr_t)(projection+5));
-    memcpy(projection+1,&replacement,4);
-    FlushInstructionCache(GetCurrentProcess(),projection,5);
-    if (!VirtualProtect(projection,5,old_protect,&ignored)) return;
+    for (unsigned i=0;i<projection_count;++i) {
+        unsigned char *projection = projections[i];
+        if (!VirtualProtect(projection,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;
+        replacement = (int32_t)((uintptr_t)projection_hook-(uintptr_t)(projection+5));
+        memcpy(projection+1,&replacement,4);
+        FlushInstructionCache(GetCurrentProcess(),projection,5);
+        if (!VirtualProtect(projection,5,old_protect,&ignored)) return;
+    }
     state->capabilities |= 2u;
 }
 

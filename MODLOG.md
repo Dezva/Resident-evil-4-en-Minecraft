@@ -246,3 +246,13 @@ solo en FP, mediante avance nativo orientado, sin modificar coordenadas ni
 desactivar colisiones. Paquete completo con JAR/host 0.4.3, DLL 0.4.5 y todos
 los START/view/instaladores/trace; conserva compatibilidad IPC. Tres suites C,
 29 pruebas Python y fixtures PowerShell pasan. Windows queda por verificar.
+
+## 0.4.6
+
+Usuario bloqueado en FP por projection_matches=7; demás firmas requeridas
+únicas. Sustituye la unicidad de sitio de llamada por unicidad de destino en
+todas las llamadas E8 encontradas (máximo32), manteniendo rechazo si difieren
+o alguna es inválida. Instala todas las llamadas solo tras validarlas. Nuevo
+PROBE muestra destinos/bytes de las siete coincidencias para investigar si
+todavía no se admite FP. Mod/host conservan0.4.3; paquete completo. Tres suites
+C,30 pruebas Python y fixtures PowerShell pasan; activación Windows pendiente.

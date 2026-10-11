@@ -14,4 +14,19 @@ static inline int re4_relative_target(const unsigned char *instruction, uint32_t
     *target_rva = target;
     return 1;
 }
+/* Multiple render callers are valid only if every CALL has one shared target.
+   Never accept a majority, skip an invalid candidate or choose the first. */
+static inline int re4_shared_call_target(const unsigned char *const *calls,
+        const uint32_t *rvas, unsigned count, uint32_t size, uint32_t *target) {
+    if (!count || count > 32) return 0;
+    uint32_t common = 0;
+    for (unsigned i=0;i<count;++i) {
+        uint32_t next;
+        if (calls[i][0] != 0xE8 || !re4_relative_target(calls[i],rvas[i],size,&next)
+                || (i && next != common)) return 0;
+        common = next;
+    }
+    *target = common;
+    return 1;
+}
 #endif

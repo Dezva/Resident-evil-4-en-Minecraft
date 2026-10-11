@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.5
+# Native RE4 movement and optional look, 0.4.6
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -117,3 +117,17 @@ Global only while its current slot still identifies that embedded camera.
 No writes to freed/replaced global work storage. Original projection is always
 called. Mathematical inverse/eye/gaze tests pass; hook timing and visual/native
 locomotion behavior still require actual Windows RE4 testing.
+
+## 0.4.6 shared projection destination
+
+User's read-only probe reports seven projection signature matches. 0.4.5
+required one and refused FP before installing camera hooks. The old report
+did not enumerate targets, so a common destination is not yet established
+on Windows. Collect all matches in executable sections (limit32); require
+every opcode E8 and every rel32 destination to be the same in-module executable
+address, then patch each CALL site to projection_hook. Delegate to that shared
+original target. Differing targets, invalid/out-of-module calls, empty/overflow
+lists remain unsupported; no arbitrary first/majority selection. All other
+patterns retain unique-match policy. C tests cover seven matching callers and
+one discrepant/invalid/opcode-changed caller. Probe now lists every call's RVA,
+target, bytes and protection. Real activation remains unverified.

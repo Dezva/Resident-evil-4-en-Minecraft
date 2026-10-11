@@ -195,3 +195,18 @@ completo de 31 archivos: Universal Modder 0 fallos/avisos. Incluye el JAR
 ABI camera fastcall y projection cdecl inspeccionadas en objdump. No se
 ejecutó la DLL con RE4 Windows; movimiento lateral, render y colisiones reales
 siguen pendientes. No implementa salto/sprint/agachado/física de Minecraft.
+
+## 0.4.6 projection_matches=7
+
+El PROBE del usuario confirma siete coincidencias de proyección y una de cada
+otra firma requerida, con Global slot y cámara originales válidos. 0.4.5 sale
+antes de instalar cámara por su requisito de coincidencia única. El informe
+no incluye los siete destinos, así que no se afirma que sean la misma función.
+0.4.6 exige un único destino común en todas las coincidencias E8 rel32, dentro
+del módulo/ejecutable y hasta32 llamadas; solo entonces instala todas. Otras
+firmas conservan unicidad. Destinos distintos/incorrectos siguen rechazados.
+PROBE enumera llamadas/destinos/bytes/protección y resumen de destino común.
+Tres suites C y30 pruebas Python pasan: siete llamadas comunes, rechazo de
+una discrepante, opcode distinto, dirección fuera del módulo y lista vacía.
+Fixtures PowerShell de instalación y diagnóstico pasan. No se ha verificado
+la activación FP con DLL0.4.6 en el ejecutable Windows real del usuario.

@@ -21,6 +21,11 @@ final class PlacedBlockScene {
     private double yaw,height;
     private int style;
     private boolean collisions;
+    private boolean cachedValid;
+    private BlockScene cached;
+    private BlockMaterials cachedMaterials;
+    private long cachedMaterialRevision;
+    private void changed(){cachedValid=false;cached=null;}
 
     boolean put(BlockPlacementProbe.Placed placed,List<Box> shapes,double minecraftYaw) {
         if (shapes.isEmpty()) return false;
@@ -41,11 +46,11 @@ final class PlacedBlockScene {
             anchor=placed.pos().toImmutable();nativeAnchor=placed.box();dimension=placed.dimension();
             yaw=Math.IEEEremainder(minecraftYaw,360)*Math.PI/180;
         }
-        blocks.put(placed.pos().toImmutable(),candidate);return true;
+        blocks.put(placed.pos().toImmutable(),candidate);changed();return true;
     }
     // Set the grid rotation once from both players' facing, never from movement.
     void align(double re4Yaw) {
-        yaw=Math.IEEEremainder(-re4Yaw-yaw,2*Math.PI);
+        yaw=Math.IEEEremainder(-re4Yaw-yaw,2*Math.PI);changed();
     }
     boolean update(Function<BlockPos,BlockState> read,Function<BlockPos,List<Box>> shapes,String world) {
         return update(read,shapes,pos -> true,world);
@@ -57,19 +62,19 @@ final class PlacedBlockScene {
         while (iterator.hasNext()) {
             var entry=iterator.next();if (!loaded.test(entry.getKey())) continue;
             var state=read.apply(entry.getKey());
-            if (state.isAir() || !state.isOf(entry.getValue().state().getBlock())) iterator.remove();
+            if (state.isAir() || !state.isOf(entry.getValue().state().getBlock())) {iterator.remove();changed();}
             else {
                 // Slabs may become double slabs and fences may gain neighbours.
-                var changed=new Entry(state,List.copyOf(shapes.apply(entry.getKey())));
+                var updated=new Entry(state,List.copyOf(shapes.apply(entry.getKey())));
                 try {
-                    convert(entry.getKey(),changed,anchor,nativeAnchor.size());
-                    entry.setValue(changed);
-                } catch (IllegalArgumentException error) { iterator.remove(); }
+                    convert(entry.getKey(),updated,anchor,nativeAnchor.size());
+                    if(!updated.equals(entry.getValue())){entry.setValue(updated);changed();}
+                } catch (IllegalArgumentException error) { iterator.remove();changed(); }
             }
         }
         int count=0;
         for (var entry:blocks.values()) count+=entry.shapes().size();
-        if (count>BlockScene.MAX_BOXES) {blocks.clear();return false;}
+        if (count>BlockScene.MAX_BOXES) {blocks.clear();changed();return false;}
         return true;
     }
     private static List<BlockScene.Bounds> convert(BlockPos pos,Entry entry,BlockPos reference,double size) {
@@ -85,25 +90,28 @@ final class PlacedBlockScene {
     BlockScene snapshot() {return snapshot(null,null);}
     BlockScene snapshot(java.util.function.BiFunction<BlockPos,BlockState,BlockMaterials.Face[]> read,BlockMaterials materials) {
         if(anchor==null)return null;
+        if(cachedValid && (style!=3 || cachedMaterials==materials && cachedMaterialRevision==materials.revision()))return cached;
         var boxes=new ArrayList<BlockScene.Bounds>();var faces=new ArrayList<List<BlockScene.Face>>();
         if(style==3 && (read==null || materials==null))throw new IllegalArgumentException("Missing local materials");
-        if(materials!=null)materials.begin();
+        if(style==3)materials.begin();
         for(var entry:blocks.entrySet()) {
             boxes.addAll(convert(entry.getKey(),entry.getValue(),anchor,nativeAnchor.size()));
             if(style==3){var info=read.apply(entry.getKey(),entry.getValue().state());for(var shape:entry.getValue().shapes()){var group=new ArrayList<BlockScene.Face>();for(int i=0;i<6;i++)group.add(info[i].bounds(shape,i/2));faces.add(group);}}
         }
-        return boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes,style,collisions,style==3?materials.tiles():List.of(),faces);
+        cached=boxes.isEmpty()?null:new BlockScene(nativeAnchor.x(),nativeAnchor.y()+height,nativeAnchor.z(),yaw,boxes,style,collisions,style==3?materials.tiles():List.of(),faces);
+        cachedMaterials=materials;cachedMaterialRevision=materials==null?0:materials.revision();cachedValid=true;
+        return cached;
     }
-    void collisions(boolean value){collisions=value;}
+    void collisions(boolean value){if(collisions!=value){collisions=value;changed();}}
     boolean collisions(){return collisions;}
     void height(double value) {
         if (!Double.isFinite(value) || Math.abs(value)>2500) throw new IllegalArgumentException("Invalid height adjustment");
-        height=value;
+        if(height!=value){height=value;changed();}
     }
     int size() {return blocks.size();}
-    void style(int value) {if (value<0 || value>3) throw new IllegalArgumentException("Invalid scene style");style=value;}
+    void style(int value) {if (value<0 || value>3) throw new IllegalArgumentException("Invalid scene style");if(style!=value){style=value;changed();}}
     int style() {return style;}
     boolean anchored() {return anchor!=null;}
     String dimension() {return dimension;}
-    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;collisions=false;}
+    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;collisions=false;changed();}
 }

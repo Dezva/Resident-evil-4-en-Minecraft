@@ -6,6 +6,7 @@
   "description": "Single-player RE4 bridge: telemetry, spectator following and opt-in native movement controls.",
   "authors": ["Dezva"],
   "environment": "client",
+  "accessWidener": "re4bridge.accesswidener",
   "entrypoints": {"client": ["dev.dezva.re4bridge.minecraft.Re4BridgeClient"]},
   "depends": {
     "fabricloader": ">=0.16.10",

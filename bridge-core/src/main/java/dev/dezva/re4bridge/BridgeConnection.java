@@ -88,8 +88,12 @@ public final class BridgeConnection implements AutoCloseable {
     public void publishControl(boolean armed, int buttons, int generation, MouseLook.Input look, BlockPreview preview) {
         publishVisualControl(armed,buttons,generation,look,preview==null?null:preview.toJson());
     }
+    // Client-thread owned, immutable scene identity; the worker only reads this JSON tree.
+    private BlockScene serializedScene;
+    private JsonObject serializedSceneJson;
     public void publishSceneControl(boolean armed,int buttons,int generation,MouseLook.Input look,BlockScene scene) {
-        publishVisualControl(armed,buttons,generation,look,scene==null?null:scene.toJson());
+        if(scene!=serializedScene){serializedScene=scene;serializedSceneJson=scene==null?null:scene.toJson();}
+        publishVisualControl(armed,buttons,generation,look,serializedSceneJson);
     }
     private void publishVisualControl(boolean armed,int buttons,int generation,MouseLook.Input look,JsonObject preview) {
         if (buttons < 0 || (buttons & ~79) != 0 || generation < 0) throw new IllegalArgumentException("Invalid control");

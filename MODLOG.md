@@ -661,3 +661,33 @@ con APIs simuladas. Instalación/respaldo/hash/retirada propios y diagnósticos 
 DLL PE32 importaKERNEL32/msvcrt/USER32; SHA256:
 f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4.
 Nueva prueba real necesaria;0.4.23 intacta. Física completa del motor sigue pendiente.
+
+
+## 0.4.25 — corrige fotograma estático, reutiliza escena y separa el movimiento
+
+El usuario confirmó colisión con piedra, pero materiales mostraban el damero y
+la construcción podía desaparecer al mantener W. La prueba con SpriteContents
+real reproduce la causa del damero: getDistinctFrameCount devuelve IntStream.of(1)
+cuando animation es null. Ese 1 se trataba como índice de segunda imagen. Ahora
+los sprites estáticos usan cero; los animados su primer índice declarado.
+
+Se toma NativeImage ya decodificada mediante access widener de solo acceso;
+no se reabre PNG ni se consulta GPU, y nunca se modifica/cierra la imagen prestada.
+ABGR→ARGB, tinte y composición conservados. Pruebas con BakedQuadFactory real
+para las seis caras, sprite generado sin recurso PNG y animación declarada.
+Errores por cara quedan en status y log acotado. Snapshot/JSON se reutilizan
+cuando la escena no cambia; formas/estado, estilo, origen, altura, colisión y
+recarga invalidan. Cada reconstrucción recicla la paleta de materiales retirados.
+
+Input temporal inerte mientras arm/pending controlan RE4; las keybindings crudas
+siguen siendo las que envían W/A/S/D/correr. No cambia coordenadas/velocidad ni
+pausa el servidor; ratón y uso de items continúan. F8/chat/foco/stop/desconexión
+restauran el Input previo y no sobrescriben reemplazos de otro componente.
+walking on/off ofrece comportamiento conjunto anterior, desarmando al cambiar.
+
+No se confirmó que los chunks provocaran la desaparición. Las extracciones PNG
+fallidas se repetían antes por cara/tick y se elimina esa carga. Se mantienen las
+caducidades de input200ms/nativo500ms y rechazo gráfico/colisión. No se cambiaron
+ABI, hooks, física nativa, instaladores ni DLL: SHA256 f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4,
+build424/v6. Se publica paquete completo 0.4.25 con JAR/core/host actualizados.
+Prueba visual y de rendimiento real pendiente de Windows.

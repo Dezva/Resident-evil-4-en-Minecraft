@@ -1,5 +1,5 @@
 plugins { id 'fabric-loom' version '1.9.2' }
-version = '0.4.24'
+version = '0.4.25'
 group = 'dev.dezva.re4bridge'
 base { archivesName = 're4bridge' }
 repositories { mavenCentral() }
@@ -26,3 +26,5 @@ processResources {
     inputs.property 'version', project.version
     filesMatching('fabric.mod.json') { expand version: project.version }
 }
+
+loom { accessWidenerPath = file('src/main/resources/re4bridge.accesswidener') }

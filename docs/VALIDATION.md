@@ -655,3 +655,21 @@ no-overwrite/own-onlyremoval/diagnóstico pasan. Extracción de modelos activos,
 arranque, apariencia, rendimiento y estabilidad física requieren prueba real.
 Apoyo encima/gravedad/saltos, enemigos/Ashley/proyectiles, oclusión/terreno siguen
 pendientes; no se considera completada la integración física del motor.
+
+
+## 0.4.25
+
+Regresión comprobada con sprites reales: SpriteContents sin animación devuelve
+un flujo que contiene 1; la versión anterior lo usaba como índice y rechazaba la
+imagen estática. Pruebas usan NativeImage y BakedQuadFactory reales con el access
+widener Fabric, incluyendo seis caras, imagen generada sin PNG, ABGR/ARGB, capas,
+primer frame declarado y conservación de la imagen prestada. Se verifican caché
+estable durante 200 actualizaciones, recarga, losa doble, eliminación e Input
+restaurado tras detener, desconectar, cambiar jugador y reemplazo ajeno.
+
+No se ha ejecutado RE4/driver D3D9 real ni medido FPS en el equipo del usuario.
+DLL/instaladores/API permanecen idénticos a 0.4.24. Se mantienen las pruebas TCP
+de caducidad (un worker vivo no mantiene inputs antiguos) y el protocolo v6.
+
+Resultado 0.4.25: 97 Python + 21 bridge-core + 24 Minecraft, cero fallos/omisiones;
+build Fabric/remap/access-widener terminado correctamente.

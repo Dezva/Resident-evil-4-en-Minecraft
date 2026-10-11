@@ -56,6 +56,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private int turnSign = 1;
     private final ControlArming controlArming = new ControlArming();
     private int controlHudTicks;
+    private final ControllerInput controllerInput=new ControllerInput();
+    private boolean minecraftWalking;
     private final MouseLook mouseLook = new MouseLook();
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
@@ -83,6 +85,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 .then(literal("connect").executes(ctx -> connect(ctx.getSource().getClient(), false)))
                 .then(literal("re4").executes(ctx -> connect(ctx.getSource().getClient(), true)))
                 .then(literal("controller").executes(ctx -> connectController(ctx.getSource().getClient())))
+                .then(literal("walking")
+                    .then(literal("on").executes(ctx -> walking(ctx.getSource().getClient(),true)))
+                    .then(literal("off").executes(ctx -> walking(ctx.getSource().getClient(),false))))
                 .then(literal("mouse").executes(ctx -> {
                     if (bridge == null || !bridge.controllerMode() || (bridge.nativeCapabilities() & 1) == 0) {
                         say(ctx.getSource().getClient(), "Raton no disponible: conecta el host y DLL 0.4.0 con controller."); return 0;
@@ -117,7 +122,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     controlArming.request(System.nanoTime());
                     mouseLook.reset();
                     current.publishControl(false, 0, controlArming.generation());
-                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Mira el indicador sobre la barra de items. F8 detiene.");
+                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Minecraft queda quieto (walking off); F8 permite caminar de nuevo.");
                     return 1;
                 }))
                 .then(literal("stop").executes(ctx -> {
@@ -204,7 +209,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; movimiento Minecraft="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -222,7 +227,19 @@ public final class Re4BridgeClient implements ClientModInitializer {
         });
     }
 
+    private int walking(MinecraftClient client,boolean enabled){
+        stopDriving();minecraftWalking=enabled;
+        say(client,enabled?"Movimiento Minecraft habilitado junto a RE4; puede cargar chunks. Usa arm.":"Minecraft queda quieto al controlar RE4. F8 permite caminar/construir. Usa arm.");return 1;
+    }
+
     private void beforeTick(MinecraftClient client) {
+        var current=bridge;
+        var sample=current==null?null:current.re4Sample();
+        boolean lock=!minecraftWalking && (controlArming.active() || controlArming.pending())
+            && current!=null && current.controllerMode() && current.status().connected()
+            && sample!=null && sample.fresh(System.nanoTime()) && client.isInSingleplayer()
+            && client.currentScreen==null && !client.isPaused() && client.isWindowFocused();
+        controllerInput.update(client.player,lock);
         // START runs before vanilla processes item use. Observe before prediction,
         // even on the tick that closes arm's chat; publishing remains arm-gated.
         if (client.options.useKey.isPressed() && client.crosshairTarget instanceof BlockHitResult hit
@@ -302,6 +319,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void stopDriving() {
+        controllerInput.release();
         controlArming.stop("desarmado");
         placementTracker.clear();
         mouseLook.reset();
@@ -403,6 +421,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : ControlArming.Screen.OTHER;
             controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
                 sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
+            if(!controlArming.active())controllerInput.release();
             int buttons = 0;
             if (controlArming.active()) {
                 if (client.options.forwardKey.isPressed()) buttons |= 1;

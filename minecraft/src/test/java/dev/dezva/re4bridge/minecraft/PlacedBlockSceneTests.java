@@ -77,4 +77,29 @@ class PlacedBlockSceneTests {
         scene.update(pos -> {fail("Must not read an unloaded block");return null;},pos -> shapes(state),pos -> false,"overworld");
         assertEquals(1,scene.size());assertNotNull(scene.snapshot());
     }
+    @Test void stableSceneSkipsMaterialsAndRefreshesOnGeometryReloadAndRemoval() {
+        var scene=new PlacedBlockScene();var stone=Blocks.STONE.getDefaultState();
+        assertTrue(put(scene,BlockPos.ORIGIN,stone));scene.style(3);
+        var materials=new BlockMaterials();var calls=new java.util.concurrent.atomic.AtomicInteger();
+        java.util.function.BiFunction<BlockPos,BlockState,BlockMaterials.Face[]> read=(pos,state)->{
+            calls.incrementAndGet();return java.util.Collections.nCopies(6,new BlockMaterials.Face(0,new double[]{1,0,0,0,1,0})).toArray(BlockMaterials.Face[]::new);
+        };
+        var first=scene.snapshot(read,materials);
+        for(int i=0;i<200;i++){
+            scene.update(pos->stone,pos->shapes(stone),"overworld");
+            assertSame(first,scene.snapshot(read,materials));
+        }
+        assertEquals(1,calls.get());materials.clear();var reloaded=scene.snapshot(read,materials);
+        assertNotSame(first,reloaded);assertEquals(2,calls.get());
+        scene.collisions(true);var wall=scene.snapshot(read,materials);assertTrue(wall.collisions());
+        assertEquals(reloaded.boxes(),wall.boxes());
+        var slab=Blocks.STONE_SLAB.getDefaultState();scene.clear();scene.style(3);
+        assertTrue(put(scene,BlockPos.ORIGIN,slab));var low=scene.snapshot(read,materials);
+        var doubled=slab.with(Properties.SLAB_TYPE,SlabType.DOUBLE);
+        scene.update(pos->doubled,pos->shapes(doubled),"overworld");var high=scene.snapshot(read,materials);
+        assertEquals(500,low.boxes().getFirst().maxY());assertEquals(1000,high.boxes().getFirst().maxY());
+        scene.update(pos->Blocks.AIR.getDefaultState(),pos->java.util.List.of(),"overworld");
+        assertNull(scene.snapshot(read,materials));
+    }
+
 }

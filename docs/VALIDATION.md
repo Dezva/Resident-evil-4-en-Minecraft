@@ -431,3 +431,19 @@ terminador o identidad desconocida; cleanup y permisos de lectura conservados.
 62 pruebas Python/4 suites C pasan, compilaciónPE32 -Werror e instalación/hash
 propio comprobados. Mods/API no cambian. Falta Windows para comprobar rutas
 reales, arranque y creación observada; ningún dibujo de bloques está habilitado.
+
+## Captura inicial0.4.17 confirmada en el equipo del usuario
+
+Informe graphics-capture-20261011-142924.json, UTC17:29:24: build417,
+hook_status1, motivo1, DLL_PROCESS_ATTACH, attempts1. Import slotRVA0x1310CE0,
+observed/expected0x68EB4B20. loaded C:\\WINDOWS\\SYSTEM32\\d3d9.dll coincide con
+system C:\\WINDOWS\\system32\\d3d9.dll; matched SystemDirectory. El formato de ruta
+causante del rechazo queda confirmado; no hizo falta el reintento.
+
+factory_calls2/success2, wrappers_live1, wrap_failures0, device_calls1/success1,
+device_failures0, HRESULT0x00000000, escaped_interfaces0, creation_observedtrue.
+CreateDevice devolvió dispositivo tipoHAL, adapter0, flags0x44, windowedtrue y
+1366×768. El informe acredita instalación y creación observada con RE4 real,
+no métodos de render, vida actual del puntero, estabilidad prolongada, pérdida,
+Reset ni recreación. rendering_enabledfalse. No se modifica DLL ni se repiten
+pruebas cloud por este registro documental; los ZIP publicados se conservan.

@@ -1,5 +1,14 @@
 # 0.4.17 — rutas gráficas de Windows y diagnóstico
 
+**Resultado confirmado en Windows:** graphics-capture-20261011-142924.json
+registra build417, hook_status1 instalado durante DLL_PROCESS_ATTACH, un intento,
+dos fábricas correctas y un CreateDevice correcto/S_OK, sin fallos ni interfaces
+desconocidas devueltas. La ruta cargada es C:\\WINDOWS\\SYSTEM32\\d3d9.dll, aceptada
+como SystemDirectory. Confirma la diferencia de rutas que bloqueaba0.4.16.
+El dispositivo se creó en modo ventana1366×768; no se habilitó dibujo y este
+informe no acredita estabilidad prolongada, Reset ni recreación del dispositivo.
+El siguiente paso es una prueba de dibujo de un cubo, antes de conectar bloques.
+
 graphics-capture-20261011-141909.json confirma DLL0.4.16, dos intentos y el mismo
 rechazo en ambos: motivo7, «ruta de d3d9 distinta del sistema». Cero llamadas a
 fábrica/dispositivo. Esto localiza el bloqueo antes del hook, pero no contiene
@@ -55,5 +64,6 @@ APIs simuladas cubren ambas rutas bajo WOW64, Windows32, mayúsculas, API ausent
 truncamiento/límites, rechazo de DLL local/subdirectorios y conservación de rutas.
 El lector comprueba snapshots sin escritura, Unicode/terminadores, identidad y
 limpieza de vistas. DLLPE32 compila con -Werror; respaldo/hash propio y retirada
-sin sobrescribir otras DLL verificados. La nube no ejecuta RE4 ni Direct3D real:
-el arranque y la captura de0.4.17 siguen pendientes de la prueba en Windows.
+sin sobrescribir otras DLL verificados. La nube no ejecuta RE4 ni Direct3D real.
+La captura inicial de0.4.17 queda confirmada por el informe del usuario descrito
+arriba; el dibujo y los cambios de modo/dispositivo siguen pendientes.

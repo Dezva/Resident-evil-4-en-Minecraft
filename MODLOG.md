@@ -449,3 +449,15 @@ y fachada COM sin cambios, renderer desactivado.62 Python/4 C y3 fixtures de
 captura ASan/UBSan pasan; instalador y hash propio verificados. Paquete completo,
 mods/API idénticos, se permite reutilizar carpeta tras desinstalar con el paquete
 anterior y retirar sus archivos. Prueba real de arranque/captura pendiente.
+
+## Confirmación de captura0.4.17 en Windows
+
+graphics-capture-20261011-142924.json: hook_status1, fase DLL_PROCESS_ATTACH,
+attempts1, factory_calls/success2, device_calls/success1, HRESULT S_OK,
+wrap/device failures0 y escaped_interfaces0. Ruta cargada SYSTEM32 coincide
+sin distinguir mayúsculas con SystemDirectory; SysWOW64 es la otra ruta derivada.
+Esto confirma la diferencia de formato excluida por0.4.16 y el éxito de la
+corrección, sin recurrir al reintento. Parámetros de creación: ventana1366×768,
+adapter0, type1, flags0x44. Sin dibujo, colisiones ni vida actual del dispositivo
+garantizada por estas direcciones históricas. Se documenta la evidencia sin
+alterar ni republicar los ZIP0.4.17; no se pide otra instalación para este resultado.

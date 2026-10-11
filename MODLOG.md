@@ -331,3 +331,16 @@ IPC92bytesv2 con contadores de descubrimiento impresos por host, compatible
 con mod0.4.11. VIEW restaura/paraliza aunque Windows rechace dar foco, y pide
 activación manual sin excepción.43 pruebas Python,4 suites C y fixtures VIEW
 pasan; detección/visualización real permanece pendiente de Windows.
+
+## Diagnóstico gráfico tras0.4.12
+
+Registro del usuario:33.360 slots,1.050 raíces,5 intentos, cero tablas/devices
+y frames/dibujos0; permanece así también con armado/cámara activos.
+El fallo está antes del dibujo; no es una selección desarmada ni prueba de
+incompatibilidad de primera persona. No se conoce aún filtro/ubicación exactos.
+Se publica herramienta externa de solo lectura sin DLL/mod/instalador nuevos:
+módulos gráficos, firma de fábrica D3D9 y posibles tablas/métodos con módulos
+y RVAs, búsqueda indirecta hasta4096bytes limitada en tiempo/bytes/raíces.
+No llama métodos COM ni escribe en el proceso; candidatos no autorizan hooks.
+Cinco pruebas sintéticas pasan, incluidos límites y limpieza/reporte ante fallo.
+Se requiere graphics-probe JSON del equipo para continuar la reparación.

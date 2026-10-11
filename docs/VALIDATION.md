@@ -294,3 +294,14 @@ and counter preservation checked. VIEW backend and real PowerShell return action
 fixtures verify native stop/window restoration despite denied foreground request.
 No GPU, driver, real Windows GUI or gameplay executed; Linux success is not
 evidence that a block renders on the user's machine. Minecraft0.4.11 retained.
+
+## Read-only graphics audit after0.4.12
+
+Uploaded console log:status3, zero tables/devices/frames/draws after5 attempts,
+33,360 readable object pointers and1,050 roots. Also fails with armed=True and
+camera_active=True; no evidence mouse/FP prevents rendering. Exact discovery
+rejection remains unknown. Added standalone external audit; no native or mod
+change. Five synthetic tests exercise indirect reference beyond old256-byte
+prefix, factory slot, private table/cross-module methods, guarded memory, unknown
+pointers, executable filter, resource bounds and local report/handle cleanup on
+success/failure. Process bytes preserved. Real Win32/driver inspection pending.

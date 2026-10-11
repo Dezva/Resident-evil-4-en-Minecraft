@@ -305,3 +305,19 @@ change. Five synthetic tests exercise indirect reference beyond old256-byte
 prefix, factory slot, private table/cross-module methods, guarded memory, unknown
 pointers, executable filter, resource bounds and local report/handle cleanup on
 success/failure. Process bytes preserved. Real Win32/driver inspection pending.
+
+## 0.4.13 private D3D9 table regression
+
+User audit081059 shows a private table whose119 method addresses belong to the
+system D3D9 module and whose pointer is at0xC30 in a referenced structure. Previous
+detector excluded both storage and offset. This is diagnostic evidence of a
+candidate, not proof of an active device. Detector now allows readable private
+tables but still validates introspection method identity and executable module
+ownership for all119 entries. Requires own visible window and exact game factory
+returned by GetDirect3D; releases the returned reference on acceptance/rejection.
+Rechecks factory before hook; scans bounded4096-byte prefixes. Native helper
+fixture covers private-table-plus0xC30 regression, foreign executable methods,
+different introspection methods, factory mismatch/refcount balance and existing
+region/ambiguity protections.48 Python tests and4 C suites pass, PE32 builds with
+warnings as errors. Preview IPCv1/v2/v3 preserves native counters. Minecraft
+mod unchanged. No real driver/game execution; render remains pending Windows.

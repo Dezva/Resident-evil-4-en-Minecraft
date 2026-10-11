@@ -31,7 +31,7 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(preview.status()['draws'],20)
 
     def test_versioned_mapping_and_discovery_counters(self):
-        for version,size in [(1,17),(2,23),(99,17)]:
+        for version,size in [(1,17),(2,23),(3,25),(99,17)]:
             backing=(ctypes.c_uint32*size)();backing[0]=0x52453442;backing[1]=version
             for i in range(12,size):backing[i]=i*10
             kernel=Mock();kernel.OpenFileMappingW.return_value=99
@@ -46,9 +46,12 @@ class PreviewTests(unittest.TestCase):
                 status=preview.status();preview.close()
                 self.assertEqual(list(backing[12:]),before)
                 sizes=[call.args[-1] for call in kernel.MapViewOfFile.call_args_list]
-                self.assertEqual(sizes,[68] if version==1 else [68,92])
-                if version==2:self.assertEqual(status['discovery']['roots'],220)
+                self.assertEqual(sizes,[68] if version==1 else [68,92 if version==2 else 100])
+                if version>=2:self.assertEqual(status['discovery']['roots'],220)
                 else:self.assertNotIn('discovery',status)
+                if version==3:
+                    self.assertEqual(status['discovery']['factory_rejected'],230)
+                    self.assertEqual(status['discovery']['probe_valid'],240)
 
     def test_stop_disarm_and_removed_preview_disable_the_visual_channel(self):
         class Preview:

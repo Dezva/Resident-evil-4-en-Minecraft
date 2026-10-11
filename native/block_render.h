@@ -9,8 +9,9 @@ typedef struct {
     volatile float bounds[6];
     volatile uint32_t status,frames,draws,failures,last_hresult;
     volatile uint32_t attempts,slots,tables,devices,window_rejected,roots;
+    volatile uint32_t factory_rejected,probe_valid;
 } BlockShared;
-_Static_assert(sizeof(BlockShared)==92,"Block preview layout");
+_Static_assert(sizeof(BlockShared)==100,"Block preview layout");
 static BlockShared *block_state;
 static HANDLE block_mapping;
 static IDirect3DDevice9 *block_device;
@@ -19,6 +20,8 @@ static HRESULT (WINAPI *block_original_end)(IDirect3DDevice9 *);
 static uint32_t block_poll_stamp;
 static unsigned block_attempts;
 static uintptr_t block_roots[8192];
+static const uint32_t *block_factory_slot;
+static const int block_factory_pattern[]={0xE8,-1,-1,-1,-1,0xA3,-1,-1,-1,-1,0x85,0xC0,0x75,0x17};
 
 static HRESULT WINAPI block_end_scene(IDirect3DDevice9 *device) {
     if (device==block_device && block_state) {
@@ -91,6 +94,7 @@ typedef struct {
     HWND probe_window;
     uintptr_t library_start,library_end;
     unsigned ambiguous;
+    IDirect3D9 *game_factory;
 } BlockSearch;
 static int block_new_root(uintptr_t value) {
     unsigned slot=(unsigned)((value>>4)*2654435761u)&8191u;
@@ -99,9 +103,9 @@ static int block_new_root(uintptr_t value) {
     block_roots[slot]=value;return 1;
 }
 static int block_system_table(const IDirect3DDevice9Vtbl *table,BlockSearch *search) {
-    uintptr_t address=(uintptr_t)table;
-    if (address<search->library_start || address>search->library_end-sizeof(*table)
-            || !readable(table,sizeof(*table))) return 0;
+    /* Windows can allocate a per-device method table on the heap. Its storage
+       does not establish identity: validate every function before COM calls. */
+    if ((uintptr_t)table<0x10000 || ((uintptr_t)table&3u) || !readable(table,sizeof(*table))) return 0;
     const IDirect3DDevice9Vtbl *reference=search->probe->lpVtbl;
     if (table->GetCreationParameters!=reference->GetCreationParameters
             || table->GetDirect3D!=reference->GetDirect3D || table->GetDeviceCaps!=reference->GetDeviceCaps) return 0;
@@ -130,6 +134,11 @@ static void block_candidate(uintptr_t value,BlockSearch *search) {
        when RE4 calls EndScene on its render thread. */
     if (pid!=GetCurrentProcessId() || creation.hFocusWindow==search->probe_window
             || !IsWindowVisible(creation.hFocusWindow)) {block_state->window_rejected++;return;}
+    IDirect3D9 *factory=NULL;
+    if (FAILED(IDirect3DDevice9_GetDirect3D(candidate,&factory)) || !factory) {block_state->factory_rejected++;return;}
+    int same_factory=factory==search->game_factory;
+    IDirect3D9_Release(factory); /* GetDirect3D returns an owned COM reference. */
+    if (!same_factory) {block_state->factory_rejected++;return;}
     block_state->devices++;
     if (search->found && candidate!=search->found) search->ambiguous=1;
     search->found=candidate;
@@ -156,7 +165,7 @@ static void block_scan_range(uintptr_t start,SIZE_T length,BlockSearch *search,i
                         /* A bounded prefix of a structure referenced by game data.
                            No process-wide heap scan or recursive pointer guessing. */
                         SIZE_T remaining=(uintptr_t)root.BaseAddress+root.RegionSize-value;
-                        SIZE_T bytes=remaining<256?remaining:256;
+                        SIZE_T bytes=remaining<4096?remaining:4096;
                         block_state->roots++;
                         block_scan_range(value,bytes,search,0);
                     }
@@ -173,6 +182,19 @@ static void block_poll(void) {
     block_poll_stamp=GetTickCount();block_attempts++;
     memset(block_roots,0,sizeof(block_roots));
     block_state->slots=block_state->tables=block_state->devices=block_state->window_rejected=block_state->roots=0;
+    block_state->factory_rejected=block_state->probe_valid=0;
+    IMAGE_DOS_HEADER *dos=(IMAGE_DOS_HEADER *)image_base;
+    IMAGE_NT_HEADERS32 *nt=(IMAGE_NT_HEADERS32 *)(image_base+dos->e_lfanew);
+    if (!block_factory_slot) {
+        unsigned char *call=unique_pattern(image_base,image_size,nt,block_factory_pattern,sizeof(block_factory_pattern)/sizeof(int));
+        uint32_t slot=0;if (call) memcpy(&slot,call+6,4);
+        if (slot>=(uintptr_t)image_base && slot<=(uintptr_t)image_base+image_size-4 && !(slot&3u))
+            block_factory_slot=(const uint32_t *)(uintptr_t)slot;
+    }
+    uint32_t game_factory=block_factory_slot && readable(block_factory_slot,4)?*block_factory_slot:0;
+    if (game_factory<0x10000 || (game_factory&3u) || !readable((void *)(uintptr_t)game_factory,4)) {
+        block_state->status=3;block_state->attempts=block_attempts;return;
+    }
     wchar_t path[MAX_PATH];UINT n=GetSystemDirectoryW(path,MAX_PATH);
     if (!n || n>MAX_PATH-12) return;
     memcpy(path+n,L"\\d3d9.dll",sizeof(L"\\d3d9.dll"));
@@ -197,11 +219,10 @@ static void block_poll(void) {
         IMAGE_DOS_HEADER *library_dos=(IMAGE_DOS_HEADER *)library;
         IMAGE_NT_HEADERS32 *library_nt=(IMAGE_NT_HEADERS32 *)((unsigned char *)library+library_dos->e_lfanew);
         BlockSearch search={probe,NULL,window,(uintptr_t)library,
-            (uintptr_t)library+library_nt->OptionalHeader.SizeOfImage,0};
-        IMAGE_DOS_HEADER *dos=(IMAGE_DOS_HEADER *)image_base;
-        IMAGE_NT_HEADERS32 *nt=(IMAGE_NT_HEADERS32 *)(image_base+dos->e_lfanew);
+            (uintptr_t)library+library_nt->OptionalHeader.SizeOfImage,0,(IDirect3D9 *)(uintptr_t)game_factory};
+        block_state->probe_valid=(uint32_t)block_system_table(probe->lpVtbl,&search);
         IMAGE_SECTION_HEADER *sections=IMAGE_FIRST_SECTION(nt);
-        for (unsigned pass=0;pass<2 && !search.found;++pass) {
+        for (unsigned pass=0;block_state->probe_valid && pass<2 && !search.found;++pass) {
             for (unsigned s=0;s<nt->FileHeader.NumberOfSections;++s) {
                 DWORD rva=sections[s].VirtualAddress,length=sections[s].Misc.VirtualSize;
                 if (!(sections[s].Characteristics&IMAGE_SCN_MEM_WRITE) || (sections[s].Characteristics&IMAGE_SCN_MEM_EXECUTE)
@@ -210,7 +231,7 @@ static void block_poll(void) {
             }
         }
         found=search.found;ambiguous=search.ambiguous;
-        if (found && !ambiguous) {
+        if (found && !ambiguous && readable(block_factory_slot,4) && *block_factory_slot==game_factory) {
             const IDirect3DDevice9Vtbl *previous=found->lpVtbl;
             memcpy(&block_vtable,previous,sizeof(block_vtable));
             block_original_end=block_vtable.EndScene;block_vtable.EndScene=block_end_scene;
@@ -218,7 +239,7 @@ static void block_poll(void) {
             if (InterlockedCompareExchangePointer((PVOID volatile *)found,(void *)&block_vtable,(void *)previous)==previous) {
                 block_device=found;block_state->status=1;
             } else {block_device=NULL;block_state->status=4;}
-        } else block_state->status=ambiguous?4:3;
+        } else block_state->status=(ambiguous || found)?4:3;
         IDirect3DDevice9_Release(probe);
     } else {block_state->status=2;block_state->last_hresult=(uint32_t)hr;}
     if (window) DestroyWindow(window);
@@ -235,5 +256,5 @@ static void block_initialize(void) {
     block_state=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(BlockShared));
     if (!block_state) {CloseHandle(mapping);return;}
     block_mapping=mapping;memset(block_state,0,sizeof(*block_state));
-    block_state->magic=0x52453442;block_state->version=2;
+    block_state->magic=0x52453442;block_state->version=3;
 }

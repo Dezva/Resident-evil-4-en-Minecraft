@@ -344,3 +344,17 @@ y RVAs, búsqueda indirecta hasta4096bytes limitada en tiempo/bytes/raíces.
 No llama métodos COM ni escribe en el proceso; candidatos no autorizan hooks.
 Cinco pruebas sintéticas pasan, incluidos límites y limpieza/reporte ante fallo.
 Se requiere graphics-probe JSON del equipo para continuar la reparación.
+
+## 0.4.13 — tabla privada y referencia a0xC30
+
+Informe081059: bibliotecas oficiales D3D9/NVIDIA; candidata con tabla privada y
+119 métodos D3D9 referenciada a0xC30. Es pista, no confirmación de interfaz activa.
+Detector anterior la excluía por ubicación de tabla/prefijo256bytes. Se permite
+tabla legible privada conservando coincidencia de tres métodos de consulta y
+pertenencia ejecutable de los119 métodos a D3D9 oficial. Ventana visible propia,
+fábrica devuelta por GetDirect3D igual a la localizada por firma única de RE4;
+referencias devueltas liberadas incluso con fábrica distinta. Prefijo4096bytes,
+raíces únicas limitadas, ningún offset absoluto del informe. Fábrica debe seguir
+vigente al enganchar. IPC visual100bytesv3 añade probe_valid/factory_rejected,
+host admitev1/v2/v3; mod0.4.11 conservado.48 Python y4 suites C pasan; render
+Windows pendiente. No se sustituye cámara ni se añade colisión.

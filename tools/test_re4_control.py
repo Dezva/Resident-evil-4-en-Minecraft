@@ -78,11 +78,14 @@ class ControlTests(unittest.TestCase):
         policy = ControlPolicy(writer)
         frame = dict(self.frame(), look=look)
         self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
-        for field, value in [('total_yaw',float('nan')), ('pitch',86), ('eye_height',0), ('enabled',1)]:
+        for field, value in [('total_yaw',float('nan')), ('pitch',86), ('eye_height',0),
+                             ('eye_height',2501), ('eye_height',-2501), ('enabled',1)]:
             invalid = dict(frame, look=dict(look, **{field:value}))
             with self.assertRaises(ProtocolError): validate_control(invalid)
         original_status = writer.status
         writer.status = lambda: dict(original_status(), capabilities=3)
+        for height in (1600, 2000, -2000, 2500):
+            validate_control(dict(frame, look=dict(look, eye_height=height)))
         # Rejected generation is not allowed to arm automatically when capabilities appear.
         self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
         self.assertTrue(policy.apply(dict(frame, arm_id=2), {'state':'player'})['armed'])
@@ -97,11 +100,12 @@ class ControlTests(unittest.TestCase):
             def GetTickCount(self): return 123
         native.k = Kernel()
         backing[15] = 3; backing[17] = 50
-        look = {'enabled': True, 'first_person': True, 'total_yaw': 22.0, 'pitch': 10.0, 'eye_height': 160.0}
+        look = {'enabled': True, 'first_person': True, 'total_yaw': 22.0, 'pitch': 10.0, 'eye_height': 1600.0}
         native.publish(True, 1, look, 7)
         self.assertEqual(backing[2] % 2, 0)
         self.assertEqual((backing[4],backing[5],backing[13],backing[14]), (1,1,3,7))
         self.assertEqual(ctypes.c_float.from_address(native.address+40).value, 22)
+        self.assertEqual(ctypes.c_float.from_address(native.address+48).value, 1600)
         self.assertEqual((backing[15],backing[17]), (3,50))
         native.publish(False,0)
         self.assertEqual((backing[4],backing[5],backing[13]), (0,0,0))

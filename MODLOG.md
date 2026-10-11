@@ -172,3 +172,16 @@ Resultados actuales y límites de evidencia: `docs/VALIDATION.md`.
   Comandos mouse/firstperson/eyeheight y HUD compacto con muestras/FP.
 - Actualiza DLL/mod/host, retirando DLL con paquete anterior. Conserva Fabric API.
 - Pruebas cloud no confirman giro/camara real. Primero giro sin FP, despues FP.
+
+## 0.4.1: ajuste de altura de primera persona
+
+El usuario confirma giro por raton y Leon/camara acoplados en UHD. La primera
+persona de 0.4.0 muestra las piernas pese a FP activo. Se aumenta altura
+inicial de 160 a 1600 y rango absoluto de 250 a 2500 en cliente, host y DLL.
+Referencia: Trainer.cpp de re4_tweaks 92c0208bd09c29c9640e13a2493b8e6bd6edd700
+eleva la matriz de su camara libre 2000 unidades para quedar sobre el personaje.
+Esto apoya probar otra escala, pero no confirma la altura de los ojos ni que
+nuestro punto local use exactamente el mismo espacio. Se conserva ajuste
+manual y signo. No cambia el giro, el hook, el protocolo ni los cortes de entrada.
+Regresiones Java/Python/C cubren rango, transporte IPC y direccion a altura
+alta. La posicion final de primera persona necesita prueba en Windows.

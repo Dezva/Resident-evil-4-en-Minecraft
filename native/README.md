@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.0
+# Native RE4 movement and optional look, 0.4.1
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -37,7 +37,10 @@ Optional CameraQuasiFPS::hitCheck and CamCtrl signatures come from Trainer.cpp
 and Game.cpp of the pinned public reference. A fastcall wrapper forwards the
 original before overriding this frame's point for that QuasiFPS instance only.
 Roll/FOV and player collision remain native. Missing optional signatures
-leave movement working; camera/yaw still need real Windows validation.
+leave movement working. The user confirmed movement and mouse yaw in Windows.
+The 0.4.0 eye point was at leg height; 0.4.1 accepts signed heights up to 2500
+(default client height 1600), guided by the reference freecam elevation of 2000.
+This is provisional; the first-person eye position still needs Windows validation.
 Odd/changed sequence, nonmovement bits, opposite directions or expired input
 produce zero remote movement. TTL is 500 ms, with uint32 tick wrap handled.
 Stop 1 is F8 and stop 2 is expired armed input; either requires a new explicit

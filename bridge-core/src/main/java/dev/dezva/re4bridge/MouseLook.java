@@ -6,7 +6,7 @@ public final class MouseLook {
         public Input {
             if (firstPerson && !enabled || !Double.isFinite(totalYaw) || Math.abs(totalYaw) > 10_000_000
                     || !Double.isFinite(pitch) || Math.abs(pitch) > 85
-                    || !Double.isFinite(eyeHeight) || Math.abs(eyeHeight) < 40 || Math.abs(eyeHeight) > 250)
+                    || !Double.isFinite(eyeHeight) || Math.abs(eyeHeight) < 40 || Math.abs(eyeHeight) > 2500)
                 throw new IllegalArgumentException("Invalid mouse look");
         }
     }

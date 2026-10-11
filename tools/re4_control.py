@@ -25,7 +25,7 @@ def validate_control(frame):
             raise ProtocolError("Invalid look flags")
         if look["first_person"] and not look["enabled"]:
             raise ProtocolError("First person requires mouse control")
-        for name, limit in [("total_yaw", 10000000), ("pitch", 85), ("eye_height", 250)]:
+        for name, limit in [("total_yaw", 10000000), ("pitch", 85), ("eye_height", 2500)]:
             value = look.get(name)
             if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > limit:
                 raise ProtocolError("Invalid look value")
@@ -147,7 +147,7 @@ class NativeControl:
         self.words[5] = buttons
         if self.version == 2:
             for offset, value in [(40, look["total_yaw"] if look else 0),
-                                  (44, look["pitch"] if look else 0), (48, look["eye_height"] if look else 160)]:
+                                  (44, look["pitch"] if look else 0), (48, look["eye_height"] if look else 1600)]:
                 ctypes.c_float.from_address(self.address + offset).value = value
             self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1)) if armed and look else 0
             self.words[14] = generation

@@ -17,7 +17,7 @@ static inline int re4_valid_look(float total, float pitch, float eye, unsigned f
     return !(flags & ~3u) && (!(flags & 2u) || (flags & 1u))
         && isfinite(total) && fabsf(total) <= 10000000.f
         && isfinite(pitch) && fabsf(pitch) <= 85.f
-        && isfinite(eye) && fabsf(eye) >= 40.f && fabsf(eye) <= 250.f;
+        && isfinite(eye) && fabsf(eye) >= 40.f && fabsf(eye) <= 2500.f;
 }
 /* Camera-point coordinates relative to the game's player matrix. */
 static inline void re4_eye_point(float pitch, float eye, float *position, float *target) {

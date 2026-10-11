@@ -18,5 +18,9 @@ class MouseLookTests {
         assertThrows(IllegalArgumentException.class, () -> look.sample(0,Double.POSITIVE_INFINITY,false,160));
         assertThrows(IllegalArgumentException.class, () -> new MouseLook.Input(false,true,0,0,160));
         assertThrows(IllegalArgumentException.class, () -> new MouseLook.Input(true,true,0,0,0));
+        assertEquals(1600, look.sample(0, 0, true, 1600).eyeHeight());
+        assertEquals(-2000, look.sample(0, 0, true, -2000).eyeHeight());
+        assertThrows(IllegalArgumentException.class, () -> look.sample(0,0,true,2501));
+        assertThrows(IllegalArgumentException.class, () -> look.sample(0,0,true,-2501));
     }
 }

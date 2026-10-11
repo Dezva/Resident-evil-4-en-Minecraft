@@ -109,3 +109,16 @@ campos look/capacidades y limites; publicacion IPC v2 usa memoria sintetica.
 Pruebas C ejecutan el consumo acumulado y la matematica del ojo. La DLL
 fastcall se compila x86 con limpieza de 12 bytes de argumentos de pila, y
 solo imports KERNEL32/msvcrt/USER32. Ese chequeo no valida el hook en RE4.
+
+## 0.4.1: ajuste de altura de primera persona
+
+El usuario confirma giro por raton y Leon/camara acoplados en UHD. La primera
+persona de 0.4.0 muestra las piernas pese a FP activo. Se aumenta altura
+inicial de 160 a 1600 y rango absoluto de 250 a 2500 en cliente, host y DLL.
+Referencia: Trainer.cpp de re4_tweaks 92c0208bd09c29c9640e13a2493b8e6bd6edd700
+eleva la matriz de su camara libre 2000 unidades para quedar sobre el personaje.
+Esto apoya probar otra escala, pero no confirma la altura de los ojos ni que
+nuestro punto local use exactamente el mismo espacio. Se conserva ajuste
+manual y signo. No cambia el giro, el hook, el protocolo ni los cortes de entrada.
+Regresiones Java/Python/C cubren rango, transporte IPC y direccion a altura
+alta. La posicion final de primera persona necesita prueba en Windows.

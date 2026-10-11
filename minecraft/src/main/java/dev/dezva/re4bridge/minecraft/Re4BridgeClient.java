@@ -50,7 +50,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private final MouseLook mouseLook = new MouseLook();
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
-    private double eyeHeight = 160;
+    private double eyeHeight = 1600;
 
     @Override public void onInitializeClient() {
         try {
@@ -80,9 +80,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     if (firstPersonEnabled) mouseEnabled = true;
                     say(ctx.getSource().getClient(), "Primera persona experimental: " + firstPersonEnabled + ". Usa arm."); return 1;
                 }))
-                .then(literal("eyeheight").then(argument("height", DoubleArgumentType.doubleArg(-250, 250)).executes(ctx -> {
+                .then(literal("eyeheight").then(argument("height", DoubleArgumentType.doubleArg(-2500, 2500)).executes(ctx -> {
                     double height = DoubleArgumentType.getDouble(ctx, "height");
-                    if (Math.abs(height) < 40) { say(ctx.getSource().getClient(), "Altura absoluta entre 40 y 250 unidades RE4."); return 0; }
+                    if (Math.abs(height) < 40) { say(ctx.getSource().getClient(), "Altura absoluta entre 40 y 2500 unidades RE4."); return 0; }
                     stopDriving(); eyeHeight = height;
                     say(ctx.getSource().getClient(), "Altura de camara: " + height + ". Usa arm."); return 1;
                 })))
@@ -271,6 +271,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 + " | teclas=" + buttons + "/" + current.nativeButtons()
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
+                + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);
         }
         if (client.isPaused()) return;

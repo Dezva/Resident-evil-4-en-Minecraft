@@ -1,10 +1,10 @@
 # Puente v1: contrato del prototipo
 
-## Orientacion opcional 0.4.0 (IPC nativo v2)
+## Orientacion opcional 0.4.1 (IPC nativo v2)
 
 re4_control puede agregar look {enabled, first_person, total_yaw, pitch,
 eye_height}. Flags booleanos; first_person requiere enabled. total_yaw finito
-abs<=1e7 grados acumulados, pitch finito +/-85, altura finita abs 40..250.
+abs<=1e7 grados acumulados, pitch finito +/-85, altura finita abs 40..2500 (0.4.0 solo aceptaba hasta 250).
 Ausencia/frame desarmado desactiva look. ACK agrega capabilities 0..3 (raton1,
 camara2), camera_active booleano y contadores look_packets/camera_ticks.
 

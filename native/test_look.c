@@ -35,6 +35,16 @@ int main(void) {
     assert(!re4_eye_frame(feet,NAN,0,1600,frame,pos,target));
     feet[1] = INFINITY;
     assert(!re4_eye_frame(feet,0,0,1600,frame,pos,target));
+    assert(re4_smoothing_flags(0xFFFFFFFFu,0) == 0xFFFFFFFFu);
+    assert(re4_smoothing_flags(0xFFFFFFFFu,1) == 0xFFFFFFBFu);
+    assert(re4_smoothing_flags(0x213,1) == 0x213);
+    assert(re4_distinct_model(0x10000,0));
+    assert(!re4_distinct_model(0x10000,0x10000)); /* Two slots can share one model. */
+    assert(!re4_distinct_model(0,0));
+    assert(re4_model_slot_matches(0x10000,0x10000,0x20000,0x20000));
+    assert(!re4_model_slot_matches(0x10000,0,0x20000,0x20000));
+    assert(!re4_model_slot_matches(0x10000,0x30000,0x20000,0x20000));
+    assert(!re4_model_slot_matches(0x10000,0x10000,0x20000,0x40000));
     unsigned saved = 0xA531;
     unsigned hidden = re4_hide_model(saved);
     assert((hidden & RE4_MODEL_DRAW_BITS) == 0 && (hidden & 0x21) == (saved & 0x21));

@@ -1,4 +1,4 @@
-# Ver RE4 mientras Minecraft controla: complemento de vista 0.1.0
+# Ver RE4 mientras Minecraft controla: complemento de vista 0.1.1
 
 Compatible con los paquetes de controles ya publicados (IPC v1/v2). No necesita
 cambiar mod, host ni DLL. Windows PowerShell 5.1 y WinForms vienen con Windows;
@@ -18,12 +18,13 @@ no requiere instalar otra biblioteca. Usa los mismos permisos que RE4/host.
    `/re4bridge firstperson` antes de arm. Cierra el chat.
 4. Pulsa **F9 desde Minecraft**. RE4 se muestra sin bordes a pantalla completa
    en el monitor donde estaba, pero Minecraft conserva el foco y recibe W/S,
-   A/D y raton. Su ventana queda detras de RE4, sin minimizarla.
+   A/D y raton. Su ventana queda detras de RE4, sin minimizarla. El panel se oculta por
+   completo; F8/F9 siguen funcionando mediante el timer del helper.
 5. **F8** detiene el puente, restaura bordes/tamano/posicion de RE4 y le da el
    foco para jugar directamente. El boton hace lo mismo. Si el raton esta
    capturado, usa F8; para pulsar el boton, Esc libera el cursor y ya desarma.
 
-F9 de nuevo devuelve la vista a Minecraft y desarma, para ver comandos e
+F9 de nuevo muestra el panel, devuelve la vista a Minecraft y desarma, para ver comandos e
 indicadores. Usa otro `/re4bridge arm`, cierra chat y F9 para volver a RE4.
 Alt-tab/perder foco desarma y restaura la ventana; no se rearma solo. Cerrar
 el panel normalmente tambien detiene y restaura. Si Windows rechaza dar el
@@ -33,8 +34,8 @@ foco, pulsa la ventana de RE4; el panel informa el fallo.
 
 El boton/F8 escribe solo la parada persistente de la DLL, tras comprobar
 identificador/version/estado del IPC; no publica inputs ni modifica la memoria
-del proceso. La DLL deja de sustituir teclas/camara. En 0.4.2 restaura tambien
-los bits de dibujo del cuerpo. La restauracion del juego sucede cuando RE4
+del proceso. La DLL deja de sustituir teclas/camara. Desde 0.4.2 restaura tambien
+los bits de dibujo del cuerpo; 0.4.3 agrega los modelos de arma. La restauracion del juego sucede cuando RE4
 ejecuta su siguiente update; si esta pausado, primero hay que reanudarlo.
 El helper conserva/restaura estilos, posicion, tamano y estado topmost de RE4.
 

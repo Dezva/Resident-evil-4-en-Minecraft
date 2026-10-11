@@ -38,7 +38,22 @@ static float consumed_yaw;
 static void *eye_matrix;
 static float saved_eye_matrix[12];
 static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
-
+typedef struct { uint32_t controller, object, vtable, draw_bits, slot; } HiddenWeapon;
+static HiddenWeapon hidden_weapons[2];
+static unsigned char *smooth_continue __attribute__((used));
+/* Only integer reads; the mid-function hook must not disturb x87/SSE state. */
+static unsigned __attribute__((cdecl,noinline,used)) camera_smoothing_flags(unsigned flags, void *self) {
+    int active = state && state->camera_active && state->armed && !state->stop
+        && self == camera_ctrl + 0x278;
+    return re4_smoothing_flags(flags,active);
+}
+static void __attribute__((naked,used)) smoothing_hook(void) {
+    __asm__ volatile (
+        "cmpb $0, 0x1b6(%ebx)\n\t" /* Reproduce the original CMP and its flags. */
+        "pushfl\n\tpushal\n\tmovl 32(%esp), %eax\n\t"
+        "pushl %ebx\n\tpushl %eax\n\tcall _camera_smoothing_flags\n\taddl $8, %esp\n\t"
+        "movl %eax, 32(%esp)\n\tpopal\n\tpopfl\n\tjmp *_smooth_continue\n\t");
+}
 
 static int writable(const void *pointer, SIZE_T length) {
     MEMORY_BASIC_INFORMATION m;
@@ -70,6 +85,27 @@ static uint32_t current_player(void) {
     return player;
 }
 
+static uint32_t weapon_controller(uint32_t player) {
+    if (!player || !readable((void *)(uintptr_t)player,0x7DC)) return 0;
+    uint32_t controller; memcpy(&controller,(void *)(uintptr_t)(player+0x7D8),4);
+    return controller >= 0x10000 && !(controller & 3u)
+        && readable((void *)(uintptr_t)controller,0x50) ? controller : 0;
+}
+static void hide_weapons(uint32_t player) {
+    uint32_t controller = weapon_controller(player);
+    if (!controller) return;
+    for (unsigned i=0;i<2;++i) {
+        uint32_t object; memcpy(&object,(void *)(uintptr_t)(controller+0x34+4*i),4);
+        if (object < 0x10000 || (object & 3u) || !re4_distinct_model(object,i ? hidden_weapons[0].object : 0)
+                || !readable((void *)(uintptr_t)object,8) || !writable((void *)(uintptr_t)(object+4),4)) continue;
+        uint32_t vtable = *(uint32_t *)(uintptr_t)object;
+        if (vtable < (uintptr_t)image_base || vtable >= (uintptr_t)image_base+image_size) continue;
+        uint32_t *draw = (uint32_t *)(uintptr_t)(object+4);
+        hidden_weapons[i] = (HiddenWeapon){controller,object,vtable,*draw & RE4_MODEL_DRAW_BITS,0x34+4*i};
+        *draw = re4_hide_model(*draw);
+    }
+}
+
 /* Restore before native logic. Only restore a model while it is still the same player. */
 static void restore_first_person(void) {
     if (eye_matrix && writable(eye_matrix, sizeof(saved_eye_matrix)))
@@ -80,6 +116,19 @@ static void restore_first_person(void) {
             && writable((void *)(uintptr_t)(player + 4), 4)) {
         uint32_t *flags = (uint32_t *)(uintptr_t)(player + 4);
         *flags = re4_restore_model(*flags, saved_draw_bits);
+    }
+    uint32_t controller = player == hidden_player ? weapon_controller(player) : 0;
+    for (unsigned i=0;i<2;++i) {
+        HiddenWeapon *w = &hidden_weapons[i];
+        if (w->object && controller
+                && re4_model_slot_matches(w->controller,controller,w->object,*(uint32_t *)(uintptr_t)(controller+w->slot))
+                && readable((void *)(uintptr_t)w->object,8)
+                && *(uint32_t *)(uintptr_t)w->object == w->vtable
+                && writable((void *)(uintptr_t)(w->object+4),4)) {
+            uint32_t *draw = (uint32_t *)(uintptr_t)(w->object+4);
+            *draw = re4_restore_model(*draw,w->draw_bits);
+        }
+        memset(w,0,sizeof(*w));
     }
     hidden_player = 0;
 }
@@ -98,7 +147,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     uint32_t player = current_player();
     if (before != state->sequence || (before & 1) || !armed || state->stop
             || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
-            || !re4_valid_look(total,pitch,eye,flags) || !player
+            || !(state->capabilities & 2u) || !re4_valid_look(total,pitch,eye,flags) || !player
             || self != camera_ctrl + 0x278
             || !writable(matrix,48) || !writable(point,sizeof(*point))
             || !writable((void *)(uintptr_t)(player + 4),4)) return;
@@ -117,6 +166,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     hidden_player = player; hidden_vtable = *(uint32_t *)(uintptr_t)player;
     saved_draw_bits = *draw & RE4_MODEL_DRAW_BITS;
     *draw = re4_hide_model(*draw);
+    hide_weapons(player);
     state->camera_active = 1;
 }
 
@@ -168,6 +218,7 @@ static const int key_pattern[] = {0xA1,-1,-1,-1,-1,0x33,0xC9,0x83,0xE0,-1,0x83,0
 static const int pad_pattern[] = {0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0x68,-1,-1,-1,-1,0x6A,0x04,0xE8,-1,-1,-1,-1,0x83,0xC4,0x18,0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0xA1};
 static const int player_pattern[] = {0xA1,-1,-1,-1,-1,0xD8,0xCC,0xD8,0xC9,0xD8,0xCA,0xD9,0x5D,-1,0xD9,0x45,-1};
 static const int camera_pattern[] = {0x52,0x8D,0x85,-1,-1,-1,-1,0x50,0x8D,0x4D,-1,0x51,0x8B,0xCB,0xE8};
+static const int smooth_pattern[] = {0xE8,-1,-1,-1,-1,0x80,0xBB,0xB6,0x01,0x00,0x00,0x00};
 static const int ctrl_pattern[] = {0xD9,0xEE,0xB9,-1,-1,-1,-1,0xD9,0x9E,0xA4,0x00,0x00,0x00,0xE8,-1,-1,-1,-1,0xD9,0xEE};
 
 static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
@@ -258,7 +309,8 @@ static void install_hook(void) {
     state->capabilities = 1;
     unsigned char *c = unique_pattern(base,size,nt,camera_pattern,sizeof(camera_pattern)/sizeof(int));
     unsigned char *ctrl = unique_pattern(base,size,nt,ctrl_pattern,sizeof(ctrl_pattern)/sizeof(int));
-    if (!c || !ctrl) return;
+    unsigned char *smooth = unique_pattern(base,size,nt,smooth_pattern,sizeof(smooth_pattern)/sizeof(int));
+    if (!c || !ctrl || !smooth) return;
     uint32_t ctrl_address; memcpy(&ctrl_address,ctrl+3,4);
     if (ctrl_address < (uintptr_t)base || ctrl_address > (uintptr_t)base+size-0x788
             || !readable((void *)(uintptr_t)ctrl_address,0x788)) return;
@@ -279,6 +331,14 @@ static void install_hook(void) {
     memcpy((void *)(camera_wrapper+1),&replacement,4);
     FlushInstructionCache(GetCurrentProcess(),(void *)camera_wrapper,5);
     if (!VirtualProtect((void *)camera_wrapper,5,old_protect,&ignored)) return;
+    unsigned char *cmp = smooth+5;
+    smooth_continue = cmp+7;
+    if (!VirtualProtect(cmp,7,PAGE_EXECUTE_READWRITE,&old_protect)) return;
+    unsigned char patch[7] = {0xE9,0,0,0,0,0x90,0x90};
+    replacement = (int32_t)((uintptr_t)smoothing_hook - (uintptr_t)(cmp+5));
+    memcpy(patch+1,&replacement,4); memcpy(cmp,patch,7);
+    FlushInstructionCache(GetCurrentProcess(),cmp,7);
+    if (!VirtualProtect(cmp,7,old_protect,&ignored)) return;
     state->capabilities |= 2u;
 }
 

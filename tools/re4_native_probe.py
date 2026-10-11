@@ -9,6 +9,7 @@ from re4_reader import (DEFAULT_EXE, VERSION_SIGNATURE, ReaderError, WindowsProc
 KEY_SIGNATURE = "A1 ? ? ? ? 33 C9 83 E0 ? 83 3D"
 PAD_SIGNATURE = "E8 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? 6A 04 E8 ? ? ? ? 83 C4 18 E8 ? ? ? ? E8 ? ? ? ? A1"
 CAMERA_SIGNATURE = "52 8D 85 ? ? ? ? 50 8D 4D ? 51 8B CB E8"
+SMOOTH_SIGNATURE = "E8 ? ? ? ? 80 BB B6 01 00 00 00"
 CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
 
 
@@ -31,7 +32,7 @@ def inspect(read, base, size, query=None):
         blobs.append((address, read(address, length)))
     hits = {}
     for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE),
-                            ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE)]:
+                            ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE), ("camera_smoothing", SMOOTH_SIGNATURE)]:
         found = [address + hit for address, data in blobs for hit in matches(data, signature)]
         checks[name + "_matches"] = len(found)
         if len(found) == 1:

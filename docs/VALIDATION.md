@@ -136,3 +136,16 @@ solo se retiene copia si es la matriz estatica CamCtrl/QuasiFPS documentada.
 Regresiones C comprueban que girar no desplaza el ojo, pitch vertical y mirada
 unitaria, valores no finitos y conservacion de bits Alive/Move/ajenos al restaurar.
 La efectividad del dibujo y la transformacion final siguen pendientes de Windows.
+
+## 0.4.3 + vista 0.1.1
+
+Usuario confirma vista y primera persona al moverse, pero deriva lateral en
+reposo y arma flotante. Se agrega bypass condicionado del suavizado lr_rate
+(Trainer.cpp de re4_tweaks, revision92c0208bd09c29c9640e13a2493b8e6bd6edd700):
+CMP EBX+0x1B6 exacto y unico, hook preserva GPR/flags excepto ZF mientras FP
+activo. Capacidad FP exige esa firma/hook. Ocultacion de modelos de arma
+cPlWep0x34/0x38 con deduplicacion y restauracion con propiedad/vtable comprobados;
+no se cambia inventario. Vista oculta panel totalmente al F9; Application.Run
+conserva timer al ocultar. F8 ejecuta retorno directamente, sin PerformClick
+sobre un boton oculto; F9 vuelve al panel. No se presentan las regresiones y
+compilacion como prueba Windows de la nueva camara/render/WinForms.

@@ -210,3 +210,16 @@ No cambia mod/host/DLL ni evita cortes de seguridad. Desktop sintetico y memoria
 IPC prueban foco, orden parada/retorno, fallo parcial, proteccion de HWND/pid,
 restauracion reintentable y parada v1/v2 sin modificar el frame del host.
 Presentacion real WinForms/RE4 pendiente de prueba Windows.
+
+## 0.4.3 + vista 0.1.1
+
+Usuario confirma vista y primera persona al moverse, pero deriva lateral en
+reposo y arma flotante. Se agrega bypass condicionado del suavizado lr_rate
+(Trainer.cpp de re4_tweaks, revision92c0208bd09c29c9640e13a2493b8e6bd6edd700):
+CMP EBX+0x1B6 exacto y unico, hook preserva GPR/flags excepto ZF mientras FP
+activo. Capacidad FP exige esa firma/hook. Ocultacion de modelos de arma
+cPlWep0x34/0x38 con deduplicacion y restauracion con propiedad/vtable comprobados;
+no se cambia inventario. Vista oculta panel totalmente al F9; Application.Run
+conserva timer al ocultar. F8 ejecuta retorno directamente, sin PerformClick
+sobre un boton oculto; F9 vuelve al panel. No se presentan las regresiones y
+compilacion como prueba Windows de la nueva camara/render/WinForms.

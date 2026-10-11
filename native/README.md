@@ -1,4 +1,4 @@
-# Native RE4 movement and optional look, 0.4.2
+# Native RE4 movement and optional look, 0.4.3
 
 Independent Win32/i386 C module. Proxy `dinput8.dll` loads the system DLL by its
 absolute system directory path. Its DirectInput8Create forwards the original
@@ -36,7 +36,7 @@ its yaw, validates object/vtable/ranges and bounds finite deltas per sequence.
 Optional CameraQuasiFPS::hitCheck and CamCtrl signatures come from Trainer.cpp
 and Game.cpp of the pinned public reference. A fastcall wrapper forwards the
 original, then overrides the argument matrix and eye point for that instance.
-0.4.2 uses identity axes with world translation feet + eye height and a normalized
+0.4.3 uses identity axes with world translation feet + eye height and a normalized
 world yaw/pitch sight line, removing a rotating orbit offset. Argument matrices
 may be stack-local: never retain them. Only the static player matrix at
 CamCtrl+0x278+0x178 is backed up and restored before the next native update.
@@ -73,3 +73,20 @@ Portable native tests execute the same TTL/mask policy header on Linux, checking
 stale/torn writes, opposing inputs, disarm, F8 state and wrap. They do not load
 the Windows DLL. Windows installation is a user-operated script with verified
 save backup; removal checks the package's own DLL hash and preserves backups.
+
+## 0.4.3 idle smoothing and weapon rendering
+
+Pinned Trainer.cpp disables lr_rate smoothing by changing the ZF result of
+CMP byte [EBX+0x1B6],0. New unique E8 ???? 80 BB B6 01 00 00 00 signature
+requires that exact seven-byte CMP. A naked i386 hook replays CMP, preserves
+GPRs/flags, uses the portable ZF policy only while camera_active/armed/no stop
+and EBX equals our QuasiFPS, then resumes after CMP. Helper uses integer reads
+only, with no external calls or x87/SSE changes. No smoothing hook means FP
+capability remains off. All camera/yaw signatures and protections still apply.
+Player Wep_7D8 -> cPlWep slots0x34/0x38 identify weapon cObjWep models. Hide
+only validated in-module-vtable objects' drawing bits, deduplicate identical
+slots, and restore only the same player/controller/slot/object/vtable chain.
+Restore happens before native input/camera logic; never dereference old objects
+when ownership changes. Inventory and weapon behavior remain native. The user
+reports idle camera drift and floating weapon in0.4.2; these corrections remain
+Windows-unverified.

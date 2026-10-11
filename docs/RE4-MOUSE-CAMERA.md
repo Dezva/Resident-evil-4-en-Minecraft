@@ -1,21 +1,25 @@
-# 0.4.2: raton y camara experimental en RE4
+# 0.4.3: raton y camara experimental en RE4
 
-El usuario confirma movimiento y raton. 0.4.1 elevo el ojo, pero seguia mostrando
-el interior de Leon y una orientacion incorrecta. 0.4.2 cambia la construccion
-de camara: matriz con ejes fijos, traslacion a la posicion del jugador mas altura,
-y direccion normalizada con yaw de Leon y pitch del raton. El ojo no orbita
-al girar. Se ocultan temporalmente los bits Trans/DrawFootShadow del jugador;
-Alive/Move y colisiones se conservan. Modelo y matriz persistente se restauran
-antes del siguiente update nativo o al salir de primera persona. Esto necesita
-prueba real en Windows: las regresiones cloud no demuestran el render final.
+El usuario confirma el modo de vista y que la primera persona mira al frente
+al moverse, pero se desvía al quedarse quieto y deja un arma flotando.
+0.4.3 agrega un hook validado del CMP de lr_rate para suprimir el suavizado
+QuasiFPS solo en frames de primera persona activa. Se preservan registros y
+flags del CMP original salvo ZF cuando se suprime ese suavizado, segun la
+referencia re4_tweaks/Trainer.cpp. La firma adicional es obligatoria para FP;
+si falta, no se activa FP y siguen disponibles movimiento/raton.
+Tambien oculta temporalmente los dos modelos de arma de cPlWep, deduplicando
+objetos y restaurando solo mientras siguen perteneciendo al mismo jugador.
+No modifica inventario ni borra armas. Incluye el complemento de vista 0.1.1:
+F9 oculta todo el panel y F8 detiene/restaura; F9 lo trae de vuelta.
+Las correcciones de camara/arma necesitan prueba real en Windows.
 
-## Actualizar desde 0.4.1 (o versiones anteriores)
+## Actualizar desde 0.4.2 (o versiones anteriores)
 
 1. Cierra RE4, Minecraft y el host Python.
 2. Ejecuta `UNINSTALL-RE4-CONTROLS.bat` desde la carpeta anterior. Solo retira
    la DLL de ese paquete si el hash coincide; si falla, conserva el archivo.
-3. Extrae 0.4.2 en una carpeta nueva. Retira el JAR anterior de RE4 Bridge
-   de `.minecraft\mods` y coloca `mods/re4bridge-0.4.2.jar`. Conserva Fabric API.
+3. Extrae 0.4.3 en una carpeta nueva. Retira el JAR anterior de RE4 Bridge
+   de `.minecraft\mods` y coloca `mods/re4bridge-0.4.3.jar`. Conserva Fabric API.
 4. Ejecuta el nuevo `INSTALL-RE4-CONTROLS.bat`. Verifica el backup de Saves
    antes de instalar. No copia encima de DLL existentes; no la copies a mano.
 5. Abre RE4 en ventana con partida cargada y el mundo Minecraft de prueba.
@@ -71,14 +75,14 @@ para comprobar el eje Y opuesto. La altura no se guarda al reiniciar Minecraft. 
 grados; FOV y roll se conservan de la rutina original. No se modifican colision
 del personaje ni guardados, ni se enlaza apuntado de armas con Minecraft.
 Solo cambia la camara QuasiFPS durante entrada armada/fresca; no reemplaza
-globalmente otras camaras, escenas o efectos. Se intenta ocultar el cuerpo de Leon; armas/efectos independientes pueden seguir visibles.
+globalmente otras camaras, escenas o efectos. Se intenta ocultar el cuerpo de Leon; los dos modelos de arma se ocultan tambien; efectos independientes pueden seguir visibles.
 No se cambia A/D a desplazamiento lateral: sigue siendo giro nativo.
 
 F8, perder foco, abrir UI/pausa o perder muestras desarman. El siguiente
 frame calcula la camara original. No se rearma automaticamente. TTL 500 ms
 y muestras cliente maximas de 200 ms. Repite firstperson para apagar esa
 opcion; mouse apaga ambas. Disconnect limpia las opciones. Para retirar la
-DLL, cierra RE4 y usa el UNINSTALL de 0.4.2. Conserva backups y partidas.
+DLL, cierra RE4 y usa el UNINSTALL de 0.4.3. Conserva backups y partidas.
 
 ## Evidencia
 
@@ -86,3 +90,11 @@ Pruebas C cubren acumulacion/limites/consumo y matematicas del ojo. Java/Python
 usan TCP autenticado con IPC sintetico, validacion de valores y capacidades.
 Publicacion IPC v2 e instaladores se prueban sobre memoria/archivos sinteticos.
 Compilacion DLL PE32 y mod Fabric1.21.1 no demuestran giro/camara reales.
+
+## Prueba de esta correccion
+
+Con FP activo y vista F9: gira con el raton, avanza, suelta W y espera unos
+segundos. La direccion no debe desviarse al parar. Observa que el cuerpo y arma
+no aparezcan. F8 debe restaurar vista/cuerpo/arma y control RE4; usa F9 para
+volver al panel/MC y rearmar explicitamente. Si FP no esta disponible, envia
+la salida de PROBE-RE4-NATIVE: incluye camera_smoothing_matches.

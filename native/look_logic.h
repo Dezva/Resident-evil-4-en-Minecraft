@@ -35,6 +35,16 @@ static inline int re4_eye_frame(const float *feet, float yaw, float pitch, float
     target[2] = cosf(yaw) * cosf(radians);
     return 1;
 }
+static inline unsigned re4_smoothing_flags(unsigned flags, int first_person) {
+    return first_person ? (flags & ~0x40u) : flags;
+}
+static inline int re4_distinct_model(unsigned object, unsigned previous) {
+    return object && object != previous;
+}
+static inline int re4_model_slot_matches(unsigned saved_controller, unsigned controller,
+        unsigned saved_object, unsigned object) {
+    return controller && controller == saved_controller && object && object == saved_object;
+}
 /* cUnit drawing bits only: never clear Alive, Move or any collision state. */
 #define RE4_MODEL_DRAW_BITS 0x12u
 static inline unsigned re4_hide_model(unsigned flags) { return flags & ~RE4_MODEL_DRAW_BITS; }

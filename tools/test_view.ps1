@@ -62,4 +62,19 @@ Add-Type -TypeDefinition ((Get-Content -LiteralPath (Join-Path $PSScriptRoot 'RE
 $tokens=$null; $errors=$null
 [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'VIEW-RE4.ps1'),[ref]$tokens,[ref]$errors)
 if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+$ast=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'VIEW-RE4.ps1'),[ref]$tokens,[ref]$errors)
+$returnFunction=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Return-ToNormal'},$true)
+if ($null -eq $returnFunction) { throw 'Missing direct return action.' }
+# Execute the real return action with the panel hidden; no WinForms button click is needed.
+Invoke-Expression $returnFunction.Extent.Text
+$script:panelHidden=$true
+function Set-ViewPanel([bool]$compact) { $script:panelHidden=$compact }
+$api=[RE4BridgeView.FakeViewDesktop]::new()
+$session=[RE4BridgeView.Session]::new($api,[IntPtr]::new(1),10,[IntPtr]::new(2),20)
+$session.Enter([RE4BridgeView.Rect]::new())
+$label=[pscustomobject]@{Text=''}
+Return-ToNormal
+if ($session.Active -or $script:panelHidden -or !$session.StopConfirmed -or $api.Current -ne [IntPtr]::new(1)) {
+    throw 'Hidden-panel return must stop, restore, show panel and focus RE4.'
+}
 Write-Host 'View fixtures passed: focus preserved, native stop before return, partial failure cleanup, closed/reused window protection, restoration retry, IPC v1/v2 stop-only write and invalid-header rejection. GUI script parsed. Real Windows presentation not executed.'

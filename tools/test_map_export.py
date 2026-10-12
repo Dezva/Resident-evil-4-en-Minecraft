@@ -41,7 +41,8 @@ class MapExportTests(unittest.TestCase):
     def test_ambiguous_signature_counts_vertex_index_finite_layout_and_object_races_fail_closed(self):
         for mode in ('ambiguous','manager','index','nan','vtable','race'):
             base,size,memory,read=self.world()
-            if mode=='ambiguous':memory[0x300:0x300+19]=memory[0x100:0x100+19]
+            if mode=='ambiguous':
+                memory[0x300:0x300+19]=memory[0x100:0x100+19];struct.pack_into('<I',memory,0x30f,base+0x1100)
             if mode=='manager':struct.pack_into('<I',memory,0x1008,99999)
             if mode=='index':struct.pack_into('<H',memory,0x6000,65535)
             if mode=='nan':struct.pack_into('<f',memory,0x4060,float('nan'));struct.pack_into('<f',memory,0x4000,float('nan'))
@@ -55,6 +56,16 @@ class MapExportTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 report=self.run_extract(read,base,size);self.assertFalse(report['complete']);self.assertTrue(report['managers'][0]['errors'])
                 self.assertEqual([t for t in report['triangles'] if t['source']=='SAT'],[])
+    def test_eighteen_aliases_require_the_same_verified_manager_and_reject_disagreement(self):
+        base,size,memory,read=self.world()
+        for i in range(17):memory[0x300+i*32:0x300+i*32+19]=memory[0x100:0x100+19]
+        with patch('re4_map_export.code_sections',return_value=[(base+0x100,0x800)]):
+            report=extract(read,base,size,[100,-400,1700]);self.assertTrue(report['complete'])
+            self.assertEqual(report['managers'][0]['signature_matches'],18);self.assertEqual(len(report['triangles']),2)
+            struct.pack_into('<I',memory,0x30f,base+0x1100)
+            report=extract(read,base,size,[100,-400,1700]);self.assertFalse(report['complete'])
+            self.assertEqual(len(report['managers'][0]['references']),18)
+            self.assertEqual([t for t in report['triangles'] if t['source']=='SAT'],[])
     def test_scan_accepts_real_seven_megabyte_section_and_local_filter_and_empty_disabled_manager(self):
         base,size,memory,read=self.world()
         # Explicit executable section bounds come from the production PE validator.

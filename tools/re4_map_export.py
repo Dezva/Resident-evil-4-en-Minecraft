@@ -31,10 +31,14 @@ def extract(read,base,size,position,radius=20000):
     for name,(signature,offset) in SIGNATURES.items():
         row=dict(name=name,objects=0,enabled=0,nearby_triangles=0,errors=[]);report['managers'].append(row)
         hits=[address+i for address,data in blobs for i in matches(data,signature)]
-        if len(hits)!=1:
+        row['signature_matches']=len(hits)
+        if not 1<=len(hits)<=64:
             report['complete']=False;row['errors'].append(f'Firma {name} ausente/ambigua: {len(hits)}');continue
         try:
-            manager=u32(bounded(hits[0]+offset,4,False))
+            pointers=[u32(bounded(hit+offset,4,False)) for hit in hits]
+            row['references']=[dict(site_rva=hex(hit-base),manager_rva=hex(pointer-base),in_module=base<=pointer<=base+size-32 and pointer%4==0) for hit,pointer in zip(hits,pointers)]
+            if len(set(pointers))!=1:raise ReaderError('Referencias de manager distintas; no se elige la primera ni por mayoria')
+            manager=pointers[0]
             if not base<=manager<=base+size-32 or manager%4:raise ReaderError('Manager fuera del modulo')
             header=bounded(manager,32);vtable,array,count,stride=struct.unpack_from('<4I',header)
             row.update(manager_rva=hex(manager-base),array_address=hex(array),stride=stride,vtable_rva=hex(vtable-base),header_hex=header.hex(' '))

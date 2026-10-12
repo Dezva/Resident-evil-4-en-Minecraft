@@ -1,5 +1,19 @@
 # Registro de desarrollo
 
+## 0.4.31 — VIEW para clics de construcción y referencias múltiples de SAT
+
+Usuario confirma bloques/plataforma0.4.30; HUD correcto pero fuera de pantalla
+en ventana. VIEW prepara el tamaño antes de arm y F9 solo eleva sin activación.
+Ratón: reenvía botones/rueda reales sobre RE4 a Minecraft con HWND/PID/foco
+verificados, sin duplicar movimiento/teclado ni recuperar foco automáticamente;
+retirada y liberación al detener/fallar/cerrar. WS_EX_NOACTIVATE restaurable.
+Mapa recibido:220 triángulos EAT válidos; SAT18 firmas aún sin destinos conocidos.
+Nuevo exportador exige todas las referencias al mismo manager validado y registra
+RVA/operandos.115 Python y fixtures PowerShell del escritorio pasan; Win32/GLFW
+real no ejecutado. DLL430/JAR0.4.30/API/host/instaladores sin cambios de bytes;
+no se requiere reinstalación. Mapa compartido/salto/combate siguen pendientes.
+Guía: docs/RE4-BLOCK-0.4.31.md.
+
 ## 0.4.30 — cámara de escena, editor sobre suelo temporal y exportación SAT/EAT
 
 El usuario confirma mejor rendimiento0.4.29; carrera medida durante movimiento

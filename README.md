@@ -5,7 +5,7 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.30: vista coherente, editor y lectura de colisiones del mapa](docs/RE4-BLOCK-0.4.30.md).
+**Estado actual:** [0.4.31: VIEW para construir y referencias del mapa](docs/RE4-BLOCK-0.4.31.md).
 El paquete conserva el mod Minecraft 0.4.26.
 Las texturas0.4.25 fueron confirmadas. Se reemplaza el controlador fijo por
 seguimiento de Leon en creativo, con una transformación común de jugador y
@@ -27,7 +27,7 @@ El simulador sigue siendo un modo de diagnóstico separado.
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete 0.4.30 / mod 0.4.30 |
+| RE4 Bridge | paquete 0.4.31 / mod 0.4.30 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |
@@ -54,7 +54,7 @@ Para la prueba Java/Python en Windows, si no existe `python3` en PATH, configura
 `$env:RE4BRIDGE_PYTHON` con la ruta de `python.exe` (sin argumentos).
 En Linux, usar `./gradlew` y `python3` en los mismos comandos.
 El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.26.jar`.
-Para control y construcción visual reales, sigue [la guía 0.4.30](docs/RE4-BLOCK-0.4.30.md).
+Para control y construcción visual reales, sigue [la guía 0.4.31](docs/RE4-BLOCK-0.4.31.md).
 Compilar/probar el modulo y los instaladores:
 
 ```bash

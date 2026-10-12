@@ -15,10 +15,14 @@ namespace RE4BridgeView {
         bool SameWindow(IntPtr window, uint pid);
         IntPtr Foreground();
         Snapshot Capture(IntPtr window, uint pid);
+        void PrepareView(Snapshot state,Rect screen);
         void Present(Snapshot state, Rect screen);
         void Restore(Snapshot state);
         bool Focus(IntPtr window);
         bool Stop(uint pid);
+        void StartMouse(Snapshot game,IntPtr minecraft,uint minecraftPid);
+        void EndMouse();
+        bool MouseFailed {get;}
     }
     // The mode changes only one verified game window; it never sends desktop keys.
     public sealed class Session {
@@ -27,6 +31,8 @@ namespace RE4BridgeView {
         readonly IntPtr minecraft;
         readonly uint minecraftPid;
         public bool Active { get; private set; }
+        public bool Prepared {get;private set;}
+        Rect preparedScreen;
         public bool StopConfirmed { get; private set; }
         public bool FocusConfirmed { get; private set; }
         public Session(Desktop api, IntPtr re4, uint re4Pid, IntPtr mc, uint mcPid) {
@@ -37,6 +43,8 @@ namespace RE4BridgeView {
         }
         public void Enter(Rect screen) {
             if (Active) return;
+            if(!Prepared || screen.Left!=preparedScreen.Left || screen.Top!=preparedScreen.Top || screen.Right!=preparedScreen.Right || screen.Bottom!=preparedScreen.Bottom)
+                throw new InvalidOperationException("Pulsa Preparar Minecraft antes de arm y F9 para ajustar la vista.");
             if (!desktop.SameWindow(game.Handle,game.Pid) || !desktop.SameWindow(minecraft,minecraftPid))
                 throw new InvalidOperationException("Se cerro o cambio una ventana de juego.");
             if (desktop.Foreground() != minecraft)
@@ -44,6 +52,7 @@ namespace RE4BridgeView {
             Active = true; // Even a partial change must be restored on failure.
             try {
                 desktop.Present(game,screen);
+                desktop.StartMouse(game,minecraft,minecraftPid);
                 if (desktop.Foreground() != minecraft) throw new InvalidOperationException("Minecraft perdio el foco.");
             } catch { Normal(false); throw; }
         }
@@ -51,23 +60,126 @@ namespace RE4BridgeView {
             FocusConfirmed = false;
             // Latch the same stop word as native F8, independently of the TCP host.
             StopConfirmed = desktop.SameWindow(game.Handle,game.Pid) && desktop.Stop(game.Pid);
-            if (Active) {
+            try { desktop.EndMouse(); } finally {
+            if (Active || Prepared) {
                 if (desktop.SameWindow(game.Handle,game.Pid)) desktop.Restore(game);
-                Active = false;
+                Active = false;Prepared=false;
+            }
             }
             if (focusGame && desktop.SameWindow(game.Handle,game.Pid)) FocusConfirmed = desktop.Focus(game.Handle);
         }
-        public void Prepare() {
+        public void Prepare(Rect screen) {
             Normal(false);
             if (!desktop.SameWindow(minecraft,minecraftPid)) throw new InvalidOperationException("Minecraft se cerro.");
-            if (!desktop.Focus(minecraft)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa Minecraft.");
+            Prepared=true;preparedScreen=screen;
+            try {
+                desktop.PrepareView(game,screen); // Resize only while the native stop is latched.
+                if (!desktop.Focus(minecraft)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa Minecraft.");
+            }catch{Normal(false);throw;}
         }
         public bool StillFocused() {
             return desktop.SameWindow(game.Handle,game.Pid) && desktop.SameWindow(minecraft,minecraftPid)
-                && desktop.Foreground() == minecraft;
+                && desktop.Foreground() == minecraft && !desktop.MouseFailed;
         }
     }
-    public sealed class WindowsDesktop : Desktop {
+    public interface MouseDesktop {
+        bool SameWindow(IntPtr h,uint pid);
+        IntPtr Foreground();
+        IntPtr At(Point point);
+        bool Send(IntPtr h,uint message,uint buttons,Point point,ushort wheel);
+        uint Modifiers();
+    }
+    // Only live user button/wheel events over the presented RE4 window are forwarded.
+    // Raw mouse motion and keyboard input remain Minecraft's own events.
+    public sealed class MouseRouter {
+        readonly MouseDesktop desktop;readonly Snapshot game;readonly IntPtr minecraft;readonly uint minecraftPid;
+        uint held;
+        public bool Failed {get;private set;}
+        public MouseRouter(MouseDesktop api,Snapshot state,IntPtr mc,uint pid){desktop=api;game=state;minecraft=mc;minecraftPid=pid;}
+        public static bool ButtonOrWheel(uint message){
+            return message==0x201 || message==0x202 || message==0x204 || message==0x205
+                || message==0x207 || message==0x208 || message==0x20a || message==0x20b || message==0x20c || message==0x20e;
+        }
+        public bool Route(int code,uint message,Point point,uint data,uint flags){
+            if(!ButtonOrWheel(message) || code<0 || flags!=0 || Failed || !desktop.SameWindow(game.Handle,game.Pid)
+                || !desktop.SameWindow(minecraft,minecraftPid) || desktop.Foreground()!=minecraft)return false;
+            uint bit=0;bool down=false,up=false;ushort high=0;
+            switch(message){
+            case 0x201:bit=1;down=true;break;case 0x202:bit=1;up=true;break;
+            case 0x204:bit=2;down=true;break;case 0x205:bit=2;up=true;break;
+            case 0x207:bit=16;down=true;break;case 0x208:bit=16;up=true;break;
+            case 0x20b:case 0x20c:
+                high=(ushort)(data>>16);if(high!=1 && high!=2)return false;
+                bit=high==1?32u:64u;down=message==0x20b;up=!down;break;
+            case 0x20a:case 0x20e:high=(ushort)(data>>16);break;
+            default:return false;
+            }
+            // A forwarded down must have a matching up even after Minecraft captures the mouse.
+            if(!(up && (held&bit)!=0) && desktop.At(point)!=game.Handle)return false;
+            uint next=down?held|bit:up?held&~bit:held;
+            if(!desktop.Send(minecraft,message,next|desktop.Modifiers(),point,high)){Failed=true;return true;}
+            held=next;return true;
+        }
+        public void Release(Point point){
+            if(desktop.SameWindow(minecraft,minecraftPid)){
+                foreach(uint bit in new uint[]{1,2,16,32,64})if((held&bit)!=0){
+                    held&=~bit;uint message=bit==1?0x202u:bit==2?0x205u:bit==16?0x208u:0x20cu;
+                    desktop.Send(minecraft,message,held|desktop.Modifiers(),point,(ushort)(bit==32?1:bit==64?2:0));
+                }
+            }
+            held=0;
+        }
+    }
+    public sealed class WindowsDesktop : Desktop, MouseDesktop {
+        [StructLayout(LayoutKind.Sequential)] struct MouseHookData { public Point Position;public uint Data,Flags,Time;public UIntPtr Extra; }
+        delegate IntPtr MouseCallback(int code,IntPtr message,IntPtr data);
+        [DllImport("user32.dll",SetLastError=true)] static extern IntPtr SetWindowsHookExW(int type,MouseCallback callback,IntPtr module,uint thread);
+        [DllImport("user32.dll",SetLastError=true)] static extern bool UnhookWindowsHookEx(IntPtr hook);
+        [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hook,int code,IntPtr message,IntPtr data);
+        [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern IntPtr GetModuleHandleW(string module);
+        [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point point);
+        [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr h,uint flags);
+        [DllImport("user32.dll")] static extern bool GetCursorPos(out Point point);
+        [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr h,ref Point point);
+        [DllImport("user32.dll",SetLastError=true)] static extern bool PostMessageW(IntPtr h,uint message,UIntPtr wparam,IntPtr lparam);
+        MouseCallback mouseCallback;IntPtr mouseHook;MouseRouter mouseRouter;uint mouseGamePid;
+        public bool MouseFailed {get{return mouseRouter!=null && mouseRouter.Failed;}}
+        public IntPtr At(Point point){return GetAncestor(WindowFromPoint(point),2);}
+        public uint Modifiers(){return (GetAsyncKeyState(0x10)&0x8000)!=0?4u|((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u):((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u);}
+        public bool Send(IntPtr h,uint message,uint buttons,Point point,ushort wheel){
+            // Wheel messages use screen coordinates; button messages use the Minecraft client area.
+            if(message!=0x20a && message!=0x20e && !ScreenToClient(h,ref point))return false;
+            uint coordinates=(uint)((point.X&0xffff)|((point.Y&0xffff)<<16));
+            uint wparam=buttons|((uint)wheel<<16);
+            return PostMessageW(h,message,new UIntPtr(wparam),new IntPtr(unchecked((int)coordinates)));
+        }
+        public void StartMouse(Snapshot game,IntPtr mc,uint mcPid){
+            EndMouse();mouseRouter=new MouseRouter(this,game,mc,mcPid);mouseGamePid=game.Pid;
+            mouseCallback=OnMouse;mouseHook=SetWindowsHookExW(14,mouseCallback,GetModuleHandleW(null),0);
+            if(mouseHook==IntPtr.Zero){int error=Marshal.GetLastWin32Error();EndMouse();throw new Win32Exception(error,"No se pudo preparar el raton de VIEW.");}
+        }
+        IntPtr OnMouse(int code,IntPtr message,IntPtr data){
+            try {
+                if(code>=0 && mouseRouter!=null && MouseRouter.ButtonOrWheel((uint)message.ToInt64())){
+                    MouseHookData input=(MouseHookData)Marshal.PtrToStructure(data,typeof(MouseHookData));
+                    if(mouseRouter.Route(code,(uint)message.ToInt64(),input.Position,input.Data,input.Flags)){
+                        if(mouseRouter.Failed)Stop(mouseGamePid);
+                        return new IntPtr(1);
+                    }
+                }
+            } catch {if(mouseRouter!=null)Stop(mouseGamePid);}
+            return CallNextHookEx(mouseHook,code,message,data);
+        }
+        public void EndMouse(){
+            MouseRouter old=mouseRouter;mouseRouter=null; // Fail closed even if unhooking fails.
+            if(old!=null){Point point;GetCursorPos(out point);old.Release(point);}
+            if(mouseHook!=IntPtr.Zero){
+                bool removed=UnhookWindowsHookEx(mouseHook);int error=Marshal.GetLastWin32Error();
+                if(!removed && error!=1404)throw new Win32Exception(error);
+                mouseHook=IntPtr.Zero;
+            }
+            mouseCallback=null;mouseGamePid=0;
+        }
         [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
@@ -102,11 +214,15 @@ namespace RE4BridgeView {
             Rect rect; Check(GetWindowRect(h,out rect));
             return new Snapshot { Handle=h, Pid=pid, Style=GetStyle(h,-16), Extended=GetStyle(h,-20), Placement=placement, Bounds=rect };
         }
-        public void Present(Snapshot state,Rect screen) {
+        public void PrepareView(Snapshot state,Rect screen) {
             SetStyle(state.Handle,-16,state.Style & ~0x21C40000L); // Caption and resize frame.
-            SetStyle(state.Handle,-20,state.Extended & ~0x00000300L); // Client/window edges.
-            // TOPMOST + NOACTIVATE + FRAMECHANGED + SHOWWINDOW. Minecraft keeps input focus.
-            Check(SetWindowPos(state.Handle,new IntPtr(-1),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
+            SetStyle(state.Handle,-20,(state.Extended & ~0x00000300L)|0x08000000L); // Client/window edges.
+            // Resize in the background before arm; never reset graphics while entering the active view.
+            Check(SetWindowPos(state.Handle,new IntPtr(-2),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
+        }
+        public void Present(Snapshot state,Rect screen) {
+            // Only raise the already sized window: NOACTIVATE + NOSIZE + NOMOVE + SHOWWINDOW.
+            Check(SetWindowPos(state.Handle,new IntPtr(-1),0,0,0,0,0x53));
         }
         public void Restore(Snapshot state) {
             SetStyle(state.Handle,-16,state.Style); SetStyle(state.Handle,-20,state.Extended);

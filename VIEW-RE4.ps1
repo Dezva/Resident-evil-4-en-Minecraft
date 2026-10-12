@@ -33,11 +33,11 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.StartPosition = 'Manual'; $form.Location = [System.Drawing.Point]::new($screen.Left+12,$screen.Top+12)
     $label = New-Object System.Windows.Forms.Label
     $label.Location=[System.Drawing.Point]::new(10,10); $label.Size=[System.Drawing.Size]::new(405,65)
-    $label.Text="RE4 en ventana, Minecraft abierto sin minimizar.`r`nPrepara controller/arm en Minecraft. F9 muestra RE4.`r`nF8 detiene el puente y devuelve control directo a RE4."
+    $label.Text="RE4 en ventana, Minecraft abierto sin minimizar.`r`nPulsa Preparar Minecraft; luego controller/arm. F9 muestra RE4.`r`nF8 detiene el puente y devuelve control directo a RE4."
     $form.Controls.Add($label)
     $prepare = New-Object System.Windows.Forms.Button
     $prepare.Text='Preparar Minecraft'; $prepare.Location=[System.Drawing.Point]::new(10,83); $prepare.Size=[System.Drawing.Size]::new(160,45)
-    $prepare.Add_Click({ try { $session.Prepare() } catch { $label.Text=$_.Exception.Message } })
+    $prepare.Add_Click({ try { $session.Prepare($bounds) } catch { $label.Text=$_.Exception.Message } })
     $normal = New-Object System.Windows.Forms.Button
     $normal.Text='Volver a RE4 normal (F8)'; $normal.Location=[System.Drawing.Point]::new(180,83); $normal.Size=[System.Drawing.Size]::new(235,45)
     function Return-ToNormal {
@@ -71,10 +71,10 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
         try {
             if ($f8 -and !$keys.F8) { Return-ToNormal }
             elseif ($f9 -and !$keys.F9) {
-                if ($session.Active) { Set-ViewPanel $false; $session.Prepare(); $label.Text='Minecraft visible. Requiere otro arm; F9 vuelve a mostrar RE4.' }
+                if ($session.Active) { Set-ViewPanel $false; $session.Prepare($bounds); $label.Text='Minecraft visible. Requiere otro arm; F9 vuelve a mostrar RE4.' }
                 else { $session.Enter($bounds); Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
             } elseif ($session.Active -and !$session.StillFocused()) {
-                $session.Normal($false); Set-ViewPanel $false; $label.Text='Modo detenido al perder foco. Preparar Minecraft, arm y F9 para volver.'
+                $session.Normal($false); Set-ViewPanel $false; $label.Text='Modo detenido al perder foco o fallar el envio de raton. Preparar Minecraft, arm y F9 para volver.'
             }
         } catch { $label.Text=$_.Exception.Message }
         $keys.F8=$f8; $keys.F9=$f9

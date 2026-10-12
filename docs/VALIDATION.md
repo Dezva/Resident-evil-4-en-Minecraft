@@ -800,3 +800,22 @@ real-size7.4MB executable section, JSON/OBJ/offline HTML emission and CLI.
 No RE4/game driver/map executed in cloud. User needs to validate camera/HUD
 appearance and provide real geometry export before shared map, slope slabs,
 placement occupancy or native jump/weapon damage can be claimed.
+
+## 0.4.31 — presentation click routing / SAT reference audit
+
+User confirms blocks/placement/editor floor0.4.30; clarifies hotbar icons correct,
+only window clipping.115 Python tests pass, no skips. PowerShell compiles actual
+WindowsDesktop/Session/MouseRouter against fake desktop:400 real-message-format
+build/break transitions retain focus, held left/right/middle/X release, capture
+moves, wheel delta, modifiers, non-native target/foreign foreground/injected/
+closed-reused window rejection, send/setup/cleanup failure, independent stop,
+resize before arm and raise without resizing, pending-restoration retry. Actual
+Return-ToNormal script executes against simulated desktop; WinForms script parses.
+No real Windows hooks/GLFW/D3D presentation run in cloud. Native, Java, API,
+control-host and installer bytes preserved; no recompilation of unchanged targets.
+
+User JSON/OBJ/HTML consistency verified220 EAT triangles (59floor/85slope/76wall);
+SAT18 matches rejected in0.4.30. New parser accepts1..64 identical verified manager
+references and rejects differing destinations, logs each source/destination.
+Five map tests include18 aliases plus one discrepant operand. Actual SAT operands
+remain unknown: no completed map/import/placement occupancy or jump claim.

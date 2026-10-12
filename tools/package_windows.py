@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.30"
+    version = "0.4.31"
     mod_version = "0.4.30"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
     if native_hash != "bd9e3f19eb213ae23e3ebbb930c9c8f97672ca592e1d83d7f12d604b0703042a":
-        raise SystemExit("0.4.30 requires its compiled v6 + HUD/camera/collision native DLL")
+        raise SystemExit("0.4.31 uses the unchanged 0.4.30 compiled v6 + HUD/camera/collision native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -78,7 +78,7 @@ def main():
                            (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.30.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.31.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),

@@ -4,9 +4,9 @@ from pathlib import Path
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-destination = root / 'dist' / 'view-0.1.1'
+destination = root / 'dist' / 'view-0.1.2'
 destination.mkdir(parents=True, exist_ok=True)
-package = destination / 're4bridge-view-0.1.1.zip'
+package = destination / 're4bridge-view-0.1.2.zip'
 with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
     for source, target in [('VIEW-RE4.bat','VIEW-RE4.bat'), ('VIEW-RE4.ps1','VIEW-RE4.ps1'),
                            ('tools/RE4View.cs','tools/RE4View.cs'), ('docs/RE4-VIEW.md','README.md')]:

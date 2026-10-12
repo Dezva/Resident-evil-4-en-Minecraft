@@ -1,5 +1,21 @@
 # Registro de desarrollo
 
+## 0.4.30 — cámara de escena, editor sobre suelo temporal y exportación SAT/EAT
+
+El usuario confirma mejor rendimiento0.4.29; carrera medida durante movimiento
+4,116 frente a4,158 bloques/s nativos, por lo que se conserva la velocidad.
+Mirada absoluta en la transformación fija (capability8/flag4), una vista por
+escena D3D, copia coherente para dibujar bloques y bit DPF_COCKPIT restaurable.
+El editor utiliza aire por encima del terreno y un parche temporal11×11 de
+cristal que sigue a Steve; no sobrescribe construcciones ni se exporta a RE4.
+EXPORT-RE4-MAP obtiene solo lectura de triángulos SAT/EAT locales y genera JSON,
+OBJ y visor HTML offline. El mapa compartido, obstáculos de construcción, losas,
+salto y combate requieren validar esa geometría real y siguen pendientes.
+Cambian DLL/build430, host y mod0.4.30; control80/escena96352/HUD32792 iguales.
+114 Python,25 core,30 Minecraft;11 fixtures ASan/UBSan y4 suites C; instaladores
+pasan. APIs Windows y geometría simuladas; visual/arranque/export reales no
+probados en la nube. Detalles: docs/RE4-BLOCK-0.4.30.md.
+
 ## 0.4.29 — reutilización de vista activa y medición de movimiento
 
 Usuario confirma mejora28 desarmado, caída tras arm/FP y menor velocidad incluso

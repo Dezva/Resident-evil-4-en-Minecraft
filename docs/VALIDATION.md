@@ -772,3 +772,31 @@ Resultado:109 Python,11 fixtures C bajo ASan/UBSan, cuatro suites C portátiles
 y PowerShell. DLL Win32 compilada; JAR/API/instaladores/VIEW sin cambios. No se
 mide aquí GPU/RE4 ni se iguala todavía su locomoción a Minecraft: dos capturas
 Windows comparables son el siguiente dato requerido para calibrarla.
+
+## 0.4.30 — scene camera, air editor and read-only collision map
+
+User reports0.4.29 greatly improves active FP performance. Both supplied4s
+movement tests valid: running total native3.944/bridge3.805 blocks/s; moving-only
+native4.158/bridge4.116, PadRead59.75/59.24 per second. Walking moving-only
+1.717/1.574 and cadence59.74/52.25: short comparable observations, not GPU FPS.
+No speed multiplier or native Y/velocity change added.
+
+114 Python,25 core and30 Minecraft tests pass, no skips/errors.11 native fixtures
+pass ASan/UBSan, four portable C suites and PowerShell installer fixtures pass.
+Actual extracted C camera callbacks/overlay reader use simulated memory/Windows.
+Tests cover absolute gaze after lost first-relative sample/idle body turn,
+new control during an active scene without shifting its view, new scene uses
+new gaze, coherent overlay view despite global-camera overwrite/temporary
+restore, age100ms/generation/torn guards, prior16ms cache and2000 late wall steps,
+HUD bit restoration without undoing foreign bits. Temporary editor floor uses
+real block states with simulated world,400 cell movements keep121 cells,
+unchanged point produces no further writes, unloaded/height/foreign builds/
+claimed replacement glass/world switch/clear preserve user content.
+
+Read-only map parser uses synthetic managers/vertices/polygons with actual
+SDK layouts and scanner. Tests include world transforms, attributes, disabled
+objects, ambiguous patterns, manager/vtable/count/index/NaN/object-race rejection,
+real-size7.4MB executable section, JSON/OBJ/offline HTML emission and CLI.
+No RE4/game driver/map executed in cloud. User needs to validate camera/HUD
+appearance and provide real geometry export before shared map, slope slabs,
+placement occupancy or native jump/weapon damage can be claimed.

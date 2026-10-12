@@ -44,6 +44,9 @@ static HRESULT fake_Reset(IDirect3DDevice9 *self,D3DPRESENT_PARAMETERS *p) {
 }
 static HRESULT fake_Present(IDirect3DDevice9 *self,const RECT *a,const RECT *b,HWND c,const RGNDATA *d) {assert(self==&inner && a==(void *)1 && b==(void *)2 && c==(void *)3 && d==(void *)4);last_error=444;return present_fail?E_FAIL:30;}
 #include "test_device_passthrough.h"
+static unsigned scene_open,scene_starts;
+static void block_camera_begin(void){scene_open=1;scene_starts++;}
+static void block_camera_end(void){scene_open=0;}
 #define CUBE_TEST_DRAW_STUB
 #include "cube_device.h"
 static void hud_render_device(CubeDevice *f){(void)f;}
@@ -64,7 +67,7 @@ int main(void) {
     assert(native_adds==before_adds && native_drops==before_drops && native_refs==1); // 112 forwards, zero native ref churn
     assert(w->lpVtbl->EndScene(w)==27 && !renders && ends==1 && last_error==444);
     begin_fail=1;assert(w->lpVtbl->BeginScene(w)==E_FAIL);assert(w->lpVtbl->EndScene(w)==27 && !renders);
-    begin_fail=0;assert(w->lpVtbl->BeginScene(w)==S_OK);assert(w->lpVtbl->EndScene(w)==27 && renders==1);
+    begin_fail=0;assert(w->lpVtbl->BeginScene(w)==S_OK);assert(w->lpVtbl->EndScene(w)==27 && renders==1 && !scene_open && scene_starts==1);
     assert(last_error==444 && events[CUBE_FRAME]==3 && events[CUBE_BEGIN]==2);
     D3DPRESENT_PARAMETERS parameters={123};CubeDevice *f=(CubeDevice *)w;f->gate.epoch=9;f->gate.anchored=1;f->scene=1;
     f->block_texture.texture=&resource;native_refs++; // texture owns a native device reference

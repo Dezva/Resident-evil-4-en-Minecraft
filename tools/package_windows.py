@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.29"
-    mod_version = "0.4.26"
+    version = "0.4.30"
+    mod_version = "0.4.30"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "c065b2d143d8d92fc2b71f1d12b94f20086160ad568e3de91f5c9a8edf1dca5a":
-        raise SystemExit("0.4.29 requires its compiled v6 + HUD/camera/collision native DLL")
+    if native_hash != "bd9e3f19eb213ae23e3ebbb930c9c8f97672ca592e1d83d7f12d604b0703042a":
+        raise SystemExit("0.4.30 requires its compiled v6 + HUD/camera/collision native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -72,10 +72,13 @@ def main():
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
                            (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
                            (root / "MEASURE-RE4-MOVEMENT.bat", "MEASURE-RE4-MOVEMENT.bat"),
+                           (root / "EXPORT-RE4-MAP.bat", "EXPORT-RE4-MAP.bat"),
+                           (root / "tools/re4_map_export.py", "tools/re4_map_export.py"),
+                           (root / "tools/re4_map_viewer.html", "tools/re4_map_viewer.html"),
                            (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.29.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.30.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),
@@ -95,7 +98,7 @@ def main():
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
                  "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
-                 "PROBE-RE4-NATIVE.bat", "PROBE-RE4-GRAPHICS.bat", "CAPTURE-RE4-GRAPHICS.bat", "TEST-RE4-CUBE.bat", "AUDIT-RE4-IMPORTS.bat", "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.ps1", "VIEW-RE4.bat", "VIEW-RE4.ps1", "TRACE-RE4-CAMERA.bat", "MEASURE-RE4-MOVEMENT.bat",
+                 "PROBE-RE4-NATIVE.bat", "PROBE-RE4-GRAPHICS.bat", "CAPTURE-RE4-GRAPHICS.bat", "TEST-RE4-CUBE.bat", "AUDIT-RE4-IMPORTS.bat", "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.ps1", "VIEW-RE4.bat", "VIEW-RE4.ps1", "TRACE-RE4-CAMERA.bat", "MEASURE-RE4-MOVEMENT.bat", "EXPORT-RE4-MAP.bat",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

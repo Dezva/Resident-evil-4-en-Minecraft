@@ -13,10 +13,10 @@ class PreviewTests(unittest.TestCase):
         import struct
         from test_cube_test import Kernel
         from re4_cube_test import read_collision_status
-        kernel=Kernel(version=6,build=429)
-        struct.pack_into('<I',kernel.collision,12,429)
+        kernel=Kernel(version=6,build=430)
+        struct.pack_into('<I',kernel.collision,12,430)
         preview=NativePreview(42,kernel,user=kernel)
-        self.assertEqual(preview.baseline['build'],429)
+        self.assertEqual(preview.baseline['build'],430)
         preview.publish(True,7,self.bounds)
         self.assertTrue(struct.unpack_from('<I',kernel.command,16)[0])
         self.assertEqual(read_collision_status(kernel,42)['reason'],1)

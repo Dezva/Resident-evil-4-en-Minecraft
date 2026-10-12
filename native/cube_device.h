@@ -61,25 +61,25 @@ static HRESULT WINAPI cube_QueryInterface(IDirect3DDevice9 *iface,REFIID iid,voi
     }
     cube_method_enter(f);
     HRESULT hr=f->inner->lpVtbl->QueryInterface(f->inner,iid,out);DWORD error=GetLastError();
-    if (SUCCEEDED(hr) && *out) {f->escaped=1;hud_release_texture(f);block_texture_cache_release(&f->block_texture);cube_record(CUBE_ESCAPE,0);}
+    if (SUCCEEDED(hr) && *out) {f->escaped=1;block_camera_end();hud_release_texture(f);block_texture_cache_release(&f->block_texture);cube_record(CUBE_ESCAPE,0);}
     cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_BeginScene(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT hr=f->inner->lpVtbl->BeginScene(f->inner);DWORD error=GetLastError();
-    if (SUCCEEDED(hr)) f->scene=1;
+    if (SUCCEEDED(hr)) {f->scene=1;block_camera_begin();}
     cube_record(CUBE_BEGIN,0);cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_EndScene(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
-    cube_record(CUBE_FRAME,0);cube_render_device(f);hud_render_device(f);f->scene=0;
+    cube_record(CUBE_FRAME,0);cube_render_device(f);hud_render_device(f);f->scene=0;block_camera_end();
     HRESULT hr=f->inner->lpVtbl->EndScene(f->inner);DWORD error=GetLastError();
     if (FAILED(hr)) {hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_ACTIVE,0);}
     cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_Reset(IDirect3DDevice9 *iface,D3DPRESENT_PARAMETERS *parameters) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
-    hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->scene=0;f->resetting=1;f->gate.anchored=0;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_RESET,0);
+    hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->scene=0;block_camera_end();f->resetting=1;f->gate.anchored=0;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_RESET,0);
     HRESULT hr=f->inner->lpVtbl->Reset(f->inner,parameters);DWORD error=GetLastError();
     f->resetting=0;f->gate.lost=FAILED(hr);if (FAILED(hr)) cube_record(CUBE_RESET_FAILURE,(uint32_t)hr);
     cube_method_leave(f,error);return hr;

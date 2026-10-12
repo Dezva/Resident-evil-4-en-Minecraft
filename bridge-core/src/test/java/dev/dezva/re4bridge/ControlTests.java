@@ -37,13 +37,15 @@ class ControlTests {
             await(bridge::nativeArmed);
             await(() -> bridge.nativeButtons() == 5);
             assertEquals("activo", bridge.nativeReason());
-            assertEquals(7, bridge.nativeCapabilities());
+            assertEquals(15, bridge.nativeCapabilities());
             assertEquals(10, bridge.nativeLookPackets());
             bridge.publishControl(true, 5, 1, new MouseLook.Input(true, false, 20, -15, 160));
             await(() -> { try { return Files.readString(log).contains("'total_yaw': 20.0"); } catch (Exception e) { return false; } });
             assertTrue(Files.readString(log).contains("INPUT armed=True buttons=5"));
             assertThrows(IllegalArgumentException.class, () -> bridge.publishControl(true, 16, 1));
             assertThrows(IllegalArgumentException.class, () -> bridge.publishControl(true, 32, 1));
+            bridge.publishControl(true,5,1,new MouseLook.Input(true,true,-135,25,1620,true));
+            await(() -> {try{return Files.readString(log).contains("'absolute_yaw': True");}catch(Exception e){return false;}});
             bridge.publishControl(true, 69, 1);
             await(() -> bridge.nativeButtons() == 69);
             bridge.publishControl(true, 5, 1);

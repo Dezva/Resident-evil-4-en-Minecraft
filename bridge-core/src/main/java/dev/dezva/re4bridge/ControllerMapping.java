@@ -25,5 +25,9 @@ public record ControllerMapping(Re4Sample origin,double x,double y,double z,doub
         if(!Double.isFinite(nativeEye+gridHeight) || Math.abs(nativeEye)>2500 || Math.abs(gridHeight)>2500)throw new IllegalArgumentException("Invalid editor eye");
         return toMinecraft(new Re4Sample(sample.x(),sample.y()+nativeEye-gridHeight,sample.z(),sample.yawRadians(),sample.receivedNs()));
     }
+    /** Absolute mapped gaze survives missed first mouse samples and body/idle turns. */
+    public MouseLook.Input look(double minecraftYaw,double pitch,double eye){
+        return new MouseLook.Input(true,true,Math.toDegrees(Math.IEEEremainder(Math.toRadians(minecraftYaw)+rotation,2*Math.PI)),Math.max(-85,Math.min(85,pitch)),eye,true);
+    }
     public float minecraftYaw(double nativeYaw){return (float)Math.toDegrees(Math.IEEEremainder(-nativeYaw-rotation,2*Math.PI));}
 }

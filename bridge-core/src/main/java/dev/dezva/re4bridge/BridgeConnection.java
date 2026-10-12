@@ -109,7 +109,7 @@ public final class BridgeConnection implements AutoCloseable {
             JsonObject data = new JsonObject();
             data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
             data.addProperty("total_yaw", look.totalYaw()); data.addProperty("pitch", look.pitch());
-            data.addProperty("eye_height", look.eyeHeight()); frame.add("look", data);
+            data.addProperty("absolute_yaw",look.absoluteYaw()); data.addProperty("eye_height", look.eyeHeight()); frame.add("look", data);
         }
         control.set(new ControlFrame(frame, System.nanoTime()));
     }
@@ -219,7 +219,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 throw new IOException("Invalid native reason");
                             nativeReason = value.getAsString();
                         }
-                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 7);
+                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 15);
                         if (state.has("preview_state")) {
                             var preview=state.getAsJsonObject("preview_state");
                             previewStatus=boundedInteger(preview,"status",4);

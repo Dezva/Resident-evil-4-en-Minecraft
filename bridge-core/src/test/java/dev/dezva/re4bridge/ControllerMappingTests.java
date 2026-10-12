@@ -21,6 +21,21 @@ class ControllerMappingTests {
         assertEquals(sample.y()+1620,nativeEye.y()+250,1e-8);
         assertEquals(sample.x(),nativeEye.x(),1e-8);assertEquals(sample.z(),nativeEye.z(),1e-8);
     }
+    @Test void absoluteGazeMatchesMappedRaysAfterArbitraryMouseTurnsAndRearming(){
+        for(double ny:new double[]{0,.7,-2.9})for(double my:new double[]{0,90,-123}){
+            var sample=new Re4Sample(-103000,-400,1700,ny,0);var mapping=ControllerMapping.anchor(sample,12,80,3,my,1000);
+            for(double turn:new double[]{0,179,360,-720,953}){
+                var gaze=mapping.look(my+turn,35,1620);assertTrue(gaze.absoluteYaw());
+                double nativeYaw=-Math.toRadians(gaze.totalYaw());
+                double yaw=Math.toRadians(my+turn),pitch=Math.toRadians(35);
+                var origin=mapping.toNative(12,81.62,3);
+                var target=mapping.toNative(12-Math.sin(yaw)*Math.cos(pitch),81.62-Math.sin(pitch),3+Math.cos(yaw)*Math.cos(pitch));
+                assertEquals(Math.sin(nativeYaw)*Math.cos(pitch)*1000,target.x()-origin.x(),1e-7);
+                assertEquals(Math.cos(nativeYaw)*Math.cos(pitch)*1000,target.z()-origin.z(),1e-7);
+                assertEquals(-Math.sin(pitch)*1000,target.y()-origin.y(),1e-7);
+            }
+        }
+    }
     @Test void invalidTransformsAndExtremeMappedPositionsAreRejected(){
         var sample=new Re4Sample(0,0,0,0,0);
         assertThrows(IllegalArgumentException.class,()->ControllerMapping.anchor(sample,0,0,0,0,0));

@@ -267,3 +267,20 @@ collision, textures or native entity creation yet. Capture D3DSBT_ALL, change on
 states needed to draw, apply backup and release even on setter/draw failure;
 always return original EndScene result. No persistent default-pool resources.
 Device Reset preserves the interface; whole-device recreation needs game restart.
+
+## 0.4.30 coherent scene view / mapped gaze / native HUD
+
+Capability8 accepts absolute mapped gaze via flag4 (FP+mouse required,
+[-180,180]degrees); otherwise legacy cumulative mode remains. D3D Begin/EndScene
+bound one camera view so input changes midway through rendering cannot alter
+blocks relative to the scene. Collider still checks current feet. A seqlocked
+internal view lease (actor/generation/controlTTL/age100ms) supplies FP overlays,
+not mutable Global camera used by auxiliary passes. Repeated projections retain
+16ms validation reuse and F8; dormant guards unchanged.
+
+The one borrowed Global.Flags_DISP+0x58 bit DPF_COCKPIT0x10000 hides native cockpit
+while FP, restores the same owner's saved bit without undoing other changes.
+SDK references at existing pinnedrevision; no HUD function/vtable hook added.
+No Y,velocity,speed,animation,inventory,health/ammo change. Build430; runtime
+Windows ordering/appearance remains unverified. The separate Python map exporter
+reads SAT/EAT layouts/signatures without process writes/native invocation.

@@ -1,0 +1,14 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Geometría local de colisión de RE4</title>
+<style>body{margin:0;background:#121822;color:#eef;font:15px system-ui}header{padding:12px}canvas{display:block;width:100vw;height:calc(100vh - 95px)}small{color:#ccd}#status{color:#ffe28a}</style>
+<header>Geometría local de RE4 · <span id="status"></span><br><small>Arrastra para girar · rueda para acercar · Leon está en el punto amarillo. Verde: suelo; azul: pendiente; naranja: pared. Es una captura de colisiones, no del aspecto del escenario.</small></header><canvas id="map"></canvas>
+<script>
+const data=/* COLLISION_DATA */,complete=/* COMPLETE */;
+document.querySelector('#status').textContent=`${data.length} triángulos${complete?'':' · captura incompleta; consulta el JSON'}`;
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');let yaw=.8,pitch=.5,distance=25,drag=null;
+const colors={floor:'#57bd7c',slope:'#65b5fa',wall:'#e9a05c',other:'#aeb7ce'};
+function project(p){const c=Math.cos(yaw),s=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),x=c*p[0]-s*p[2],z=s*p[0]+c*p[2],y=cp*p[1]-sp*z,depth=distance-sp*p[1]-cp*z;if(depth<.05)return null;let f=Math.min(canvas.width,canvas.height)*.8;return [canvas.width/2+f*x/depth,canvas.height/2-f*y/depth];}
+function draw(){canvas.width=canvas.clientWidth;canvas.height=canvas.clientHeight;ctx.fillStyle='#121822';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.lineWidth=.7;
+for(const tri of data){let points=tri.v.map(project);if(points.some(p=>!p))continue;ctx.strokeStyle=colors[tri.kind];ctx.beginPath();ctx.moveTo(...points[0]);ctx.lineTo(...points[1]);ctx.lineTo(...points[2]);ctx.closePath();ctx.stroke();}
+let p=project([0,0,0]);if(p){ctx.fillStyle='#ffe35c';ctx.beginPath();ctx.arc(p[0],p[1],5,0,Math.PI*2);ctx.fill();}}
+canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!drag)return;yaw+=(e.clientX-drag[0])*.007;pitch=Math.max(-1.4,Math.min(1.4,pitch+(e.clientY-drag[1])*.007));drag=[e.clientX,e.clientY];draw();};canvas.onpointerup=()=>drag=null;canvas.onpointercancel=()=>drag=null;canvas.onwheel=e=>{e.preventDefault();distance=Math.max(1,Math.min(150,distance*Math.exp(e.deltaY*.001)));draw();};onresize=draw;draw();
+</script></html>

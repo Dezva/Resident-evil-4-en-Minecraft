@@ -12,9 +12,16 @@ typedef int32_t LONG;
 typedef struct {uint32_t magic,version;LONG sequence;uint32_t stamp,armed,buttons;LONG stop,status,hook_ticks;uint32_t native_buttons;float look_total,pitch,eye_height;uint32_t look_flags,arm_id,capabilities;float applied_yaw;LONG camera_ticks,look_applied_count,camera_active;} Shared;
 typedef struct {uint32_t magic,version;LONG sequence;uint32_t build,pid,calls,writes,rejected,stamp,pad_ticks,camera_ticks,applied;float yaw_before,yaw_written,yaw_after,view_yaw;} CameraDiagnostics;
 typedef struct {uint32_t sequence,stamp,armed,buttons,flags,generation;float total,pitch,eye;} ControlFrame;
+typedef struct {float position[3],target[3],roll,fovy;} CameraPoint;
 typedef struct {unsigned valid;ControlFrame control;uint32_t pad_ticks,camera_ticks,player,vtable,validated_at;float feet[3];} ProjectionCache;
 static ProjectionCache projection_cache;
-typedef struct {float position[3],target[3],roll,fovy;} CameraPoint;
+typedef struct {volatile LONG sequence;uint32_t valid,stamp,player,generation,epoch;float view[12],camera[12],right[3],up[3],back[3];CameraPoint point;} BlockCameraFrame;
+static BlockCameraFrame block_camera_frame;
+static uint32_t native_hud_global,native_hud_saved;
+static unsigned block_camera_scene;static uint32_t block_camera_epoch;
+static void block_camera_begin(void){block_camera_epoch++;block_camera_scene=1;}
+static void block_camera_end(void){block_camera_scene=0;}
+
 typedef struct {uint32_t controller,object,vtable,draw_bits,slot;} HiddenWeapon;
 static Shared storage,*state=&storage;static CameraDiagnostics diag,*diagnostics=&diag;
 static uint32_t id,slot,global,last_player,last_arm_id,last_look_sequence,render_player,render_generation;
@@ -31,7 +38,7 @@ static unsigned late_projection_move;
 #define VK_F8 119
 static uint32_t GetTickCount(void){return now;}
 static int GetAsyncKeyState(int key){assert(key==VK_F8);key_polls++;if(late_projection_move){*(float*)(uintptr_t)(id+0x94)+=60;late_projection_move=0;}return f8?0x8000:0;}
-static LONG InterlockedIncrement(LONG *v){return ++*v;}
+static LONG InterlockedIncrement(volatile LONG *v){return ++*v;}
 static LONG InterlockedExchange(LONG *v,LONG n){LONG old=*v;*v=n;return old;}
 static LONG InterlockedCompareExchange(LONG *v,LONG n,LONG old){LONG value=*v;if(value==old)*v=n;return value;}
 static void MemoryBarrier(void){}
@@ -76,13 +83,40 @@ int main(void){
     *(uint32_t *)(uintptr_t)id=0x1234;*(uint32_t *)(uintptr_t)(id+4)=0x12;
     float feet[3]={-103000,-400,1700};memcpy((void *)(uintptr_t)(id+0x94),feet,12);
     float yaw=.7f;memcpy((void *)(uintptr_t)(id+0xA4),&yaw,4);
-    storage.armed=1;storage.capabilities=7;packet=(ControlFrame){.sequence=2,.stamp=1000,.armed=1,.flags=3,.generation=1,.eye=1600};
+    storage.armed=1;storage.capabilities=15;packet=(ControlFrame){.sequence=2,.stamp=1000,.armed=1,.flags=3,.generation=1,.eye=1600};
     pad_hook();assert(last_player==id && fabsf(view_yaw-.7f)<1e-5f);
     float offset[11]={0};offset[10]=60;CameraPoint point={0};float matrix[12]={0};
     camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);assert(state->camera_active);
     camera_hook(camera_ctrl+0x500,NULL,matrix,offset,&point);assert(state->camera_active && native_camera_calls==1);
     project();assert(diagnostics->applied && fabsf(re4_wrap_yaw(diagnostics->yaw_after-view_yaw))<2e-5f);
     assert((*(uint32_t *)(uintptr_t)(id+4)&0x12)==0);
+    // Drawing must use the latched final view, never the global overwritten for auxiliary passes.
+    float block_view[12],block_fov;uint32_t block_player;
+    float expected[12];memcpy(expected,render_view,48);
+    memset((void*)(uintptr_t)(global+0x74+0x30),0,48);
+    assert(cube_camera(block_view,&block_fov,&block_player) && !memcmp(block_view,expected,48) && block_player==id);
+    pad_hook(); // transient restore between the final view and overlay must not select the orbit camera
+    assert(!state->camera_active && cube_camera(block_view,&block_fov,&block_player) && !memcmp(block_view,expected,48));
+    packet.generation++;assert(!cube_camera(block_view,&block_fov,&block_player));packet.generation--;
+    block_camera_frame.sequence++;assert(!cube_camera(block_view,&block_fov,&block_player));block_camera_frame.sequence++;
+    now+=100;assert(!cube_camera(block_view,&block_fov,&block_player));now-=100;
+    // Absolute mapped gaze cannot inherit an idle/tank body yaw or lose the first mouse delta.
+    packet.flags=7;packet.total=135;packet.sequence+=2;packet.generation++;
+    *(float*)(uintptr_t)(id+0xA4)=1.2f;pad_hook();assert(fabsf(view_yaw+2.35619449f)<1e-5f);
+    packet.total=-172;packet.sequence+=2;packet.buttons=4;pad_hook();assert(fabsf(view_yaw-3.0019663f)<1e-5f);
+    packet.buttons=0;packet.sequence+=2;pad_hook();assert(fabsf(view_yaw-3.0019663f)<1e-5f);
+    packet.flags=3;packet.total=0;packet.generation++;packet.sequence+=2;*(float*)(uintptr_t)(id+0xA4)=.7f;pad_hook();
+    // New input midway through one D3D scene must not move the blocks relative to already drawn geometry.
+    block_camera_begin();project();memcpy(expected,render_view,48);
+    packet.total=40;packet.sequence+=2;pad_hook();project();
+    assert(!memcmp(expected,render_view,48));assert(cube_camera(block_view,&block_fov,&block_player) && !memcmp(expected,block_view,48));
+    block_camera_end();block_camera_begin();project();assert(memcmp(expected,render_view,48));block_camera_end();
+    packet.total=0;packet.generation++;packet.sequence+=2;*(float*)(uintptr_t)(id+0xA4)=.7f;pad_hook();
+    assert(*(uint32_t*)(uintptr_t)(global+0x58)&0x10000u);restore_first_person();assert(!(*(uint32_t*)(uintptr_t)(global+0x58)&0x10000u));
+    *(uint32_t*)(uintptr_t)(global+0x58)=0x10000u|0x80u;native_hud_hide();
+    *(uint32_t*)(uintptr_t)(global+0x58)|=0x400u;native_hud_restore();
+    assert(*(uint32_t*)(uintptr_t)(global+0x58)==(0x10000u|0x480u));
+    *(uint32_t*)(uintptr_t)(global+0x58)=0;
     // Repeated projections in one update reuse view, while restoring game-overwritten matrices/models.
     uint32_t controller=(uint32_t)(uintptr_t)(memory+32768);
     *(uint32_t*)(uintptr_t)(id+0x7D8)=controller;

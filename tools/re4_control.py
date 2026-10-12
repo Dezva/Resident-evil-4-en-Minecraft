@@ -29,6 +29,11 @@ def validate_control(frame):
             raise ProtocolError("Invalid look flags")
         if look["first_person"] and not look["enabled"]:
             raise ProtocolError("First person requires mouse control")
+        absolute=look.get('absolute_yaw',False)
+        if type(absolute) is not bool or absolute and (not look['first_person'] or not look['enabled']):
+            raise ProtocolError('Invalid absolute gaze flags')
+        if absolute and (type(look.get('total_yaw')) not in (int,float) or abs(look['total_yaw'])>180):
+            raise ProtocolError('Invalid absolute gaze')
         for name, limit in [("total_yaw", 10000000), ("pitch", 85), ("eye_height", 2500)]:
             value = look.get(name)
             if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > limit:
@@ -70,6 +75,9 @@ class ControlPolicy:
         if look and look["first_person"] and not (status.get("capabilities", 0) & 2):
             self.armed = False
             reason = "firma de camara no disponible"
+        if look and look.get('absolute_yaw') and not (status.get('capabilities',0)&8):
+            self.armed=False
+            reason='mirada sincronizada requiere DLL0.4.30'
         if frame["buttons"] & 64 and not (status.get("capabilities",0) & 4):
             self.armed = False
             reason = "DLL sin soporte de correr; instala 0.4.10"
@@ -196,7 +204,7 @@ class NativeControl:
             for offset, value in [(40, look["total_yaw"] if look else 0),
                                   (44, look["pitch"] if look else 0), (48, look["eye_height"] if look else 1600)]:
                 ctypes.c_float.from_address(self.address + offset).value = value
-            self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1)) if armed and look else 0
+            self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1) | (int(look.get("absolute_yaw",False)) << 2)) if armed and look else 0
             self.words[14] = generation
         self.words[2] = (seq + 1) & 0xFFFFFFFF
 

@@ -18,6 +18,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.block.BlockState;
@@ -40,7 +41,7 @@ import net.minecraft.util.math.Vec3d;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 
-/** Diagnostic slice: no injection, no world editing, no native damage calls. */
+/** Local editor bridge; temporary support is restricted to empty creative-world cells. */
 public final class Re4BridgeClient implements ClientModInitializer {
     private BridgeConfig config;
     private volatile BridgeConnection bridge;
@@ -60,6 +61,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private final ControllerInput controllerInput=new ControllerInput();
     private boolean minecraftWalking=true;
     private boolean synchronizedMovement=true;
+    private boolean editorSupport;
     private boolean mapEditing;
     private boolean hudEnabled=true;
     private final MinecraftHud minecraftHud=new MinecraftHud();
@@ -89,6 +91,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
             // Keep Minecraft playable when configuration is broken; report through /re4bridge.
             config = null;
         }
+        AttackBlockCallback.EVENT.register((player,world,hand,pos,direction)->{
+            if(world.isClient && editorSupport)controllerFollower.claim(pos);
+            return ActionResult.PASS;
+        });
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(
             literal("re4bridge")
                 .then(literal("connect").executes(ctx -> connect(ctx.getSource().getClient(), false)))
@@ -141,7 +147,15 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     if(synchronizedMovement && !client.player.isCreative()){say(client,"Sincronizacion de construccion requiere creativo. Usa gamemode creative o sync off.");return 0;}
                     if(synchronizedMovement){
                         if(controllerMapping==null){
-                            var pos=client.player.getPos();controllerMapping=ControllerMapping.anchor(sample,pos.x,pos.y,pos.z,client.player.getYaw(),blockSize);
+                            var pos=client.player.getPos();
+                            double baseY=pos.y;
+                            if(blocksEnabled){
+                                try{baseY=EditorFloor.anchorHeight(pos.y,client.world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING,client.player.getBlockX(),client.player.getBlockZ()),client.world.getTopY());}
+                                catch(IllegalArgumentException error){say(client,error.getMessage());return 0;}
+                            }
+                            controllerMapping=ControllerMapping.anchor(sample,pos.x,baseY,pos.z,client.player.getYaw(),blockSize);
+                            editorSupport=blocksEnabled;
+                            if(editorSupport)say(client,"Suelo temporal de cristal en Minecraft; no se envia a RE4 ni mueve construcciones.");
                             controllerDimension=client.world.getRegistryKey().getValue().toString();
                         }
                         client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));
@@ -291,7 +305,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             try {
                 var point=editorPoint(client,sample);
                 if(!client.world.getRegistryKey().getValue().toString().equals(controllerDimension) || lastEditorPoint!=null && (Math.abs(point.x()-lastEditorPoint.x())>8 || Math.abs(point.y()-lastEditorPoint.y())>8 || Math.abs(point.z()-lastEditorPoint.z())>8))throw new IllegalArgumentException("Salto de zona");
-                controllerFollower.follow(client,point,current);if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
+                controllerFollower.follow(client,point,current,editorSupport);if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
             }catch(IllegalArgumentException error){stopDriving();say(client,"Sincronizacion detenida: salto de zona. Usa blocks on para fijar otra referencia.");}
         }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
@@ -383,7 +397,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void clearBlock() {
-        controllerMapping=null;controllerDimension=null;lastEditorPoint=null;
+        controllerMapping=null;controllerDimension=null;lastEditorPoint=null;editorSupport=false;
         blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();blockMaterials.clear();
     }
 
@@ -489,11 +503,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && synchronizedMovement && controllerMapping!=null){
-                try{controllerFollower.follow(client,editorPoint(client,sample),current);}catch(IllegalArgumentException error){stopDriving();buttons=0;}
+                try{controllerFollower.follow(client,editorPoint(client,sample),current,editorSupport);}catch(IllegalArgumentException error){stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
-                try { look = mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
+                try { look = firstPersonEnabled && synchronizedMovement && controllerMapping!=null && (current.nativeCapabilities()&8)!=0
+                    ? controllerMapping.look(client.player.getYaw(),client.player.getPitch(),eyeHeight)
+                    : mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
             String dimension=client.world.getRegistryKey().getValue().toString();
@@ -501,6 +517,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 say(client,"Cuadricula retirada: demasiadas formas. Usa blocks on para empezar otra mas pequena.");
             if (sample==null || !sample.fresh(now)) placementTracker.clear();
             for (var placed:placementTracker.pollAll(client.world::getBlockState,dimension)) {
+                if(controllerFollower.helper(placed.pos()))continue;
                 boolean first=!placedScene.anchored();
                 if (placedScene.put(placed,sceneShapes(client,placed.pos()),client.player.getYaw())) {
                     if(first){if(controllerMapping!=null)placedScene.rotation(controllerMapping.rotation());else placedScene.align(sample.yawRadians());}

@@ -1,5 +1,5 @@
 plugins { id 'fabric-loom' version '1.9.2' }
-version = '0.4.26'
+version = '0.4.30'
 group = 'dev.dezva.re4bridge'
 base { archivesName = 're4bridge' }
 repositories { mavenCentral() }

@@ -108,6 +108,17 @@ class ControlTests(unittest.TestCase):
         self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
         self.assertTrue(policy.apply(dict(frame, arm_id=2), {'state':'player'})['armed'])
 
+    def test_absolute_gaze_requires_fp_capability_and_has_bounded_angles(self):
+        look=dict(enabled=True,first_person=True,absolute_yaw=True,total_yaw=-172,pitch=0,eye_height=1620)
+        frame=dict(self.frame(),look=look)
+        validate_control(frame)
+        for change in (dict(absolute_yaw=1),dict(first_person=False),dict(total_yaw=181)):
+            with self.assertRaises(ProtocolError):validate_control(dict(frame,look=dict(look,**change)))
+        writer=Writer();writer.status=lambda:dict(stop=0,ticking=True,hook_ticks=1,capabilities=7)
+        policy=ControlPolicy(writer);self.assertFalse(policy.apply(frame,{'state':'player'})['armed'])
+        writer.status=lambda:dict(stop=0,ticking=True,hook_ticks=1,capabilities=15)
+        frame['arm_id']+=1;self.assertTrue(policy.apply(frame,{'state':'player'})['armed'])
+
     def test_ipc_v2_publication_preserves_native_status_and_disarms_look(self):
         native = NativeControl.__new__(NativeControl)
         backing = (ctypes.c_uint32 * 20)()
@@ -119,9 +130,10 @@ class ControlTests(unittest.TestCase):
         native.k = Kernel()
         backing[15] = 3; backing[17] = 50
         look = {'enabled': True, 'first_person': True, 'total_yaw': 22.0, 'pitch': 10.0, 'eye_height': 1600.0}
+        look['absolute_yaw']=True
         native.publish(True, 1, look, 7)
         self.assertEqual(backing[2] % 2, 0)
-        self.assertEqual((backing[4],backing[5],backing[13],backing[14]), (1,1,3,7))
+        self.assertEqual((backing[4],backing[5],backing[13],backing[14]), (1,1,7,7))
         self.assertEqual(ctypes.c_float.from_address(native.address+40).value, 22)
         self.assertEqual(ctypes.c_float.from_address(native.address+48).value, 1600)
         self.assertEqual((backing[15],backing[17]), (3,50))

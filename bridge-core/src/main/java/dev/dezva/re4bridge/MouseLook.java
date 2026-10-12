@@ -2,9 +2,10 @@ package dev.dezva.re4bridge;
 
 /** Cumulative relative yaw: network coalescing cannot discard intermediate turns. */
 public final class MouseLook {
-    public record Input(boolean enabled, boolean firstPerson, double totalYaw, double pitch, double eyeHeight) {
+    public record Input(boolean enabled, boolean firstPerson, double totalYaw, double pitch, double eyeHeight, boolean absoluteYaw) {
+        public Input(boolean enabled,boolean firstPerson,double totalYaw,double pitch,double eyeHeight){this(enabled,firstPerson,totalYaw,pitch,eyeHeight,false);}
         public Input {
-            if (firstPerson && !enabled || !Double.isFinite(totalYaw) || Math.abs(totalYaw) > 10_000_000
+            if (absoluteYaw && (!firstPerson || !enabled || Math.abs(totalYaw)>180) || firstPerson && !enabled || !Double.isFinite(totalYaw) || Math.abs(totalYaw) > 10_000_000
                     || !Double.isFinite(pitch) || Math.abs(pitch) > 85
                     || !Double.isFinite(eyeHeight) || Math.abs(eyeHeight) < 40 || Math.abs(eyeHeight) > 2500)
                 throw new IllegalArgumentException("Invalid mouse look");

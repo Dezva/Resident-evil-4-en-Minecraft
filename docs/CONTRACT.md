@@ -381,3 +381,31 @@ F8, facade válida, backbuffer, BeginScene, reset/present/escape. HUD no activa
 CubeTelemetry.active. Shutdown/disarm borra enabled,gen,pixels. Un host controla
 ambos canales bajo el mutex CubeWriter existente. APIs de captura/render conservadas.
 Build426 con escena v6/96352; lectores reconocen par426/v6 y colisión426/v1.
+
+## 0.4.30 — mapped gaze and coherent render view
+
+Capability8 supports optional look.absolute_yaw (strict bool, defaultfalse).
+Only enabled FP may set it; total_yaw is then the mapped angle in degrees
+[-180,180] whose negative is native yaw, not a relative accumulated delta.
+Native flag4 joins mouse1/FP2; Control v2 remains80 bytes. Old relative mode
+is retained. New Java reader accepts capabilities0..15; old host/DLL cannot
+activate absolute mode without capability8. No additional input buttons.
+
+An internal seqlocked final view (same actor/generation, age<100ms, original
+control TTL) supplies blocks in FP. One active D3D scene freezes its view;
+current collision corrections remain independent. No orbit-view fallback in FP.
+DPF_COCKPIT0x10000 Global+0x58 is borrowed/restored only for the same owner;
+health/ammo/inventory values are never modified.
+
+The temporary Minecraft editor floor is local creative only,121 air cells max,
+server-executor owned; it is excluded from native scenes and restored on normal
+stop/disconnect. User changes, including replacement glass after breaking a
+helper, relinquish ownership. Editor origin is fixed in air above existing
+terrain. This is not a terrain collision import or native jump implementation.
+
+EXPORT-RE4-MAP has no write/IPC/native-call capability. Version/unique signatures
+and validated SAT/EAT manager/cSat structures gate bounded extraction; errors
+mark incomplete data, never assume empty space. JSON/OBJ/HTML are user-local,
+not published game meshes. Default local radius20000native units. Shared map,
+slab quantization, placement ray/occupancy, jump/support and combat remain
+unimplemented until actual geometry is validated.

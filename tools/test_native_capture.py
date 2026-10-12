@@ -45,9 +45,10 @@ class NativeCaptureTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         body=(root/'native/re4_control.c').read_text()
         helpers=body[body.index('static uint32_t weapon_controller'):body.index('/* Restore before native logic.')]
-        body=helpers+body[body.index('static void restore_first_person'):body.index('/* Literal bytes')]
+        camera=body[body.index("static int cube_camera"):body.index("/* Creation-owned facades")];
+        body=helpers+body[body.index('static void native_hud_restore'):body.index('/* Literal bytes')]
         fixture=(root/'native/test_camera_runtime.c').read_text()
-        self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body))
+        self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body+camera))
 
     def test_filled_surface_clipping_ordering_and_bounds(self):
         self.compile_run("test_block_surface.c")

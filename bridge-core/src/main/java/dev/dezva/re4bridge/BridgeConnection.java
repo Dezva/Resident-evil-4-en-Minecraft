@@ -48,7 +48,8 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile boolean sceneAvailable;
     private volatile boolean surfaceAvailable;
     private volatile boolean textureAvailable;
-    private volatile boolean materialsAvailable,collisionAvailable;
+    private volatile boolean materialsAvailable,collisionAvailable,hudAvailable;
+    public boolean hudAvailable(){return hudAvailable;}
     public boolean materialsAvailable(){return materialsAvailable;}
     public boolean collisionAvailable(){return collisionAvailable;}
     public boolean textureAvailable() {return textureAvailable;}
@@ -91,16 +92,19 @@ public final class BridgeConnection implements AutoCloseable {
     // Client-thread owned, immutable scene identity; the worker only reads this JSON tree.
     private BlockScene serializedScene;
     private JsonObject serializedSceneJson;
-    public void publishSceneControl(boolean armed,int buttons,int generation,MouseLook.Input look,BlockScene scene) {
+    public void publishSceneControl(boolean armed,int buttons,int generation,MouseLook.Input look,BlockScene scene) {publishSceneControl(armed,buttons,generation,look,scene,null);}
+    public void publishSceneControl(boolean armed,int buttons,int generation,MouseLook.Input look,BlockScene scene,HudFrame hud) {
         if(scene!=serializedScene){serializedScene=scene;serializedSceneJson=scene==null?null:scene.toJson();}
-        publishVisualControl(armed,buttons,generation,look,serializedSceneJson);
+        publishVisualControl(armed,buttons,generation,look,serializedSceneJson,hud);
     }
-    private void publishVisualControl(boolean armed,int buttons,int generation,MouseLook.Input look,JsonObject preview) {
+    private void publishVisualControl(boolean armed,int buttons,int generation,MouseLook.Input look,JsonObject preview){publishVisualControl(armed,buttons,generation,look,preview,null);}
+    private void publishVisualControl(boolean armed,int buttons,int generation,MouseLook.Input look,JsonObject preview,HudFrame hud) {
         if (buttons < 0 || (buttons & ~79) != 0 || generation < 0) throw new IllegalArgumentException("Invalid control");
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
         if (armed && preview != null) frame.add("preview",preview);
+        if(armed && hud!=null && look!=null && look.firstPerson())frame.add("hud",hud.toJson());
         if (look != null && armed) {
             JsonObject data = new JsonObject();
             data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
@@ -252,6 +256,7 @@ public final class BridgeConnection implements AutoCloseable {
                             if (!available.isBoolean()) throw new IOException("Invalid scene capability");
                             sceneAvailable=available.getAsBoolean();
                         }
+                        if(state.has("hud_available")){var v=state.getAsJsonPrimitive("hud_available");if(!v.isBoolean())throw new IOException("Invalid HUD capability");hudAvailable=v.getAsBoolean();}
                         if(state.has("materials_available")){var v=state.getAsJsonPrimitive("materials_available");if(!v.isBoolean())throw new IOException("Invalid material capability");materialsAvailable=v.getAsBoolean();}
                         if(state.has("collision_available")){var v=state.getAsJsonPrimitive("collision_available");if(!v.isBoolean())throw new IOException("Invalid collision capability");collisionAvailable=v.getAsBoolean();}
                         if (state.has("texture_available")) {

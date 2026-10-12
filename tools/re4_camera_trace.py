@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "0c26f90b1f1aff959a72a207c5e80b17c9943ccec924eb6b37e8a5030be9e35d": "0.4.26 (synchronized editor, HUD and collision reference)",
     "f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4": "0.4.24 (local block materials and horizontal collision)",
     "20cf5143e37054031b10ce925c82c73cb2e81565cfda7fbc5c40a9fc7f57dbdc": "0.4.23 (procedural stone texture)",
     "80ea2448268e72492bf1421a7f232b44031e5cfd927ba14e08ebfc8565a0e885": "0.4.19 (single placed block)",
@@ -191,6 +192,14 @@ def metadata(exe):
             "note":"El hash identifica el archivo instalado, no prueba que se reinicio RE4 ni que el frame muestreado sea atomico."}
 
 
+def add_barrier_observation(row,kernel,pid):
+    from re4_cube_test import read_cube_status,read_collision_status
+    try:row['collision_state']=read_collision_status(kernel,pid)
+    except ReaderError as error:row['collision_error']=str(error)
+    try:row['cube_state']=read_cube_status(kernel,pid)
+    except ReaderError as error:row['cube_error']=str(error)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe',default=DEFAULT_EXE)
@@ -220,12 +229,14 @@ def main():
             while time.monotonic()-start<args.seconds:
                 row=observation(process.read,process.base,process.size,slot,addresses)
                 row['elapsed']=round(time.monotonic()-start,3)
-                if ipc: row['ipc']=ipc.sample()
+                if ipc:
+                    row['ipc']=ipc.sample()
+                    add_barrier_observation(row,ipc.k,pid)
                 if diagnostic: row['projection_diagnostic']=diagnostic.sample()
                 log.write(json.dumps(row,allow_nan=False)+'\n'); log.flush()
                 elapsed=int(time.monotonic()-start)
                 print(f'REGISTRANDO {elapsed:02d}/{args.seconds:02d} s | quedan {max(0,args.seconds-elapsed):02d} s',end='\r',flush=True)
-                time.sleep(0.2)
+                time.sleep(0.05)
             print()
             print('Registro terminado:',output)
     except (ReaderError,OSError,ValueError) as error:

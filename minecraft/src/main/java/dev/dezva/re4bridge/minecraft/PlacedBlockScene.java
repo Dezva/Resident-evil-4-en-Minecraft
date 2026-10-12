@@ -52,6 +52,7 @@ final class PlacedBlockScene {
     void align(double re4Yaw) {
         yaw=Math.IEEEremainder(-re4Yaw-yaw,2*Math.PI);changed();
     }
+    void rotation(double value){if(!Double.isFinite(value) || Math.abs(value)>Math.PI)throw new IllegalArgumentException("Invalid grid rotation");yaw=value;changed();}
     boolean update(Function<BlockPos,BlockState> read,Function<BlockPos,List<Box>> shapes,String world) {
         return update(read,shapes,pos -> true,world);
     }
@@ -104,6 +105,7 @@ final class PlacedBlockScene {
     }
     void collisions(boolean value){if(collisions!=value){collisions=value;changed();}}
     boolean collisions(){return collisions;}
+    double height(){return height;}
     void height(double value) {
         if (!Double.isFinite(value) || Math.abs(value)>2500) throw new IllegalArgumentException("Invalid height adjustment");
         if(height!=value){height=value;changed();}

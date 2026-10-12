@@ -146,7 +146,8 @@ static void hide_weapons(uint32_t player) {
         uint32_t vtable = *(uint32_t *)(uintptr_t)object;
         if (vtable < (uintptr_t)image_base || vtable >= (uintptr_t)image_base+image_size) continue;
         uint32_t *draw = (uint32_t *)(uintptr_t)(object+4);
-        hidden_weapons[i] = (HiddenWeapon){controller,object,vtable,*draw & RE4_MODEL_DRAW_BITS,0x34+4*i};
+        if(hidden_weapons[i].controller!=controller || hidden_weapons[i].object!=object || hidden_weapons[i].vtable!=vtable)
+            hidden_weapons[i] = (HiddenWeapon){controller,object,vtable,*draw & RE4_MODEL_DRAW_BITS,0x34+4*i};
         *draw = re4_hide_model(*draw);
     }
 }
@@ -188,6 +189,8 @@ static void restore_first_person(void) {
 
 static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
         void *matrix, void *offset, CameraPoint *point) {
+    // Auxiliary cameras must not clear the primary eye/render lease.
+    if(self!=camera_ctrl+0x278){original_camera(self,unused,matrix,offset,point);return;}
     restore_first_person();
     InterlockedIncrement(&state->camera_ticks);
     state->camera_active = 0;
@@ -255,6 +258,20 @@ static float observed_camera_yaw(unsigned char *camera) {
     float x=point.target[0]-point.position[0], z=point.target[2]-point.position[2];
     return isfinite(x) && isfinite(z) ? atan2f(x,z) : 0.f;
 }
+/* Build the final view from the current feet and independent gaze, even when
+   an idle/auxiliary camera or a later pad update ran after the primary callback. */
+static int refresh_render_frame(const ControlFrame *control,uint32_t player,float fovy) {
+    if(!player || last_player!=player || last_arm_id!=control->generation
+            || (control->flags&3u)!=3u || !(state->capabilities&2u)
+            || !re4_valid_look(control->total,control->pitch,control->eye,control->flags))return 0;
+    float feet[3],frame[12],position[3],target[3];
+    memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));
+    if(!re4_eye_frame(feet,view_yaw,control->pitch,control->eye,frame,position,target) || *player_slot!=player)return 0;
+    for(unsigned i=0;i<3;++i){render_point.position[i]=frame[4*i+3];render_point.target[i]=render_point.position[i]+target[i];}
+    render_point.roll=0;render_point.fovy=isfinite(fovy) && fovy>0 && fovy<179?fovy:50.f;
+    re4_view_frame(render_point.position,view_yaw,control->pitch,render_matrix,render_view,render_right,render_up,render_back);
+    render_player=player;render_generation=control->generation;return 1;
+}
 /* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
 static void __cdecl projection_hook(void) {
     ControlFrame control = {0};
@@ -263,6 +280,11 @@ static void __cdecl projection_hook(void) {
     uint32_t global = global_slot ? *global_slot : 0;
     unsigned char *camera = (unsigned char *)(uintptr_t)((uintptr_t)global+0x74);
     int applied = 0;
+    if(GetAsyncKeyState(VK_F8)&0x8000)InterlockedExchange(&state->stop,1);
+    cube_collision_tick(&control,complete,GetTickCount());
+    uint32_t player=current_player();
+    float fovy=50.f;
+    if(global>=0x10000 && global<=0xFFFFFE00 && readable(camera+0xC0,4))memcpy(&fovy,camera+0xC0,4);
     if (diagnostics) {
         InterlockedIncrement(&diagnostics->sequence);
         MemoryBarrier();
@@ -274,19 +296,23 @@ static void __cdecl projection_hook(void) {
         diagnostics->yaw_before=observed_camera_yaw(camera);
     }
     if (complete && armed && state->armed && !state->stop
-            && (uint32_t)(GetTickCount()-stamp) < RE4_TTL_MS && state->camera_active
-            && render_player == current_player() && generation == render_generation
+            && (uint32_t)(GetTickCount()-stamp) < RE4_TTL_MS
+            && refresh_render_frame(&control,player,fovy) && generation == render_generation
             && global >= 0x10000 && !(global & 3u) && global <= 0xFFFFFE00
             && writable(camera,0xF8) && writable(camera_ctrl+0x60,0xF8)) {
+        if(render_saved && camera!=saved_global_camera)restore_first_person();
         if (!render_saved) {
             memcpy(saved_global,camera,sizeof(saved_global)); saved_global_camera = camera;
             memcpy(saved_ctrl,camera_ctrl+0x60,sizeof(saved_ctrl)); render_saved = 1;
         }
         if (camera == saved_global_camera) {
+            if(hidden_player!=player || hidden_vtable!=*(uint32_t *)(uintptr_t)player){hidden_player=player;hidden_vtable=*(uint32_t *)(uintptr_t)player;saved_draw_bits=*(uint32_t *)(uintptr_t)(player+4)&RE4_MODEL_DRAW_BITS;}
+            if(writable((void *)(uintptr_t)(player+4),4))*(uint32_t *)(uintptr_t)(player+4)=re4_hide_model(*(uint32_t *)(uintptr_t)(player+4));
+            hide_weapons(player);
             write_render_camera(camera_ctrl+0x60); write_render_camera(camera);
-            applied = 1;
+            state->camera_active=1;applied = 1;
         }
-    } else if (render_saved) restore_first_person();
+    } else {restore_first_person();state->camera_active=0;}
     if (diagnostics) {
         diagnostics->applied=(uint32_t)applied;
         if (applied) diagnostics->writes++; else diagnostics->rejected++;
@@ -330,7 +356,7 @@ static void __cdecl pad_hook(void) {
                 if (last_look_sequence != (uint32_t)before) {
                     float *yaw = (float *)(uintptr_t)(player + 0xA4);
                     if (*player_slot == player && isfinite(*yaw) && fabsf(*yaw) <= 100000000.f) {
-                        float delta = re4_take_yaw(total, &consumed_yaw);
+                        float delta = (flags&2u)?re4_take_view_yaw(total,&consumed_yaw):re4_take_yaw(total,&consumed_yaw);
                         view_yaw = re4_wrap_yaw(((flags & 2u) ? view_yaw : *yaw) + delta);
                         *yaw = view_yaw;
                         state->applied_yaw = view_yaw;
@@ -436,7 +462,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=424; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=426; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

@@ -22,6 +22,30 @@ class NativeCaptureTests(unittest.TestCase):
                 subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             except subprocess.CalledProcessError as error:self.fail(error.stdout+'\n'+error.stderr)
 
+    def test_actual_hud_draw_restoration_and_failures(self):
+        root=Path(__file__).resolve().parents[1]
+        fixture=(root/'native/test_cube_draw.c').read_text().replace('uint32_t player;','uint32_t player,hud_generation,hud_blocked_generation;')
+        fixture=fixture.replace('height==width','height==32')
+        # Use the typed simulated driver with the actual HUD renderer.
+        a=fixture.index('static HRESULT draw(');b=fixture.index('static IDirect3DDevice9Vtbl table',a)
+        fixture=fixture[:a]+"""static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride){
+            (void)d;assert(type==D3DPT_TRIANGLELIST && (count==2 || count==4) && stride==sizeof(BlockSurfaceVertex));
+            const BlockSurfaceVertex *v=data;for(unsigned i=0;i<count*3;i++)assert(isfinite(v[i].x+v[i].y) && v[i].x>=10 && v[i].x<=650 && v[i].y>=20 && v[i].y<=500);
+            assert(current.render[D3DRS_ALPHABLENDENABLE]==1);draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
+        }
+        """+fixture[b:]
+        fixture=fixture.replace('int main(void)', 'void cube_unused_fixture_main(void)')
+        extra=(root/'native/test_hud_draw_extra.c').read_text()
+        ipc=(root/'native/hud_ipc.h').read_text();ipc=ipc[ipc.index('static int hud_command_read'):]
+        self.compile_run('hud_draw_fixture.c',fixture+extra.replace('/* ACTUAL_HUD_READER */',ipc))
+
+    def test_actual_camera_runtime_callback_order_and_gaze(self):
+        root=Path(__file__).resolve().parents[1]
+        body=(root/'native/re4_control.c').read_text()
+        body=body[body.index('static void restore_first_person'):body.index('/* Literal bytes')]
+        fixture=(root/'native/test_camera_runtime.c').read_text()
+        self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body))
+
     def test_filled_surface_clipping_ordering_and_bounds(self):
         self.compile_run("test_block_surface.c")
 

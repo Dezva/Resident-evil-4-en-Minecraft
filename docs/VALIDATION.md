@@ -673,3 +673,30 @@ de caducidad (un worker vivo no mantiene inputs antiguos) y el protocolo v6.
 
 Resultado 0.4.25: 97 Python + 21 bridge-core + 24 Minecraft, cero fallos/omisiones;
 build Fabric/remap/access-widener terminado correctamente.
+
+
+## 0.4.26
+
+Regresiones de presión: callbacks reales de colisión conservan posición segura
+ante escena tornada/gráficos temporales;1999 actualizaciones con avance60unidades
+por frame no penetran después de cada callback válido. No se confunde esto con
+colisionadores del motor: se preservan Y y física nativa y se detiene ante saltos.
+Cámara/projection/pad reales extraídos: auxiliares, idle, pad tardío,270 cambios de
+dirección, nuevo pie, yaw120deg completo, F8/TTL/generación y restauración de modelo.
+
+HUD lector real y renderer compartido:48 fallos de setters, creación/lock/pitch/
+unlock/textura/nulo/dibujo/restore y gates. No marca activos los bloques por dibujar
+HUD. Mappings/estado D3D APIs simuladas. Bootstrap PNG/sprite/quad Minecraft reales;
+GUI sprite prestado/crop/ARGB, transformación rígida y ojo/altura, modo temporal
+con cada combinación de flags y cambio de dueño. TCP real envía HUD43692 caracteres
+con escena y sigue desarmando por200ms sin muestras. Instaladores sin cambios.
+
+La nube no ejecuta RE4, driver D3D9 ni MinecraftClient/servidor local en juego:
+arranque, raycasts/edición sincronizada, rendimiento, cámara y presión física
+necesitan la prueba Windows descrita en RE4-BLOCK-0.4.26.md. El mapa auxiliar no
+se genera ni importa por sí solo; HUD es un primer conjunto de elementos.
+
+Resultado:103 Python,24 bridge-core y27 Minecraft, sin fallos ni omisiones.
+Once fixtures nativos con ASan/UBSan pasan; cuatro suites C portátiles y los
+instaladores/diagnósticos PowerShell simulados también. DLL PE32 compilada;
+access widener/JAR Fabric remapeados y build completo terminados.

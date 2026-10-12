@@ -39,7 +39,11 @@ class Preview:
     def status(self):return {'status':1,'frames':99,'draws':20,'failures':0,'last_hresult':0,
                              'requested':self.enabled,'skipped_passes':12,'reason':'pase omitido','box_count':self.count,'style':self.style,
                              'collision_state':dict(contacts=5,corrections=4,active=self.enabled,reason=0)}
-policy = ControlPolicy(Writer(),Preview())
+class Hud:
+    available=True
+    def publish(self,enabled,generation=0,hud=None):
+        print(f'HUD enabled={enabled} generation={generation} pixels={len(hud["image"]) if hud else 0}',flush=True)
+policy = ControlPolicy(Writer(),Preview(),Hud())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)

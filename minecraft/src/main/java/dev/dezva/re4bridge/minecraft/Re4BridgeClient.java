@@ -6,6 +6,7 @@ import dev.dezva.re4bridge.BridgeConfig;
 import dev.dezva.re4bridge.BridgeConnection;
 import dev.dezva.re4bridge.Re4Calibration;
 import dev.dezva.re4bridge.BlockPreview;
+import dev.dezva.re4bridge.ControllerMapping;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -57,11 +58,19 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private final ControlArming controlArming = new ControlArming();
     private int controlHudTicks;
     private final ControllerInput controllerInput=new ControllerInput();
-    private boolean minecraftWalking;
+    private boolean minecraftWalking=true;
+    private boolean synchronizedMovement=true;
+    private boolean mapEditing;
+    private boolean hudEnabled=true;
+    private final MinecraftHud minecraftHud=new MinecraftHud();
+    private ControllerMapping controllerMapping;
+    private ControllerMapping.Point lastEditorPoint;
+    private String controllerDimension;
+    private ControllerFollower controllerFollower=new ControllerFollower();
     private final MouseLook mouseLook = new MouseLook();
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
-    private double eyeHeight = 1600;
+    private double eyeHeight = 1620;
     private BlockPreview blockPreview;
     private BlockPos previewBlock;
     private String previewDimension;
@@ -85,6 +94,15 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 .then(literal("connect").executes(ctx -> connect(ctx.getSource().getClient(), false)))
                 .then(literal("re4").executes(ctx -> connect(ctx.getSource().getClient(), true)))
                 .then(literal("controller").executes(ctx -> connectController(ctx.getSource().getClient())))
+                .then(literal("hud")
+                    .then(literal("on").executes(ctx -> hud(ctx.getSource().getClient(),true)))
+                    .then(literal("off").executes(ctx -> hud(ctx.getSource().getClient(),false))))
+                .then(literal("map")
+                    .then(literal("on").executes(ctx -> editMap(ctx.getSource().getClient(),true)))
+                    .then(literal("off").executes(ctx -> editMap(ctx.getSource().getClient(),false))))
+                .then(literal("sync")
+                    .then(literal("on").executes(ctx -> synchronization(ctx.getSource().getClient(),true)))
+                    .then(literal("off").executes(ctx -> synchronization(ctx.getSource().getClient(),false))))
                 .then(literal("walking")
                     .then(literal("on").executes(ctx -> walking(ctx.getSource().getClient(),true)))
                     .then(literal("off").executes(ctx -> walking(ctx.getSource().getClient(),false))))
@@ -111,6 +129,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     say(ctx.getSource().getClient(), "Altura de camara: " + height + ". Usa arm."); return 1;
                 })))
                 .then(literal("arm").executes(ctx -> {
+                    if(mapEditing){say(ctx.getSource().getClient(),"Primero map off: el mapa auxiliar no se transfiere a RE4.");return 0;}
                     var current = bridge;
                     var sample = current == null ? null : current.re4Sample();
                     if (current == null || !current.controllerMode() || !current.status().connected()
@@ -118,11 +137,21 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         say(ctx.getSource().getClient(), "Conecta /re4bridge controller con RE4 cargado y el modulo nativo activo.");
                         return 0;
                     }
+                    var client=ctx.getSource().getClient();
+                    if(synchronizedMovement && !client.player.isCreative()){say(client,"Sincronizacion de construccion requiere creativo. Usa gamemode creative o sync off.");return 0;}
+                    if(synchronizedMovement){
+                        if(controllerMapping==null){
+                            var pos=client.player.getPos();controllerMapping=ControllerMapping.anchor(sample,pos.x,pos.y,pos.z,client.player.getYaw(),blockSize);
+                            controllerDimension=client.world.getRegistryKey().getValue().toString();
+                        }
+                        client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));
+                        lastEditorPoint=editorPoint(client,sample);
+                    }
                     following = false;
                     controlArming.request(System.nanoTime());
                     mouseLook.reset();
                     current.publishControl(false, 0, controlArming.generation());
-                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Minecraft queda quieto (walking off); F8 permite caminar de nuevo.");
+                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Steve sigue a Leon (sync on). F8 devuelve el movimiento normal de Minecraft.");
                     return 1;
                 }))
                 .then(literal("stop").executes(ctx -> {
@@ -209,7 +238,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; movimiento Minecraft="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -227,19 +256,44 @@ public final class Re4BridgeClient implements ClientModInitializer {
         });
     }
 
+    private int hud(MinecraftClient client,boolean enabled){
+        stopDriving();hudEnabled=enabled;say(client,"HUD en RE4: "+enabled+". Requiere DLL 0.4.26 y primera persona; usa arm.");return 1;
+    }
+    private int editMap(MinecraftClient client,boolean enabled){
+        stopDriving();mapEditing=enabled;
+        say(client,enabled?"Mapa auxiliar: camina y coloca cristal/suelo en Minecraft; estas nuevas colocaciones no se envian a RE4. map off termina.":"Mapa auxiliar terminado. Usa arm; se conserva la referencia y tu construccion.");return 1;
+    }
+    private ControllerMapping.Point editorPoint(MinecraftClient client,dev.dezva.re4bridge.Re4Sample sample){
+        var point=firstPersonEnabled?controllerMapping.eye(sample,eyeHeight,placedScene.height()):controllerMapping.toMinecraft(sample);
+        double height=firstPersonEnabled?client.player.getEyeHeight(client.player.getPose()):placedScene.height()/controllerMapping.scale();
+        return new ControllerMapping.Point(point.x(),point.y()-height,point.z());
+    }
+    private int synchronization(MinecraftClient client,boolean enabled){
+        if(enabled && controllerMapping==null && placedScene.anchored()){say(client,"Usa blocks on para iniciar una cuadricula sincronizada nueva.");return 0;}
+        stopDriving();synchronizedMovement=enabled;
+        say(client,enabled?"Steve sigue a Leon con referencia fija. Requiere creativo; usa arm.":"Seguimiento desactivado; las posiciones pueden separarse. Usa arm.");return 1;
+    }
     private int walking(MinecraftClient client,boolean enabled){
         stopDriving();minecraftWalking=enabled;
-        say(client,enabled?"Movimiento Minecraft habilitado junto a RE4; puede cargar chunks. Usa arm.":"Minecraft queda quieto al controlar RE4. F8 permite caminar/construir. Usa arm.");return 1;
+        say(client,enabled?"Movimiento independiente habilitado cuando sync esta off. Usa arm.":"Movimiento independiente desactivado cuando sync esta off. Usa arm.");return 1;
     }
 
     private void beforeTick(MinecraftClient client) {
         var current=bridge;
         var sample=current==null?null:current.re4Sample();
-        boolean lock=!minecraftWalking && (controlArming.active() || controlArming.pending())
+        boolean lock=(synchronizedMovement || !minecraftWalking) && (controlArming.active() || controlArming.pending())
             && current!=null && current.controllerMode() && current.status().connected()
             && sample!=null && sample.fresh(System.nanoTime()) && client.isInSingleplayer()
+            && (!synchronizedMovement || client.player!=null && client.player.isCreative())
             && client.currentScreen==null && !client.isPaused() && client.isWindowFocused();
         controllerInput.update(client.player,lock);
+        if(lock && synchronizedMovement && controllerMapping!=null && client.player!=null && client.player.isCreative()){
+            try {
+                var point=editorPoint(client,sample);
+                if(!client.world.getRegistryKey().getValue().toString().equals(controllerDimension) || lastEditorPoint!=null && (Math.abs(point.x()-lastEditorPoint.x())>8 || Math.abs(point.y()-lastEditorPoint.y())>8 || Math.abs(point.z()-lastEditorPoint.z())>8))throw new IllegalArgumentException("Salto de zona");
+                controllerFollower.follow(client,point,current);if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
+            }catch(IllegalArgumentException error){stopDriving();say(client,"Sincronizacion detenida: salto de zona. Usa blocks on para fijar otra referencia.");}
+        }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
         // even on the tick that closes arm's chat; publishing remains arm-gated.
         if (client.options.useKey.isPressed() && client.crosshairTarget instanceof BlockHitResult hit
@@ -252,7 +306,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private void capturePlacement(MinecraftClient client,Hand hand,BlockHitResult hit,boolean event) {
         var current=bridge;
         var sample=current==null?null:current.re4Sample();
-        if (!blocksEnabled || client.world==null || client.player==null || client.player.isSpectator()
+        if (mapEditing || !blocksEnabled || client.world==null || client.player==null || client.player.isSpectator()
                 || !client.isInSingleplayer() || client.currentScreen!=null || client.isPaused() || !client.isWindowFocused()
                 || current==null || !current.controllerMode() || !current.status().connected()
                 || sample==null || !sample.fresh(System.nanoTime())
@@ -264,7 +318,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
             // Include direct replacement and adjacent placement; confirmation still
             // requires a real change to the expected material, never just a click.
             for (var pos : new BlockPos[]{context.getBlockPos(),hit.getBlockPos(),hit.getBlockPos().offset(hit.getSide())}) {
-                placementTracker.attempt(pos,client.world.getBlockState(pos),item.getBlock(),box,dimension);
+                var placedBox=box;
+                if(controllerMapping!=null){var center=controllerMapping.toNative(pos.getX()+.5,pos.getY(),pos.getZ()+.5);placedBox=new BlockPreview(center.x(),center.y(),center.z(),blockSize);}
+                placementTracker.attempt(pos,client.world.getBlockState(pos),item.getBlock(),placedBox,dimension);
             }
             if (event) placementEvents++; else placementTicks++;
         } catch (IllegalArgumentException error) { /* Invalid RE4 coordinates create no selection. */ }
@@ -299,7 +355,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void disconnect(MinecraftClient client) {
-        stopDriving();
+        stopDriving();controllerFollower=new ControllerFollower();
         mouseEnabled = false; firstPersonEnabled = false;
         blocksEnabled=false;clearBlock();
         if (bridge != null) bridge.close();
@@ -319,7 +375,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void stopDriving() {
-        controllerInput.release();
+        controllerInput.release();controllerFollower.release();
         controlArming.stop("desarmado");
         placementTracker.clear();
         mouseLook.reset();
@@ -327,6 +383,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void clearBlock() {
+        controllerMapping=null;controllerDimension=null;lastEditorPoint=null;
         blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();blockMaterials.clear();
     }
 
@@ -421,7 +478,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : ControlArming.Screen.OTHER;
             controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
                 sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
-            if(!controlArming.active())controllerInput.release();
+            if(controlArming.active() && synchronizedMovement && !client.player.isCreative()){stopDriving();say(client,"Sincronizacion detenida al salir de creativo.");}
+            if(!controlArming.active()){controllerInput.release();controllerFollower.release();}
             int buttons = 0;
             if (controlArming.active()) {
                 if (client.options.forwardKey.isPressed()) buttons |= 1;
@@ -429,6 +487,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (client.options.rightKey.isPressed()) buttons |= 4;
                 if (client.options.leftKey.isPressed()) buttons |= 8;
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
+            }
+            if(controlArming.active() && synchronizedMovement && controllerMapping!=null){
+                try{controllerFollower.follow(client,editorPoint(client,sample),current);}catch(IllegalArgumentException error){stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
@@ -442,7 +503,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             for (var placed:placementTracker.pollAll(client.world::getBlockState,dimension)) {
                 boolean first=!placedScene.anchored();
                 if (placedScene.put(placed,sceneShapes(client,placed.pos()),client.player.getYaw())) {
-                    if (first) placedScene.align(sample.yawRadians());
+                    if(first){if(controllerMapping!=null)placedScene.rotation(controllerMapping.rotation());else placedScene.align(sample.yawRadians());}
                     placementsConfirmed++;
                     say(client,"Bloque colocado detectado. Cuadricula: "+placedScene.size()+" bloques.");
                 } else say(client,"Bloque no agregado: limite de bloques/formas o forma fuera del rango permitido.");
@@ -454,7 +515,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
             }
             if(placedScene.style()==3)blockMaterials.resources(client);
             var scene=placedScene.snapshot((pos,state) -> blockMaterials.faces(client,pos,state),blockMaterials);
-            if (scene!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene);
+            dev.dezva.re4bridge.HudFrame hud=null;
+            if(controlArming.active() && firstPersonEnabled && hudEnabled && current.hudAvailable()){
+                try{hud=minecraftHud.snapshot(client);}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;say(client,"HUD desactivado: "+error.getMessage());}
+            }
+            if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
                 "RE4: " + controlArming.reason() + " | arm=" + (current.nativeArmed() ? "si" : "no")

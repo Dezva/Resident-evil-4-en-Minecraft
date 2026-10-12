@@ -35,6 +35,8 @@ static HRESULT fake_Present(IDirect3DDevice9 *self,const RECT *a,const RECT *b,H
 #include "test_device_passthrough.h"
 #define CUBE_TEST_DRAW_STUB
 #include "cube_device.h"
+static void hud_render_device(CubeDevice *f){(void)f;}
+static void hud_reset_device(CubeDevice *f){(void)f;}
 static void cube_render_device(CubeDevice *f) {if (f->scene && !f->escaped && !f->resetting) renders++;}
 int main(void) {
     inner.lpVtbl=&native_table;native_refs=1;last_error=777;

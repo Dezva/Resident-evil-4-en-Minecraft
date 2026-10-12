@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.25"
-    mod_version = "0.4.25"
+    version = "0.4.26"
+    mod_version = "0.4.26"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4":
-        raise SystemExit("0.4.25 requires the unchanged 0.4.24 v6 native DLL")
+    if native_hash != "0c26f90b1f1aff959a72a207c5e80b17c9943ccec924eb6b37e8a5030be9e35d":
+        raise SystemExit("0.4.26 requires its compiled v6 + HUD/camera/collision native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -67,12 +67,13 @@ def main():
                            (root / "native/build/dinput8.dll", "native/dinput8.dll"),
                            (root / "tools/re4_live_host.py", "tools/re4_live_host.py"),
                            (root / "tools/re4_control.py", "tools/re4_control.py"),
+                           (root / "tools/re4_hud.py", "tools/re4_hud.py"),
                            (root / "tools/re4_block_preview.py", "tools/re4_block_preview.py"),
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
                            (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.25.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.26.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),

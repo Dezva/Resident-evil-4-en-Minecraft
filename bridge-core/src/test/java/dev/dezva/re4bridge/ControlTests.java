@@ -27,7 +27,7 @@ class ControlTests {
             await(bridge::sceneAvailable);
             await(bridge::surfaceAvailable);
             await(bridge::textureAvailable);
-            await(bridge::materialsAvailable);await(bridge::collisionAvailable);
+            await(bridge::materialsAvailable);await(bridge::collisionAvailable);await(bridge::hudAvailable);
             assertFalse(bridge.nativeArmed());
             bridge.publishControl(false,0,0,null,new BlockPreview(1,2,3003,1000));
             await(() -> bridge.status().acknowledgedSequence()>=2);
@@ -66,6 +66,9 @@ class ControlTests {
             bridge.publishSceneControl(true,5,1,null,material);await(() -> bridge.previewStyle()==3);assertEquals(5,bridge.collisionContacts());assertEquals(4,bridge.collisionCorrections());
 
             assertTrue(Files.readString(log).contains("'origin': [10.0, 20.0, 30.0, 0.0]"));
+            var hud=new HudFrame(java.util.Base64.getEncoder().encodeToString(new byte[HudFrame.BYTES]));
+            bridge.publishSceneControl(true,5,1,new MouseLook.Input(true,true,0,0,1600),material,hud);
+            await(() -> {try{return Files.readString(log).contains("HUD enabled=True generation=1 pixels=43692");}catch(Exception e){return false;}});
             bridge.publishControl(true,5,1);
             // The network worker remains running; absence of new client ticks must still stop input.
             await(() -> !bridge.nativeArmed());

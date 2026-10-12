@@ -691,3 +691,48 @@ caducidades de input200ms/nativo500ms y rechazo gráfico/colisión. No se cambia
 ABI, hooks, física nativa, instaladores ni DLL: SHA256 f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4,
 build424/v6. Se publica paquete completo 0.4.25 con JAR/core/host actualizados.
 Prueba visual y de rendimiento real pendiente de Windows.
+
+
+## 0.4.26 — coordenadas comunes, callbacks de cámara, barrera persistente y HUD
+
+Usuario confirmó texturas0.4.25; el controlador fijo limita construcción y
+mantener W permite atravesar bloques. Cámara aún desvía en reposo y salta con
+A/D/W/S. Sugiere mapa auxiliar de cristal del inicio. No hay geometría RE4
+extraída: se implementa map on/off para editar manualmente el auxiliar sin
+transferir nuevas colocaciones, conservando las construcciones anteriores.
+
+ControllerMapping fija escala/rotación/posición al armar; cajas usan centros
+reales de las colocaciones, no la distancia arbitraria tres bloques. Transformación
+inversa lleva el editor a la posición de Leon conservando referencia entre arms.
+Incluye ojo1620 y desplazamiento de altura, creativo local, input temporal y
+vuelo/noclip de editor restaurados al parar. Cliente antes/después del tick;
+servidor con tarea acotada/fresca, sin paquetes de teleportación de rotación.
+Cambiar mundo renueva el seguidor; salir de creativo detiene el control.
+
+Cámara auxiliar ya no restaura/invalida la principal. Projection recalcula mirada
+independiente/posición actual aunque pad haya restaurado la cámara anteriormente.
+Giro FP acumulado completo para no mantener cola de30deg al girar rápido.
+Modelo/armas se ocultan sin perder sus bits guardados con proyecciones repetidas.
+
+Un comando temporalmente ilegible o gráfico no disponible borraba referencia
+segura de colisión; se podía adoptar el punto penetrado y la salida permisiva lo
+dejaba atravesar. Fallos breves ahora conservan referencia/edad; comprobación
+adicional en projection existente. Saltos >500 y referencia >=500ms paran sin
+arrastrar. No cambian input200ms/control500ms ni se escribe Y/velocidad/animación.
+
+HUD v1/32792 separado: imagen256x32 local con fondo/selección GUI, partículas
+planas de items y cuentas; mira nativa, solo FP. Sin imágenes de juego publicadas,
+ni HP/hambre/mano/inventario completo. Captura/restauración D3DSBT_ALL, recursos
+transitorios, generación/F8/TTL/dispositivo/reset. HUD no habilita active de la
+escena para evitar colisión invisible. Helper de estado compartido conserva el
+orden anterior de43 setters del atlas y agrega5 para mira. Instalar DLL nueva
+build426; ABI control80/v2, escena96352/v6 y telemetrías conservados. Host acepta
+v6/424 y v6/426. CameraTrace añade métricas de colisión/dibujo a20Hz; registry SHA.
+
+Pruebas nuevas usan funciones reales extraídas de cámara/projection/pad/lectorHUD,
+11 fixtures nativos, presión1999 frames con pérdidas intermitentes, dirección y
+mirada independientes, mouse120deg inmediato, modelos restaurados, HUD48 fallos
++ texturas + recursos + flags/caducidad; transformatrices y ojo/altura, modos de
+editor, GUI NativeImage real y TCP con HUD. Ver VALIDATION. Prueba Windows pendiente;
+no se da la cámara, colisión ni seguimiento real por confirmados en la nube.
+DLL SHA2560c26f90b1f1aff959a72a207c5e80b17c9943ccec924eb6b37e8a5030be9e35d.

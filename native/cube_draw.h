@@ -1,3 +1,4 @@
+#include "overlay_state.h"
 #include "block_surface.h"
 #include "block_texture.h"
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
@@ -84,39 +85,7 @@ static void cube_render_device(CubeDevice *f) {
     if (SUCCEEDED(hr)) {
         if (atlas) hr=block_texture_create_with_tiles(device,&stone,&command);
         else if (textured) hr=block_texture_create(device,&stone);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetVertexShader(device,NULL);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetPixelShader(device,NULL);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetFVF(device,D3DFVF_XYZRHW|D3DFVF_DIFFUSE|(textured?D3DFVF_TEX1:0));
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTexture(device,0,(IDirect3DBaseTexture9*)stone);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLOROP,textured?D3DTOP_MODULATE:D3DTOP_SELECTARG1);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLORARG1,textured?D3DTA_TEXTURE:D3DTA_DIFFUSE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAOP,atlas?D3DTOP_MODULATE:D3DTOP_SELECTARG1);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAARG1,atlas?D3DTA_TEXTURE:D3DTA_DIFFUSE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,1,D3DTSS_COLOROP,D3DTOP_DISABLE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_COLORARG2,D3DTA_DIFFUSE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_TEXCOORDINDEX,0);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_TEXTURETRANSFORMFLAGS,D3DTTFF_DISABLE);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_RESULTARG,D3DTA_CURRENT);
-        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetTextureStageState(device,0,D3DTSS_ALPHAARG2,D3DTA_DIFFUSE);
-        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_SRCBLEND,D3DBLEND_SRCALPHA);
-        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_DESTBLEND,D3DBLEND_INVSRCALPHA);
-        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_BLENDOP,D3DBLENDOP_ADD);
-        if(atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_SEPARATEALPHABLENDENABLE,FALSE);
-        static const struct {D3DSAMPLERSTATETYPE state;DWORD value;} samplers[]={
-            {D3DSAMP_ADDRESSU,D3DTADDRESS_CLAMP},{D3DSAMP_ADDRESSV,D3DTADDRESS_CLAMP},
-            {D3DSAMP_MINFILTER,D3DTEXF_POINT},{D3DSAMP_MAGFILTER,D3DTEXF_POINT},{D3DSAMP_MIPFILTER,D3DTEXF_NONE},
-            {D3DSAMP_MAXMIPLEVEL,0},{D3DSAMP_MIPMAPLODBIAS,0},{D3DSAMP_SRGBTEXTURE,FALSE}};
-        if (textured) for (unsigned i=0;SUCCEEDED(hr) && i<sizeof(samplers)/sizeof(samplers[0]);++i)
-            hr=device->lpVtbl->SetSamplerState(device,0,samplers[i].state,samplers[i].value);
-        static const struct {D3DRENDERSTATETYPE state;DWORD value;} states[]={
-            {D3DRS_WRAP0,0},{D3DRS_ZENABLE,FALSE},{D3DRS_ZWRITEENABLE,FALSE},{D3DRS_ALPHABLENDENABLE,FALSE},
-            {D3DRS_ALPHATESTENABLE,FALSE},{D3DRS_LIGHTING,FALSE},{D3DRS_FOGENABLE,FALSE},
-            {D3DRS_SCISSORTESTENABLE,FALSE},{D3DRS_CLIPPLANEENABLE,0},{D3DRS_COLORWRITEENABLE,15},
-            {D3DRS_CULLMODE,D3DCULL_NONE},{D3DRS_SRGBWRITEENABLE,FALSE},{D3DRS_STENCILENABLE,FALSE},
-            {D3DRS_COLORWRITEENABLE1,0},{D3DRS_COLORWRITEENABLE2,0},{D3DRS_COLORWRITEENABLE3,0}};
-        for (unsigned i=0;SUCCEEDED(hr) && i<sizeof(states)/sizeof(states[0]);++i)
-            hr=device->lpVtbl->SetRenderState(device,states[i].state,atlas && states[i].state==D3DRS_ALPHABLENDENABLE?1:states[i].value);
-        if (SUCCEEDED(hr)) hr=device->lpVtbl->SetRenderState(device,D3DRS_FILLMODE,D3DFILL_SOLID);
+        if(SUCCEEDED(hr))hr=overlay_prepare_state(device,(IDirect3DBaseTexture9*)stone,textured,atlas);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,solid?D3DPT_TRIANGLELIST:D3DPT_LINELIST,count/(solid?3:2),vertices,solid?sizeof(BlockSurfaceVertex):sizeof(BlockVertex));
         HRESULT restored=backup->lpVtbl->Apply(backup);
         if (FAILED(restored)) {f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);}

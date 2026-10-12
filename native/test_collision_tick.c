@@ -11,6 +11,7 @@ static void ReleaseSRWLockExclusive(SRWLOCK *lock){assert(lock->held);lock->held
 #define VK_F8 119
 static void MemoryBarrier(void){}
 static void InterlockedIncrement(LONG *p){++*p;}
+static LONG InterlockedCompareExchange(LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
 typedef struct {uint32_t armed,stop;} Shared;
 static Shared control_state={1,0},*state=&control_state;
 typedef struct {uint32_t generation,armed,stamp;} ControlFrame;
@@ -56,11 +57,24 @@ int main(void) {
         cube_collision_tick(&c,1,now);assert(!report.corrections && coordinate(0)==(fail==9?103:100) && coordinate(1)==8 && !collision_tick_lock.held);
     }
     c=reset();cube_collision_tick(&c,1,now);pose(1000,0,0);cube_collision_tick(&c,1,now);assert(report.reason==4 && coordinate(0)==1000);
-    c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);now=1101;cube_collision_tick(&c,1,now);assert(report.reason==2 && coordinate(0)==100);
+    c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);now=1101;cube_collision_tick(&c,1,now);assert(report.corrections==1 && coordinate(0)<-250);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);published.origin[0]=1;cube_collision_tick(&c,1,now);assert(report.reason==2 && coordinate(0)==100);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);collision_tick_lock.held=1;cube_collision_tick(&c,1,now);assert(coordinate(0)==100 && !report.corrections);collision_tick_lock.held=0;
     c=reset();cube_collision_tick(&c,1,now);pose(NAN,0,0);cube_collision_tick(&c,1,now);assert(!report.active && report.reason==3 && !report.corrections);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);graphics_ready=0;cube_collision_tick(&c,1,now);assert(!report.active && !report.corrections && coordinate(0)==100);
+    // Continuous W with transient torn snapshots/graphics gaps must not rebaseline inside.
+    c=reset();cube_collision_tick(&c,1,now);
+    for(unsigned frame=1;frame<2000;frame++){
+        now+=16;c.stamp=published.stamp=now;
+        float advance=coordinate(0)+60;pose(advance,8,0);
+        torn=frame%23==0;graphics_ready=frame%17!=0;
+        cube_collision_tick(&c,1,now);
+        assert(coordinate(1)==8 && !state->stop);
+        if(!torn && graphics_ready)assert(coordinate(0)<-250);
+    }
+    assert(report.corrections>1800);
+    c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);torn=1;cube_collision_tick(&c,1,now);
+    assert(coordinate(0)==100 && collision_player);torn=0;cube_collision_tick(&c,1,now);assert(coordinate(0)<-250);
     c=reset();collision_shared=NULL;cube_collision_tick(&c,1,now);assert(coordinate(0)==-300);
     puts("Actual collision callback: arm/lease/F8/generation, pointer/pose race checks, no Y writes, teleport rebaseline and reentrancy passed");
 }

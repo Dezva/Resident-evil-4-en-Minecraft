@@ -14,4 +14,5 @@ test {
     inputs.file('../tools/fixtures/re4_peer.py')
     inputs.file('../tools/fixtures/control_peer.py')
     inputs.file('../tools/re4_control.py')
+    inputs.file('../tools/re4_hud.py')
 }

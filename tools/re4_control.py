@@ -7,12 +7,14 @@ import math
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
 from re4_block_preview import validate_preview
+from re4_hud import validate_hud
 
 MAGIC = 0x52453443
 
 
 def validate_control(frame):
     validate_preview(frame.get('preview'))
+    validate_hud(frame.get('hud'))
     if frame.get("type") != "re4_control" or type(frame.get("armed")) is not bool:
         raise ProtocolError("Invalid control frame")
     if type(frame.get("buttons")) is not int or frame["buttons"] < 0 or frame["buttons"] & ~79:
@@ -37,9 +39,10 @@ def validate_control(frame):
 
 class ControlPolicy:
     """New explicit arm generation required after a stop. Tested with fake IPC."""
-    def __init__(self, writer, preview=None):
+    def __init__(self, writer, preview=None, hud=None):
         self.writer = writer
         self.preview = preview
+        self.hud = hud
         self.generation = 0
         self.armed = False
 
@@ -83,9 +86,13 @@ class ControlPolicy:
         if box and box.get('collisions',False) and (self.preview is None or not getattr(self.preview,'collision_available',False)):
             self.armed=False
             reason='canal de colision no disponible; reinicia RE4'
+        hud=frame.get('hud')
+        if hud is not None and (self.hud is None or not self.hud.available or not look or not look.get('first_person')):
+            self.armed=False;reason='HUD requiere DLL0.4.26 y primera persona'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
-        result = {"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
+        if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
+        result = {"hud_available":self.hud is not None and self.hud.available,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
                 "reason": "activo" if self.armed else reason,
                 "capabilities": status.get("capabilities", 0), "camera_active": status.get("camera_active", False),
@@ -104,12 +111,14 @@ class ControlPolicy:
                 self.armed=False
                 self.writer.publish(False,0)
                 self.preview.publish(False,frame['arm_id'])
+                if self.hud is not None:self.hud.publish(False)
                 result['armed']=False
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
                 result['preview_state']=self.preview.status()
         return result
 
     def stop(self):
+        if self.hud is not None:self.hud.publish(False)
         self.armed = False
         self.writer.publish(False, 0)
         if self.preview is not None: self.preview.publish(False,0)

@@ -10,6 +10,13 @@ static inline float re4_take_yaw(float total, float *consumed) {
     *consumed += delta;
     return -delta * (3.14159265358979323846f / 180.f);
 }
+/* FP follows Minecraft's newest gaze directly. A 30-degree queue made the
+   displayed ray lag behind the placement ray after larger mouse turns. */
+static inline float re4_take_view_yaw(float total,float *consumed){
+    if(!isfinite(total) || !isfinite(*consumed) || fabsf(total)>10000000.f)return 0;
+    float delta=total-*consumed;*consumed=total;
+    return -delta*(3.14159265358979323846f/180.f);
+}
 static inline float re4_wrap_yaw(float yaw) {
     return remainderf(yaw, 6.2831853071795864769f);
 }

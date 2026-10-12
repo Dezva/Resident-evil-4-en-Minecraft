@@ -367,3 +367,17 @@ La prueba manual debe confirmar que moverse cambia `feet`, colocar/quitar bloque
 cambia `blocks`, y que losas superior/inferior producen las cajas esperadas. La
 etapa nativa exigirá además evidencia dentro de RE4 de renderizado, colisiones
 en ambos sentidos y daño atribuible a eventos únicos.
+
+
+## Extension0.4.26
+
+Control TCP puede incluir hud={image:Base64} solo armado y con look.first_person.
+Imagen exactamente256x32 ARGB little-endian (32768 bytes /43692 caracteres). ACK
+hud_available boolean estricto. Campo opcional mantiene compatibilidad de frames.
+Local\\RE4Bridge-HudCommand-PID v1/32792: magic0x52453448,version,sequence,stamp,
+enabled,generation (24 bytes),8192 uint32 pixels. Escritura odd/body/even, enabled
+0/1; gen1..INT_MAX para activo, frescura500ms, mismo gen control80/v2 armado/FP,
+F8, facade válida, backbuffer, BeginScene, reset/present/escape. HUD no activa
+CubeTelemetry.active. Shutdown/disarm borra enabled,gen,pixels. Un host controla
+ambos canales bajo el mutex CubeWriter existente. APIs de captura/render conservadas.
+Build426 con escena v6/96352; lectores reconocen par426/v6 y colisión426/v1.

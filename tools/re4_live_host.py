@@ -10,6 +10,7 @@ from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locat
 from re4_control import NativeControl, ControlPolicy
 from re4_graphics_capture import read_capture
 from re4_block_preview import NativePreview
+from re4_hud import NativeHud
 
 
 def main():
@@ -21,6 +22,7 @@ def main():
     process = None
     native = None
     preview = None
+    hud = None
     try:
         config = load_config(args.game_dir / "config" / "re4bridge.json")
         pid = find_pid()
@@ -30,7 +32,8 @@ def main():
         if args.control:
             native = NativeControl(pid)
             preview = NativePreview(pid,process.k)
-            print('Host 0.4.25 (DLL 0.4.24): cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
+            hud=NativeHud(pid,process.k)
+            print('Host 0.4.26: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -57,7 +60,7 @@ def main():
             while True:
                 peer, _ = server.accept()
                 with peer:
-                    policy = ControlPolicy(native,preview) if native is not None else None
+                    policy = ControlPolicy(native,preview,hud) if native is not None else None
                     try:
                         serve_peer(peer, config["token"], {}, provider, policy.apply if policy else None)
                     except (ProtocolError, OSError) as error:
@@ -72,6 +75,7 @@ def main():
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     finally:
+        if hud is not None:hud.close()
         if preview is not None:
             preview.close()
         if native is not None:

@@ -66,6 +66,15 @@ class CameraTraceTests(unittest.TestCase):
         struct.pack_into('<I',m.data,0x3200,0)
         self.assertNotIn('global_camera_point',observation(m.read,m.base,m.size,m.slot,addresses))
 
+    def test_trace_collision_metrics_are_readonly_and_include_reference_reasons(self):
+        from re4_camera_trace import add_barrier_observation
+        from test_cube_test import Kernel
+        kernel=Kernel(version=6,build=426);before=kernel.collision.raw;row={}
+        add_barrier_observation(row,kernel,42)
+        self.assertEqual(kernel.collision.raw,before);self.assertEqual(row['collision_state']['reason'],1)
+        self.assertEqual(row['cube_state']['build'],426)
+        self.assertNotIn('collision_error',row)
+
     def frame(self):
         data = bytearray(80)
         struct.pack_into('<10I', data, 0, 0x52453443, 2, 2, 100, 1, 0, 0, 1, 10, 0)

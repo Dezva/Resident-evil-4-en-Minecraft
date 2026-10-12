@@ -8,6 +8,9 @@ int main(void) {
     re4_take_yaw(90, &consumed); assert(consumed == 40);
     re4_take_yaw(90, &consumed); re4_take_yaw(90, &consumed); assert(consumed == 90);
     assert(re4_take_yaw(NAN, &consumed) == 0 && consumed == 90);
+    consumed=0;assert(fabsf(re4_take_view_yaw(120,&consumed)+2.0943951f)<.00001f && consumed==120);
+    assert(re4_take_view_yaw(120,&consumed)==0);
+    assert(re4_take_view_yaw(NAN,&consumed)==0 && consumed==120);
     assert(re4_valid_look(100, 85, 160, 3));
     assert(!re4_valid_look(100, 86, 160, 3));
     assert(!re4_valid_look(100, 0, 160, 2));

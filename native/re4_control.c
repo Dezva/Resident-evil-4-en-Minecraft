@@ -59,6 +59,8 @@ typedef struct {
     uint32_t sequence, stamp, armed, buttons, flags, generation;
     float total, pitch, eye;
 } ControlFrame;
+typedef struct {unsigned valid;ControlFrame control;uint32_t pad_ticks,camera_ticks,player,vtable,validated_at;float feet[3];} ProjectionCache;
+static ProjectionCache projection_cache;
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now);
 static ControlFrame cached_frame;
 static int have_cached_frame;
@@ -156,6 +158,7 @@ static void hide_weapons(uint32_t player) {
 static void restore_first_person(void) {
     /* This callback is on a shared projection thunk, including ordinary RE4 draws. */
     if(!render_saved && !eye_matrix && !hidden_player && !hidden_weapons[0].object && !hidden_weapons[1].object)return;
+    projection_cache.valid=0;
     if (render_saved) {
         if (writable(camera_ctrl+0x60,sizeof(saved_ctrl))) memcpy(camera_ctrl+0x60,saved_ctrl,sizeof(saved_ctrl));
         uint32_t global = global_slot ? *global_slot : 0;
@@ -274,11 +277,43 @@ static int refresh_render_frame(const ControlFrame *control,uint32_t player,floa
     re4_view_frame(render_point.position,view_yaw,control->pitch,render_matrix,render_view,render_right,render_up,render_back);
     render_player=player;render_generation=control->generation;return 1;
 }
+/* Reuse the validated camera/model pages only within the same native update,
+   for at most 16ms. Input/pose/pointer/owner/FOV changes take the full checks. */
+static int projection_reuse(uint32_t now){
+    ProjectionCache *cache=&projection_cache;
+    if(!cache->valid || !render_saved || !state->camera_active || !global_slot || !player_slot
+        || (uint32_t)state->sequence!=cache->control.sequence || state->hook_ticks!=(LONG)cache->pad_ticks
+        || state->camera_ticks!=(LONG)cache->camera_ticks || (uint32_t)(now-cache->validated_at)>=16
+        || (uint32_t)(now-cache->control.stamp)>=RE4_TTL_MS
+        || *player_slot!=cache->player || (uintptr_t)saved_global_camera!=(uintptr_t)*global_slot+0x74)return 0;
+    uint32_t player=cache->player;
+    if(*(uint32_t*)(uintptr_t)player!=cache->vtable
+        || memcmp(cache->feet,(void*)(uintptr_t)(player+0x94),12))return 0;
+    float fovy;memcpy(&fovy,saved_global_camera+0xC0,4);
+    if(fovy!=render_point.fovy)return 0;
+    for(unsigned i=0;i<2;i++){
+        HiddenWeapon *w=&hidden_weapons[i];
+        if(!w->object)continue;
+        if(*(uint32_t*)(uintptr_t)(player+0x7D8)!=w->controller
+            || *(uint32_t*)(uintptr_t)(w->controller+w->slot)!=w->object
+            || *(uint32_t*)(uintptr_t)w->object!=w->vtable)return 0;
+    }
+    if(GetAsyncKeyState(VK_F8)&0x8000){InterlockedExchange(&state->stop,1);return 0;}
+    if(!state->armed || state->stop || (uint32_t)state->sequence!=cache->control.sequence
+        || *player_slot!=player || (uintptr_t)saved_global_camera!=(uintptr_t)*global_slot+0x74
+        || memcmp(cache->feet,(void*)(uintptr_t)(player+0x94),12))return 0;
+    /* The native projection can overwrite matrices/flags; always reapply them. */
+    *(uint32_t*)(uintptr_t)(player+4)=re4_hide_model(*(uint32_t*)(uintptr_t)(player+4));
+    for(unsigned i=0;i<2;i++)if(hidden_weapons[i].object){uint32_t *draw=(uint32_t*)(uintptr_t)(hidden_weapons[i].object+4);*draw=re4_hide_model(*draw);}
+    write_render_camera(camera_ctrl+0x60);write_render_camera(saved_global_camera);
+    return 1;
+}
 /* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
 static void __cdecl projection_hook(void) {
     /* Never query actor/camera memory or poll keys on dormant projection calls.
        The observed E9 entry serves callers beyond the six recognized call sites. */
     if(!state || !state->armed || state->stop){
+        projection_cache.valid=0;
         restore_first_person();
         if(state)state->camera_active=0;
         if(diagnostics && diagnostics->applied){
@@ -288,6 +323,8 @@ static void __cdecl projection_hook(void) {
         }
         original_projection();return;
     }
+    if(projection_reuse(GetTickCount())){original_projection();return;}
+    projection_cache.valid=0;
     ControlFrame control = {0};
     int complete = read_control_frame(&control);
     uint32_t armed = control.armed, stamp = control.stamp, generation = control.generation;
@@ -325,6 +362,9 @@ static void __cdecl projection_hook(void) {
             hide_weapons(player);
             write_render_camera(camera_ctrl+0x60); write_render_camera(camera);
             state->camera_active=1;applied = 1;
+            projection_cache=(ProjectionCache){.valid=1,.control=control,.pad_ticks=(uint32_t)state->hook_ticks,
+                .camera_ticks=(uint32_t)state->camera_ticks,.player=player,.vtable=hidden_vtable,.validated_at=GetTickCount()};
+            memcpy(projection_cache.feet,(void*)(uintptr_t)(player+0x94),12);
         }
     } else {restore_first_person();state->camera_active=0;}
     if (diagnostics) {
@@ -476,7 +516,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=428; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=429; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

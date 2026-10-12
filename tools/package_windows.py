@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.28"
+    version = "0.4.29"
     mod_version = "0.4.26"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "374e92fc07b52abc1ed894897374869f4d69955b9d50ab0f80b1e9ae0ff93187":
-        raise SystemExit("0.4.28 requires its compiled v6 + HUD/camera/collision native DLL")
+    if native_hash != "c065b2d143d8d92fc2b71f1d12b94f20086160ad568e3de91f5c9a8edf1dca5a":
+        raise SystemExit("0.4.29 requires its compiled v6 + HUD/camera/collision native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -71,9 +71,11 @@ def main():
                            (root / "tools/re4_block_preview.py", "tools/re4_block_preview.py"),
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
                            (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
+                           (root / "MEASURE-RE4-MOVEMENT.bat", "MEASURE-RE4-MOVEMENT.bat"),
+                           (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.28.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.29.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),
@@ -93,7 +95,7 @@ def main():
                  "gradle.properties", "gradlew", "gradlew.bat", "START-SIMULATOR.bat", "START-RE4-BRIDGE.bat", "START-RE4-READER.bat",
                  "START-RE4-CONTROLS.bat", "INSTALL-RE4-CONTROLS.ps1", "UNINSTALL-RE4-CONTROLS.ps1",
                  "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.ps1",
-                 "PROBE-RE4-NATIVE.bat", "PROBE-RE4-GRAPHICS.bat", "CAPTURE-RE4-GRAPHICS.bat", "TEST-RE4-CUBE.bat", "AUDIT-RE4-IMPORTS.bat", "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.ps1", "VIEW-RE4.bat", "VIEW-RE4.ps1", "TRACE-RE4-CAMERA.bat",
+                 "PROBE-RE4-NATIVE.bat", "PROBE-RE4-GRAPHICS.bat", "CAPTURE-RE4-GRAPHICS.bat", "TEST-RE4-CUBE.bat", "AUDIT-RE4-IMPORTS.bat", "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.ps1", "VIEW-RE4.bat", "VIEW-RE4.ps1", "TRACE-RE4-CAMERA.bat", "MEASURE-RE4-MOVEMENT.bat",
                  "INSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat",
                  "bridge-core/build.gradle", "minecraft/build.gradle"]
     files = [root / name for name in top_level]

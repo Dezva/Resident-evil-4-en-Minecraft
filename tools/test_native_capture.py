@@ -44,7 +44,8 @@ class NativeCaptureTests(unittest.TestCase):
     def test_actual_camera_runtime_callback_order_and_gaze(self):
         root=Path(__file__).resolve().parents[1]
         body=(root/'native/re4_control.c').read_text()
-        body=body[body.index('static void restore_first_person'):body.index('/* Literal bytes')]
+        helpers=body[body.index('static uint32_t weapon_controller'):body.index('/* Restore before native logic.')]
+        body=helpers+body[body.index('static void restore_first_person'):body.index('/* Literal bytes')]
         fixture=(root/'native/test_camera_runtime.c').read_text()
         self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body))
 

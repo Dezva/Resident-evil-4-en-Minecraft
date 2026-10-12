@@ -747,3 +747,28 @@ compilada mantiene separados los frames grandes de los renderizadores activos.
 Resultado:104 Python,11 fixtures C con ASan/UBSan, cuatro suites C portátiles y
 fixtures PowerShell. JAR/API/instaladores/VIEW byte-idénticos a0.4.26. No se ejecuta
 RE4 ni un driver real; no se atribuye aún una recuperación de FPS al cambio.
+
+## 0.4.29
+
+Confirmación del usuario:0.4.28 va bien con RE4 solo y con Minecraft sin puente;
+el coste aparece tras arm/primera persona. Sprint se transmite y aumenta algo la
+velocidad, pero el movimiento sigue percibiéndose más lento que en RE4 normal.
+
+Callbacks reales de cámara/modelos/armas y collider integrados en el fixture:
+10000 reaplicaciones de una vista en la misma actualización no consultan memoria,
+control/actor/barrera ni reconstruyen la cámara; reaplican matriz y bits si la
+función original los sobrescribe. Nueva posición antes/después de la comprobación
+de F8, FOV, entrada, propietario, frame,16ms,500ms y parada invalidan la caché.
+2000 pasos tardíos contra una pared con collider real corrigen pies/vista sin
+penetrar. Se conservan los1999 pasos con fallos temporales del fixture de barrera.
+
+Medidor de movimiento: reloj monotónico, distanciaXZ/unidades y bloques por
+segundo, KEY_RUN efectivo, contador PadRead (no FPS) y exclusión de contactos/
+transición/desarmado. CLI ejecuta ambas fases con lector real y proceso simulado
+sin atributoPID, señal/wait simulados y reporte temporal. Patrones de teclas
+únicos/acotados; únicamente lecturas de proceso/IPC. No modifica velocidades.
+
+Resultado:109 Python,11 fixtures C bajo ASan/UBSan, cuatro suites C portátiles
+y PowerShell. DLL Win32 compilada; JAR/API/instaladores/VIEW sin cambios. No se
+mide aquí GPU/RE4 ni se iguala todavía su locomoción a Minecraft: dos capturas
+Windows comparables son el siguiente dato requerido para calibrarla.

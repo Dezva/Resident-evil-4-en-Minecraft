@@ -1,5 +1,25 @@
 # Registro de desarrollo
 
+## 0.4.29 — reutilización de vista activa y medición de movimiento
+
+Usuario confirma mejora28 desarmado, caída tras arm/FP y menor velocidad incluso
+con sprint que sí tiene efecto. Projection reusa vista dentro del mismo update
+y<=16ms, conservando F8/TTL y comprobando entrada/frame/pose/propietarios/FOV.
+Cambios obligan al camino completo; matrices/flags se reaplican tras sobrescritura
+nativa. Movimiento tardío sigue pasando por la barrera. Modelo oculta solo
+draw/shadow0x12; motion0x4000 no se modifica, como confirma SDKcUnit de referencia.
+
+Fixture integra funciones reales de modelos/cámara y collision_tick:10000 vistas
+idénticas sin trabajo completo repetido,2000 avances tardíos corregidos por pared,
+propietarios/FOV/input/límite16ms/500ms/F8. Medidor standalone de solo lectura,
+F10+cuenta atrás/tonos, caminar/correr4s, posición/KEY_ON/cadenciaPadRead/contactos,
+JSON y rechazo de datos no comparables. No se impone multiplicador de velocidad.
+Se solicitarán casos normal/armado para separar coste de actualización y ajuste.
+
+Build429/JAR26 sin cambios, ABIs iguales.109Python,11fixturesASan/UBSan,4C y
+PowerShell. Rendimiento, audio y velocidad reales pendientes de Windows.
+DLLc065b2d143d8d92fc2b71f1d12b94f20086160ad568e3de91f5c9a8edf1dca5a.
+
 ## 0.4.28 — camino inactivo y llamadas gráficas nativas
 
 RE4 sigue lento incluso solo, según nueva confirmación del usuario. Captura

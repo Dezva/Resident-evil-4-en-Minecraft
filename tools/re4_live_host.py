@@ -33,7 +33,7 @@ def main():
             native = NativeControl(pid)
             preview = NativePreview(pid,process.k)
             hud=NativeHud(pid,process.k)
-            print('Host 0.4.28: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
+            print('Host 0.4.29: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

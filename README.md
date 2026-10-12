@@ -5,18 +5,17 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.31: VIEW para construir y referencias del mapa](docs/RE4-BLOCK-0.4.31.md).
-El paquete conserva el mod Minecraft 0.4.26.
-Las texturas0.4.25 fueron confirmadas. Se reemplaza el controlador fijo por
-seguimiento de Leon en creativo, con una transformación común de jugador y
-construcción. Se corrigen referencias perdidas bajo presión contra paredes y
-la invalidación de cámara entre callbacks. Se añade mira/barra de nueve ranuras
-con previsualizaciones planas de materiales y modo auxiliar para editar un mapa
-de cristal solo en Minecraft. No se ha creado/importado automáticamente el mapa
-RE4. DLL/JAR/host nuevos; Fabric/API iguales. Prueba real pendiente en Windows.
-Faltan apoyo vertical/salto, otros actores, ocultación por escenario, terreno
-importado, HUD completo y combate.64 bloques/128 cajas/64 teselas; escala1000.
-0.4.25 queda como recuperación. **0.4.13 está retirada.**
+**Estado actual:** [0.4.32: cockpit y hotbar vanilla](docs/RE4-BLOCK-0.4.32.md).
+El usuario confirma texturas y colocación estable de bloques; el suelo temporal
+permite editar en Minecraft. VIEW conserva el foco al construir. Se reemplazan
+los iconos planos por la hotbar dibujada por Minecraft y se corrige el intento de
+ocultar vida/munición nativas durante primera persona, con retorno normal en F8.
+DLL/build432, mod0.4.32 y host actualizados; Fabric/API iguales. Compilación y
+pruebas pasan; el resultado visual de esta corrección requiere probar en Windows.
+La exportación local SAT/EAT del usuario contiene430 triángulos sin errores.
+Faltan importar ese terreno/losas, restringir colocación en estructuras, apoyo
+vertical/salto, inventario completo y combate.64 bloques/128 cajas/64 teselas;
+escala1000. **0.4.13 está retirada.**
 Incluye [ratón y cámara experimental](docs/RE4-MOUSE-CAMERA.md) y
 [controles nativos](docs/RE4-CONTROLS.md). Imágenes se obtienen solo en tu equipo,
 sin añadir recursos originales al ZIP/GitHub. Los modelos activos, arranque,
@@ -27,7 +26,7 @@ El simulador sigue siendo un modo de diagnóstico separado.
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete 0.4.31 / mod 0.4.30 |
+| RE4 Bridge | paquete/mod 0.4.32 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

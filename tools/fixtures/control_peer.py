@@ -17,7 +17,7 @@ class Writer:
         if kwargs.get('look'): print('LOOK ' + str(kwargs['look']), flush=True)
     def reset_stop(self): pass
     def status(self): return {"stop": 0, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons,
-                              "capabilities": 15, "camera_active": False, "look_packets": 10, "camera_ticks": 50}
+                              "capabilities": 31, "camera_active": False, "look_packets": 10, "camera_ticks": 50}
 
 
 parser = argparse.ArgumentParser()

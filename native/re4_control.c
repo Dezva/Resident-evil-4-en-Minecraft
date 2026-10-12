@@ -63,7 +63,7 @@ typedef struct {unsigned valid;ControlFrame control;uint32_t pad_ticks,camera_ti
 static ProjectionCache projection_cache;
 typedef struct { volatile LONG sequence;uint32_t valid,stamp,player,generation,epoch;float view[12],camera[12],right[3],up[3],back[3];CameraPoint point; } BlockCameraFrame;
 static BlockCameraFrame block_camera_frame;
-static uint32_t native_hud_global,native_hud_saved;
+static uint32_t native_hud_system,native_hud_owner,native_hud_saved;
 static unsigned block_camera_scene;
 static uint32_t block_camera_epoch;
 static void block_camera_begin(void){block_camera_epoch++;block_camera_scene=1;}
@@ -162,20 +162,27 @@ static void hide_weapons(uint32_t player) {
 }
 
 /* Restore before native logic. Only restore a model while it is still the same player. */
+/* IDSystem display-off classes, pinned UHD SDK ID.h: +0x2c[8].
+   Cockpit updates and already-created ID primitives have separate visibility:
+   the old DPF_COCKPIT flag did not suppress those primitives. Hide only the
+   life/ammo cockpit classes, preserving messages, prompts and inventory. */
+#define RE4_COCKPIT_CLASSES (0x40000000u | 0x2000u | 0x800u) /* 0x21,0x32,0x34 */
 static void native_hud_restore(void){
-    if(native_hud_global && global_slot && *global_slot==native_hud_global
-        && writable((void*)(uintptr_t)(native_hud_global+0x58),4)){
-        uint32_t *flags=(uint32_t*)(uintptr_t)(native_hud_global+0x58);
-        *flags=(*flags&~0x10000u)|native_hud_saved;
+    if(native_hud_owner && native_hud_owner==native_hud_system
+        && writable((void*)(uintptr_t)(native_hud_owner+0x30),4)){
+        uint32_t *off=(uint32_t*)(uintptr_t)(native_hud_owner+0x30);
+        *off=(*off&~RE4_COCKPIT_CLASSES)|native_hud_saved;
     }
-    native_hud_global=0;
+    native_hud_owner=0;
 }
 static void native_hud_hide(void){
-    uint32_t global=global_slot?*global_slot:0;
-    if(global<0x10000 || global>0xFFFFFF00 || (global&3u)
-        || !writable((void*)(uintptr_t)(global+0x58),4))return;
-    if(native_hud_global!=global){native_hud_restore();native_hud_global=global;native_hud_saved=*(uint32_t*)(uintptr_t)(global+0x58)&0x10000u;}
-    *(uint32_t*)(uintptr_t)(global+0x58)|=0x10000u;
+    uint32_t system=native_hud_system;
+    if(!system || !readable((void*)(uintptr_t)system,0x58)
+        || !writable((void*)(uintptr_t)(system+0x30),4))return;
+    int32_t max,count;memcpy(&max,(void*)(uintptr_t)system,4);memcpy(&count,(void*)(uintptr_t)(system+4),4);
+    if(max<=0 || max>8192 || count<0 || count>max)return;
+    if(native_hud_owner!=system){native_hud_restore();native_hud_owner=system;native_hud_saved=*(uint32_t*)(uintptr_t)(system+0x30)&RE4_COCKPIT_CLASSES;}
+    *(uint32_t*)(uintptr_t)(system+0x30)|=RE4_COCKPIT_CLASSES;
 }
 static void restore_first_person(void) {
     native_hud_restore();
@@ -329,7 +336,8 @@ static int projection_reuse(uint32_t now){
     *(uint32_t*)(uintptr_t)(player+4)=re4_hide_model(*(uint32_t*)(uintptr_t)(player+4));
     for(unsigned i=0;i<2;i++)if(hidden_weapons[i].object){uint32_t *draw=(uint32_t*)(uintptr_t)(hidden_weapons[i].object+4);*draw=re4_hide_model(*draw);}
     write_render_camera(camera_ctrl+0x60);write_render_camera(saved_global_camera);
-    if(native_hud_global==*global_slot)*(uint32_t*)(uintptr_t)(native_hud_global+0x58)|=0x10000u;
+    if(native_hud_owner && native_hud_owner==native_hud_system)
+        *(uint32_t*)(uintptr_t)(native_hud_owner+0x30)|=RE4_COCKPIT_CLASSES;
     return 1;
 }
 static void block_camera_publish(uint32_t now){
@@ -490,6 +498,7 @@ static const int camera_pattern[] = {0x52,0x8D,0x85,-1,-1,-1,-1,0x50,0x8D,0x4D,-
 static const int smooth_pattern[] = {0xE8,-1,-1,-1,-1,0x80,0xBB,0xB6,0x01,0x00,0x00,0x00};
 static const int ctrl_pattern[] = {0xD9,0xEE,0xB9,-1,-1,-1,-1,0xD9,0x9E,0xA4,0x00,0x00,0x00,0xE8,-1,-1,-1,-1,0xD9,0xEE};
 static const int global_pattern[] = {0xA1,-1,-1,-1,-1,0xB9,0xFF,0xFF,0xFF,0x7F,0x21,0x48,-1,0xA1};
+static const int id_system_pattern[] = {0xB9,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0x8B,-1,-1,-1,-1,-1,0x8B,0xC8,0xD9};
 static const int projection_pattern[] = {0xE8,-1,-1,-1,-1,0x8A,0x46,0x30,0x3C,0xFD};
 
 static unsigned find_patterns(unsigned char *base, DWORD image_size,
@@ -575,7 +584,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=430; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=432; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -724,6 +733,14 @@ static void install_hook(void) {
         if (!VirtualProtect(projection,5,old_protect,&ignored)) return;
     }
     state->capabilities |= 10u; /* FP + mapped absolute gaze. */
+    unsigned char *ids=unique_pattern(base,size,nt,id_system_pattern,sizeof(id_system_pattern)/sizeof(int));
+    if(ids){
+        uint32_t system;memcpy(&system,ids+1,4);
+        if(!(system&3u) && system>=(uintptr_t)base && system<=(uintptr_t)base+size-0x58
+            && readable((void*)(uintptr_t)system,0x58) && writable((void*)(uintptr_t)(system+0x30),4)){
+            native_hud_system=system;state->capabilities|=16u;
+        }
+    }
 }
 
 static BOOL CALLBACK initialize(PINIT_ONCE unused, PVOID parameter, PVOID *context) {

@@ -394,7 +394,8 @@ activate absolute mode without capability8. No additional input buttons.
 An internal seqlocked final view (same actor/generation, age<100ms, original
 control TTL) supplies blocks in FP. One active D3D scene freezes its view;
 current collision corrections remain independent. No orbit-view fallback in FP.
-DPF_COCKPIT0x10000 Global+0x58 is borrowed/restored only for the same owner;
+The DPF_COCKPIT0x10000 Global+0x58 attempt was ineffective in user testing
+and is withdrawn in0.4.32;
 health/ammo/inventory values are never modified.
 
 The temporary Minecraft editor floor is local creative only,121 air cells max,
@@ -409,3 +410,23 @@ mark incomplete data, never assume empty space. JSON/OBJ/HTML are user-local,
 not published game meshes. Default local radius20000native units. Shared map,
 slab quantization, placement ray/occupancy, jump/support and combat remain
 unimplemented until actual geometry is validated.
+
+
+### 0.4.32 cockpit classes and vanilla hotbar capture
+
+Control capability16 signals uniquely validated module-static IDSystem+0x30
+visibility access. Only display-off class bits0x21/0x32/0x34 are borrowed/restored;
+no global display flag/HP/ammo changes, ID deletion or HUD vtable patch. Existing
+FP/F8/TTL/owner guards apply; client accepts capabilities0..31. If validation
+fails, FP can still work and status reports native HUD hiding unavailable.
+
+Minecraft's own hotbar render runs only from HudRenderCallback onto a transparent
+256x32 target, with vanilla GUI models/overlays, custom DrawContext dimensions,
+private vertex allocator, saved/restored GL/render state and invalidated vertex
+binding cache. Readback is requested from ticks and reused when static; animated
+items refresh at most10Hz. Selection/items/offhand/resources trigger replacement.
+F1 returns no HUD. A capture failure restores state, disables only this layer and
+reports an error; F8 still restores RE4. No game image is bundled. This is the
+hotbar, not the E inventory screen/health/hunger or Minecraft combat implementation.
+Real GL/Windows appearance/performance require manual validation. HUD ABI stays
+v1/32792, RGBA bottom-up conversion produces top-down straight ARGB pixels.

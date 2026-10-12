@@ -278,9 +278,26 @@ internal view lease (actor/generation/controlTTL/age100ms) supplies FP overlays,
 not mutable Global camera used by auxiliary passes. Repeated projections retain
 16ms validation reuse and F8; dormant guards unchanged.
 
-The one borrowed Global.Flags_DISP+0x58 bit DPF_COCKPIT0x10000 hides native cockpit
-while FP, restores the same owner's saved bit without undoing other changes.
+The borrowed Global.Flags_DISP+0x58 DPF_COCKPIT0x10000 attempt did not hide
+already-created cockpit ID primitives in the user's real screenshot; withdrawn in0.4.32.
 SDK references at existing pinnedrevision; no HUD function/vtable hook added.
 No Y,velocity,speed,animation,inventory,health/ammo change. Build430; runtime
 Windows ordering/appearance remains unverified. The separate Python map exporter
 reads SAT/EAT layouts/signatures without process writes/native invocation.
+
+## 0.4.32 targeted cockpit class visibility
+
+Pinned public layout/signature reference: nipkownix/re4_tweaks commit
+92c0208bd09c29c9640e13a2493b8e6bd6edd700, dllmain/Game.cpp IDSystem pointer
+`B9 ? ? ? ? E8 ? ? ? ? 8B ? ? ? ? ? 8B C8 D9` immediate+1; dllmain/SDK/ID.h
+IDSystem0x58, display-off[8]+0x2c, ID classes0x21/0x32/0x34. These classes share
+word1+0x30 and masks0x40000000/0x2000/0x800. Only these visibility bits are leased;
+no ID deletion, function/vtable hook, viewport masking or health/ammo mutation.
+Unique executable signature, aligned static pointer inside bio4, committed
+readable0x58/writableword, max/count runtime bounds gate writes. Capability16
+states signature availability (31 with all prior features), not verified visual
+suppression. Existing callbacks restore before native logic, reapply at validated
+FP projection/pad and restore on F8/TTL/stop. Same-owner restoration preserves
+other bits and previously disabled cockpit classes. Build432; control80/scenev6/
+HUDv1 layouts retained. Eleven real C fixtures run with simulated memory/API;
+Windows native UI rendering has not been executed in cloud.

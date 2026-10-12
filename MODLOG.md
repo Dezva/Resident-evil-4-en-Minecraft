@@ -1,5 +1,20 @@
 # Registro de desarrollo
 
+## 0.4.32 — visibilidad de cockpit y hotbar vanilla
+
+La captura real contradice la ocultación DPF_COCKPIT0.4.30: se retira ese intento.
+Firma/layout IDSystem validados y bits m_disp_off de LIFE_METER/BLLT_ICON/
+LASER_GAUGE prestados y restaurados; capability16 registra disponibilidad.
+InGameHud.renderHotbar en FBO transparente32KiB reemplaza partículas/dígitos,
+con modelos GUI, overlays y cache sin readback repetido para bloques estáticos.
+Estado GL/cachés restaurados incluso ante fallo; animaciones hasta10Hz.
+Mapa enviado: SAT205 + EAT225 triángulos, managers/tablas distintos,430 en total,
+98 suelos/109 pendientes/223 paredes, sin errores. Aún no es un mapa importado.
+DLL/build432, mod0.4.32 y host nuevos; ABI control80/escena96352/HUD32792 intactos.
+115 Python/25 core/32 Minecraft,11 fixtures ASan/UBSan y4 suites C pasan.
+Compilación no certifica apariencia ni coste GPU en Windows. VIEW/cámara/
+velocidades/colisiones conservados; guía docs/RE4-BLOCK-0.4.32.md.
+
 ## 0.4.31 — VIEW para clics de construcción y referencias múltiples de SAT
 
 Usuario confirma bloques/plataforma0.4.30; HUD correcto pero fuera de pantalla

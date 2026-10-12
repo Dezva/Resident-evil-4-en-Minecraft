@@ -103,7 +103,7 @@ class ControlPolicy:
         result = {"hud_available":self.hud is not None and self.hud.available,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
                 "reason": "activo" if self.armed else reason,
-                "capabilities": status.get("capabilities", 0), "camera_active": status.get("camera_active", False),
+                "capabilities": status.get("capabilities", 0), "native_hud_supported": bool(status.get("capabilities", 0)&16), "camera_active": status.get("camera_active", False),
                 "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
         if self.preview is not None:
             result['preview_available']=True

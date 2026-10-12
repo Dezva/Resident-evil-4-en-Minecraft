@@ -219,7 +219,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 throw new IOException("Invalid native reason");
                             nativeReason = value.getAsString();
                         }
-                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 15);
+                        if (state.has("capabilities")) nativeCapabilities = boundedInteger(state, "capabilities", 31);
                         if (state.has("preview_state")) {
                             var preview=state.getAsJsonObject("preview_state");
                             previewStatus=boundedInteger(preview,"status",4);

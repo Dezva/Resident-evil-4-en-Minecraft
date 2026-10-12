@@ -819,3 +819,27 @@ SAT18 matches rejected in0.4.30. New parser accepts1..64 identical verified mana
 references and rejects differing destinations, logs each source/destination.
 Five map tests include18 aliases plus one discrepant operand. Actual SAT operands
 remain unknown: no completed map/import/placement occupancy or jump claim.
+
+## 0.4.32 — cockpit class visibility / vanilla item hotbar
+
+The supplied first-person screenshot disproves effective cockpit hiding in30/31;
+DPF_COCKPIT lease removed. IDSystem display-off masks from pinned SDK replace it.
+Actual extracted C callbacks cover three targeted classes, prior hidden bits,
+foreign-bit preservation, invalid capacity, cached projection reapplication and
+existing F8/TTL/model/camera restoration.11 native fixtures pass ASan/UBSan;
+four portable C suites and PE32 native build complete.115 Python tests pass with
+build432 reader compatibility; TCP accepts/returns capability31.25 core and32
+Minecraft tests pass; Fabric remap and access widener validation complete.
+Readback tests exercise nonzero buffer offset, vertical flip, RGBA/ARGB order,
+premultiplied alpha/transparent pixels, input immutability and malformed dimensions.
+The separate glint/base buffer regression submits real CPU-side vertex builders
+concurrently, catching premature fallback flush without a GPU. No real OpenGL,
+Windows or RE4 rendering executes here; these tests do not prove
+native cockpit disappearance, hotbar appearance or GPU performance. User must
+check FP native HUD disappearance, faithful items/overlays and F8 restoration.
+
+New JSON/OBJ/HTML parse coherently: SAT manager0x7f9a7c and EAT0x7f9aa0 use separate
+arrays/vtables; SAT18 references all agree.205+225=430 triangles:98 floor,109 slope,
+223 wall. No extraction errors; complete refers to this bounded local collision
+snapshot, not all visible geometry/all rooms. No map import/terrain voxelization/
+placement occupancy/native jump claim. Geometry files remain user-local.

@@ -1,22 +1,28 @@
 package dev.dezva.re4bridge.minecraft;
 import dev.dezva.re4bridge.HudFrame;
-import net.minecraft.client.texture.*;
-import net.minecraft.util.Identifier;
-import net.minecraft.resource.metadata.ResourceMetadata;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class MinecraftHudTests {
-    private static class TestSprite extends Sprite {
-        TestSprite(SpriteContents contents){super(Identifier.ofVanilla("test_hud"),contents,256,256,0,0);}
+    @Test void gpuReadbackIsFlippedAndEncodedForD3DWithoutMutatingInput(){
+        var pixels=ByteBuffer.allocate(HudFrame.BYTES+4);pixels.position(4);
+        // Bottom left red, top left blue, partially transparent premultiplied green.
+        pixels.put(4,(byte)255);pixels.put(7,(byte)255);
+        int top=4+(HudFrame.HEIGHT-1)*HudFrame.WIDTH*4;
+        pixels.put(top+2,(byte)255);pixels.put(top+3,(byte)255);
+        pixels.put(top+5,(byte)64);pixels.put(top+7,(byte)128);
+        pixels.put(top+8,(byte)255); // fully transparent garbage must become zero
+        byte[] original=pixels.array().clone();
+        var output=ByteBuffer.wrap(Base64.getDecoder().decode(MinecraftHud.encode(pixels,HudFrame.WIDTH,HudFrame.HEIGHT).image())).order(ByteOrder.LITTLE_ENDIAN);
+        assertEquals(0xFF0000FF,output.getInt(0));assertEquals(0x80008000,output.getInt(4));assertEquals(0,output.getInt(8));
+        assertEquals(0xFFFF0000,output.getInt((HudFrame.HEIGHT-1)*HudFrame.WIDTH*4));
+        assertEquals(4,pixels.position());assertArrayEquals(original,pixels.array());
     }
-    @Test void nativeGuiSpriteIsBorrowedAndClippedWithoutReadingGpuOrPng(){
-        try(var image=new NativeImage(16,16,false)){
-            image.fillRect(0,0,16,16,0xFF332211);
-            var sprite=new TestSprite(new SpriteContents(Identifier.ofVanilla("test_hud"),new SpriteDimensions(16,16),image,ResourceMetadata.NONE));
-            int[] pixels=new int[8192];MinecraftHud.sprite(pixels,sprite,255,31,16,16);
-            assertEquals(0xFF112233,pixels[8191]);assertEquals(0,pixels[0]);assertEquals(0xFF332211,image.getColor(0,0));
-            MinecraftHud.number(pixels,64,20,20);assertTrue(java.util.Arrays.stream(pixels).anyMatch(x->x==0xFFFFFFFF));
-        }
+    @Test void rejectsWrongDimensionsAndTruncatedReadback(){
+        assertThrows(IllegalArgumentException.class,()->MinecraftHud.encode(ByteBuffer.allocate(8),HudFrame.WIDTH,HudFrame.HEIGHT));
+        assertThrows(IllegalArgumentException.class,()->MinecraftHud.encode(ByteBuffer.allocate(HudFrame.BYTES),128,64));
         assertThrows(IllegalArgumentException.class,()->new HudFrame("invalid"));
     }
 }

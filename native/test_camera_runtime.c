@@ -17,7 +17,7 @@ typedef struct {unsigned valid;ControlFrame control;uint32_t pad_ticks,camera_ti
 static ProjectionCache projection_cache;
 typedef struct {volatile LONG sequence;uint32_t valid,stamp,player,generation,epoch;float view[12],camera[12],right[3],up[3],back[3];CameraPoint point;} BlockCameraFrame;
 static BlockCameraFrame block_camera_frame;
-static uint32_t native_hud_global,native_hud_saved;
+static uint32_t native_hud_system,native_hud_owner,native_hud_saved;
 static unsigned block_camera_scene;static uint32_t block_camera_epoch;
 static void block_camera_begin(void){block_camera_epoch++;block_camera_scene=1;}
 static void block_camera_end(void){block_camera_scene=0;}
@@ -112,11 +112,19 @@ int main(void){
     assert(!memcmp(expected,render_view,48));assert(cube_camera(block_view,&block_fov,&block_player) && !memcmp(expected,block_view,48));
     block_camera_end();block_camera_begin();project();assert(memcmp(expected,render_view,48));block_camera_end();
     packet.total=0;packet.generation++;packet.sequence+=2;*(float*)(uintptr_t)(id+0xA4)=.7f;pad_hook();
-    assert(*(uint32_t*)(uintptr_t)(global+0x58)&0x10000u);restore_first_person();assert(!(*(uint32_t*)(uintptr_t)(global+0x58)&0x10000u));
-    *(uint32_t*)(uintptr_t)(global+0x58)=0x10000u|0x80u;native_hud_hide();
-    *(uint32_t*)(uintptr_t)(global+0x58)|=0x400u;native_hud_restore();
-    assert(*(uint32_t*)(uintptr_t)(global+0x58)==(0x10000u|0x480u));
-    *(uint32_t*)(uintptr_t)(global+0x58)=0;
+    // Existing cockpit ID primitives are hidden without changing gameplay/global flags.
+    restore_first_person();native_hud_system=(uint32_t)(uintptr_t)(memory+45056);
+    *(int32_t*)(uintptr_t)native_hud_system=256;
+    uint32_t *off=(uint32_t*)(uintptr_t)(native_hud_system+0x30);
+    *off=0x40000000u|0x80u;native_hud_hide();
+    assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES);
+    *off|=0x400u;native_hud_restore();assert(*off==(0x40000000u|0x480u));
+    assert(*(uint32_t*)(uintptr_t)(global+0x58)==0);
+    *off=0;pad_hook();project();assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES);
+    *off=0;project();assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES); // engine overwrites during cached scene
+    restore_first_person();assert(*off==0);
+    *(int32_t*)(uintptr_t)native_hud_system=8193;native_hud_hide();assert(*off==0);
+    *(int32_t*)(uintptr_t)native_hud_system=256;
     // Repeated projections in one update reuse view, while restoring game-overwritten matrices/models.
     uint32_t controller=(uint32_t)(uintptr_t)(memory+32768);
     *(uint32_t*)(uintptr_t)(id+0x7D8)=controller;

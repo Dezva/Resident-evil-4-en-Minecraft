@@ -1,5 +1,28 @@
 # Registro de desarrollo
 
+## 0.4.27 — trabajo gráfico repetido y colisión compacta
+
+El usuario confirma Minecraft estable y comunica caída fuerte de rendimiento
+en RE4 con 0.4.26; se prioriza esa revisión sobre nuevas funciones de mapa.
+HUD y atlas tenían CreateTexture/LockRect/copia/Release en cada frame. Ahora
+conservan una textura propia por dispositivo y solo suben imágenes cambiadas.
+Recursos DEFAULT se liberan antes de Reset, escape/última referencia, fallo o
+desactivación. Capturas de estado siguen temporales para no retener recursos
+del juego. Pruebas reales con API simulada:200 frames/una creación/una carga,
+cambios de contenido/tamaño y fallos de actualización de recursos ya conservados.
+
+La colisión adicional de proyección leía96352bytes/validaba UV dos veces. Ahora
+lee3168bytes coherentes de permiso/transformación/cajas, valida una vez y omite
+el barrido en reposo. Mantiene la corrección final y posición segura ante pérdidas
+temporales, presión W, caducidad, F8 y discontinuidades. No se añaden hooks ni
+escáneres. Se explica que map es edición manual y el bloqueo compartido actual
+es seguimiento de la posición de Leon, no extracción de geometría.
+
+Paquete0.4.27/DLLbuild427; mod Minecraft0.4.26 idéntico. Lectores/host aceptan427
+y mantienen versiones anteriores.104 pruebas Python,11 fixtures ASan/UBSan,
+cuatro suites C y fixtures PowerShell. La nube no mide FPS ni GPU reales; mejora
+Windows pendiente de comprobar. DLL44e9f3fbb0531acc6a5460beaaa8960951b5dca9f2bf770b97e25293da39a141.
+
 ## 2026-10-10 — Inicio del puente de diagnóstico
 
 - Solicitud: ambos juegos reales en Windows; Minecraft/Steve en primera persona

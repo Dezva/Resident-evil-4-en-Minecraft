@@ -9,6 +9,19 @@ from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
+    def test_performance_build_427_keeps_scene_and_collision_channels_compatible(self):
+        import struct
+        from test_cube_test import Kernel
+        from re4_cube_test import read_collision_status
+        kernel=Kernel(version=6,build=427)
+        struct.pack_into('<I',kernel.collision,12,427)
+        preview=NativePreview(42,kernel,user=kernel)
+        self.assertEqual(preview.baseline['build'],427)
+        preview.publish(True,7,self.bounds)
+        self.assertTrue(struct.unpack_from('<I',kernel.command,16)[0])
+        self.assertEqual(read_collision_status(kernel,42)['reason'],1)
+        preview.close()
+        self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
     def frame(self,**changes):
         return dict(type='re4_control',armed=True,buttons=1,arm_id=1,preview={'bounds':self.bounds},**changes)
     def test_rejects_oversized_nonfinite_inverted_and_unknown_data(self):

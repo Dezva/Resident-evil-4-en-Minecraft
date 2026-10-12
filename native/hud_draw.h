@@ -1,7 +1,12 @@
 /* Independent, bounded 2D layer. No game memory/coordinates in its draw path. */
 #include "hud_policy.h"
 #include "overlay_state.h"
+static void hud_release_texture(CubeDevice *f){
+    IDirect3DTexture9 *texture=f->hud_texture;f->hud_texture=NULL;f->hud_pixels_valid=0;
+    if(texture)texture->lpVtbl->Release(texture);
+}
 static void hud_reset_device(CubeDevice *f){
+    hud_release_texture(f);
     f->hud_blocked_generation=f->hud_generation;
     if(f->hud_generation && state)InterlockedCompareExchange(&state->stop,1,0);
 }
@@ -10,12 +15,15 @@ static void hud_quad(BlockSurfaceVertex *out,float x,float y,float w,float h){
     for(unsigned i=0;i<6;i++){unsigned n=order[i];float u=n==1 || n==2?1.f:0.f,v=n>=2?1.f:0.f;out[i]=(BlockSurfaceVertex){x+u*w,y+v*h,0,1,0xFFFFFFFF,u,v};}
 }
 static void hud_render_device(CubeDevice *f){
-    HudCommand command={0};ControlFrame control={0};uint32_t now=GetTickCount();
-    if(!state || !hud_command_read(&command) || !command.enabled || !read_control_frame(&control)
-        || !state->armed || state->stop || !control.armed || (control.flags&3u)!=3u
+    ControlFrame control={0};uint32_t now=GetTickCount();
+    if(!state || !state->armed || state->stop || !read_control_frame(&control)
+        || !control.armed || (control.flags&3u)!=3u){hud_release_texture(f);return;}
+    HudCommand command;
+    if(!hud_command_read(&command) || !command.enabled
         || command.generation!=control.generation || (uint32_t)(now-command.stamp)>=500 || (uint32_t)(now-control.stamp)>=500
-        || !current_player() || GetAsyncKeyState(VK_F8)&0x8000)return;
-    if(f->escaped || f->resetting || f->gate.fatal || f->gate.lost || f->hud_blocked_generation==command.generation || !f->scene)return;
+        || !current_player() || GetAsyncKeyState(VK_F8)&0x8000){hud_release_texture(f);return;}
+    if(f->escaped || f->resetting || f->gate.fatal || f->gate.lost || f->hud_blocked_generation==command.generation){hud_release_texture(f);return;}
+    if(!f->scene)return;
     f->hud_generation=command.generation;
     IDirect3DDevice9 *device=f->inner;IDirect3DSurface9 *target=NULL,*back=NULL;
     HRESULT hr=device->lpVtbl->GetRenderTarget(device,0,&target);
@@ -26,22 +34,25 @@ static void hud_render_device(CubeDevice *f){
     target->lpVtbl->Release(target);if(!matches)return;
     D3DVIEWPORT9 vp;hr=device->lpVtbl->GetViewport(device,&vp);
     if(FAILED(hr) || vp.Width<32 || vp.Height<32 || vp.Width>16384 || vp.Height>16384)return;
-    IDirect3DStateBlock9 *backup=NULL;IDirect3DTexture9 *texture=NULL;
+    IDirect3DStateBlock9 *backup=NULL;
     hr=device->lpVtbl->CreateStateBlock(device,D3DSBT_ALL,&backup);
     if(FAILED(hr) || !backup)return;
     hr=backup->lpVtbl->Capture(backup);
     if(SUCCEEDED(hr)){
-        hr=device->lpVtbl->CreateTexture(device,256,32,1,D3DUSAGE_DYNAMIC,D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&texture,NULL);
-        if(SUCCEEDED(hr) && !texture)hr=E_FAIL;
-        if(SUCCEEDED(hr)){
-            D3DLOCKED_RECT locked={0};hr=texture->lpVtbl->LockRect(texture,0,&locked,NULL,D3DLOCK_DISCARD);
+        if(!f->hud_texture){
+            hr=device->lpVtbl->CreateTexture(device,256,32,1,D3DUSAGE_DYNAMIC,D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&f->hud_texture,NULL);
+            if(SUCCEEDED(hr) && !f->hud_texture)hr=E_FAIL;
+        }
+        if(SUCCEEDED(hr) && (!f->hud_pixels_valid || memcmp(f->hud_pixels,command.pixels,sizeof(f->hud_pixels)))){
+            D3DLOCKED_RECT locked={0};hr=f->hud_texture->lpVtbl->LockRect(f->hud_texture,0,&locked,NULL,D3DLOCK_DISCARD);
             if(SUCCEEDED(hr)){
                 if(!locked.pBits || locked.Pitch<1024 || locked.Pitch>65536)hr=E_FAIL;
                 else for(unsigned y=0;y<32;y++)memcpy((unsigned char*)locked.pBits+y*(unsigned)locked.Pitch,command.pixels+y*256,1024);
-                HRESULT unlocked=texture->lpVtbl->UnlockRect(texture,0);if(SUCCEEDED(hr))hr=unlocked;
+                HRESULT unlocked=f->hud_texture->lpVtbl->UnlockRect(f->hud_texture,0);if(SUCCEEDED(hr))hr=unlocked;
+                if(SUCCEEDED(hr)){memcpy(f->hud_pixels,command.pixels,sizeof(f->hud_pixels));f->hud_pixels_valid=1;}
             }
         }
-        if(SUCCEEDED(hr))hr=overlay_prepare_state(device,(IDirect3DBaseTexture9*)texture,1,1);
+        if(SUCCEEDED(hr))hr=overlay_prepare_state(device,(IDirect3DBaseTexture9*)f->hud_texture,1,1);
         float scale=fmaxf(1.f,fminf(4.f,floorf((float)vp.Height/240.f)));
         scale=fminf(scale,(float)vp.Width/256.f);
         BlockSurfaceVertex bar[6];hud_quad(bar,vp.X+(vp.Width-256.f*scale)/2,vp.Y+vp.Height-32.f*scale,256.f*scale,32.f*scale);
@@ -58,7 +69,6 @@ static void hud_render_device(CubeDevice *f){
         HRESULT restored=backup->lpVtbl->Apply(backup);
         if(FAILED(restored)){f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);hud_reset_device(f);}
     }
-    if(texture)texture->lpVtbl->Release(texture);
     backup->lpVtbl->Release(backup);
     if(FAILED(hr)){cube_record(CUBE_FAILURE,(uint32_t)hr);hud_reset_device(f);}
 }

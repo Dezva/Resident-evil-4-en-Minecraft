@@ -700,3 +700,25 @@ Resultado:103 Python,24 bridge-core y27 Minecraft, sin fallos ni omisiones.
 Once fixtures nativos con ASan/UBSan pasan; cuatro suites C portátiles y los
 instaladores/diagnósticos PowerShell simulados también. DLL PE32 compilada;
 access widener/JAR Fabric remapeados y build completo terminados.
+
+## 0.4.27
+
+Revisión específica de la regresión de rendimiento comunicada por el usuario.
+El renderizador real bajo D3D simulado muestra una sola creación/carga de HUD
+y de atlas para 200 frames estables de cada uno, incluso al renovar secuencia
+o época. Cambiar píxeles/cantidad actualiza la textura; cambiar tamaño/material
+la recrea. Se prueban fallos durante la actualización de una caché existente,
+liberación antes de Reset/último Release (incluida referencia nativa del recurso),
+restauración de estado, F8/caducidad y generaciones. Las capturas de estado son
+temporales; la caché solo retiene recursos propios de tamaño acotado.
+
+Colisión usa la lectura real de prefijo v6/3168, mantiene seqlock/permisos y deja
+intacta toda la región de UV/píxeles. No repite la validación del barrido ni hace
+barrido para un pie sin movimiento. Se mantienen las pruebas reales de callbacks
+y 1999 pasos con presión, fallos temporales y referencia segura. Build427 se
+reconoce en host y lectores. Control/escena/HUD no cambian sus ABI.
+
+Resultado:104 Python,11 fixtures C bajo ASan/UBSan, cuatro suites C portátiles
+y los fixtures PowerShell. JAR/API/instaladores/VIEW idénticos a 0.4.26 y comprobados
+al empaquetar. No se recompila ni cambia Minecraft. **No se mide aquí FPS real,
+tiempo GPU ni arranque de RE4; la mejora de rendimiento en Windows está pendiente.**

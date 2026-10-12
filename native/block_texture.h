@@ -8,13 +8,10 @@ static inline uint32_t block_stone_pixel(unsigned x,unsigned y) {
     if ((x+y)%7==0) value-=18;
     return 0xFF000000u|value*0x010101u;
 }
-static HRESULT block_texture_create_with_tiles(IDirect3DDevice9 *device,IDirect3DTexture9 **out,const CubeCommand *command) {
+static inline HRESULT block_texture_upload(IDirect3DTexture9 *texture,const CubeCommand *command) {
     unsigned size=command?256:16;
-    *out=NULL;IDirect3DTexture9 *texture=NULL;
-    HRESULT hr=device->lpVtbl->CreateTexture(device,size,size,1,D3DUSAGE_DYNAMIC,D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&texture,NULL);
-    if (FAILED(hr) || !texture) {if(texture)texture->lpVtbl->Release(texture);return FAILED(hr)?hr:E_FAIL;}
     D3DLOCKED_RECT locked={0};
-    hr=texture->lpVtbl->LockRect(texture,0,&locked,NULL,D3DLOCK_DISCARD);
+    HRESULT hr=texture->lpVtbl->LockRect(texture,0,&locked,NULL,D3DLOCK_DISCARD);
     if (SUCCEEDED(hr)) {
         if (!locked.pBits || locked.Pitch<(int)(size*4) || locked.Pitch>65536) hr=E_FAIL;
         else for(unsigned y=0;y<size;++y) for(unsigned x=0;x<size;++x) {
@@ -26,8 +23,27 @@ static HRESULT block_texture_create_with_tiles(IDirect3DDevice9 *device,IDirect3
         HRESULT unlocked=texture->lpVtbl->UnlockRect(texture,0);
         if (SUCCEEDED(hr)) hr=unlocked;
     }
-    if (FAILED(hr)) {texture->lpVtbl->Release(texture);return hr;}
-    *out=texture;return S_OK;
+    return hr;
 }
-static HRESULT block_texture_create(IDirect3DDevice9 *device,IDirect3DTexture9 **out){return block_texture_create_with_tiles(device,out,NULL);}
+typedef struct {IDirect3DTexture9 *texture;unsigned style,tile_count;uint32_t pixels[BLOCK_MAX_TILES][256];} BlockTextureCache;
+static inline void block_texture_cache_release(BlockTextureCache *cache){
+    IDirect3DTexture9 *texture=cache->texture;cache->texture=NULL;cache->style=cache->tile_count=0;
+    if(texture)texture->lpVtbl->Release(texture);
+}
+static inline HRESULT block_texture_cached(IDirect3DDevice9 *device,BlockTextureCache *cache,const CubeCommand *command){
+    unsigned style=command?3:2,tiles=command?command->tile_count:0,size=command?256:16;
+    if(cache->texture && cache->style!=style)block_texture_cache_release(cache);
+    int changed=!cache->texture || (command && (tiles!=cache->tile_count || memcmp(cache->pixels,command->pixels,tiles*1024)));
+    if(!changed)return S_OK;
+    HRESULT hr=S_OK;
+    if(!cache->texture){
+        hr=device->lpVtbl->CreateTexture(device,size,size,1,D3DUSAGE_DYNAMIC,D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&cache->texture,NULL);
+        if(SUCCEEDED(hr) && !cache->texture)hr=E_FAIL;
+    }
+    if(SUCCEEDED(hr))hr=block_texture_upload(cache->texture,command);
+    if(FAILED(hr)){block_texture_cache_release(cache);return hr;}
+    cache->style=style;cache->tile_count=tiles;
+    if(command)memcpy(cache->pixels,command->pixels,tiles*1024);
+    return S_OK;
+}
 #endif

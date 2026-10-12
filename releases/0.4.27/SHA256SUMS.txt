@@ -1,0 +1,2 @@
+0d6b8598c9b730b5efb5a849bde8cd1356999e9f41526cfe1cac2adc69ff4189  re4bridge-0.4.27-windows.zip
+759ca8fedd4074f611e420dfd1b629fd57056f67ecf04edd410fcd76f9cf944b  re4bridge-0.4.27-source.zip

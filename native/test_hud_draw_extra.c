@@ -16,9 +16,19 @@ static CubeDevice reset_hud(void){
 }
 int main(void){
     CubeDevice f=reset_hud();hud_render_device(&f);
-    assert(draws==2 && creates==1 && applies==1 && !backup_refs && !texture_refs && !surface_refs && !memcmp(&original,&current,sizeof(current)));
+    assert(draws==2 && creates==1 && applies==1 && !backup_refs && texture_refs==1 && !surface_refs && !memcmp(&original,&current,sizeof(current)));
     for(unsigned y=0;y<32;y++){assert(tile[y*260]==0xFF112233);for(unsigned x=256;x<260;x++)assert(tile[y*260+x]==0xBABABABA);}
     assert(events[CUBE_DRAW]==0); // HUD may never mark an invisible scene's collision graphics ready.
+    // Repeated publications/frames with identical pixels must not allocate or upload to the GPU.
+    for(unsigned frame=0;frame<200;frame++){publication.sequence+=2;hud_render_device(&f);}
+    assert(draws==402 && texture_creates==1 && texture_locks==1 && texture_unlocks==1 && texture_refs==1);
+    publication.pixels[0]=0xFF445566;publication.sequence+=2;hud_render_device(&f);
+    assert(texture_creates==1 && texture_locks==2 && tile[0]==0xFF445566 && !memcmp(&original,&current,sizeof(current)));
+    hud_release_texture(&f);assert(!texture_refs && texture_releases==1 && !f.hud_pixels_valid);
+    hud_render_device(&f);assert(texture_creates==2 && texture_locks==3 && texture_refs==1);
+    publication.enabled=0;hud_render_device(&f);assert(!texture_refs);
+    publication.enabled=1;hud_render_device(&f);publication.pixels[1]++;texture_lock_fail=1;hud_render_device(&f);
+    assert(!texture_refs && stop && !memcmp(&original,&current,sizeof(current)));
     for(unsigned failure=1;failure<=48;failure++){
         f=reset_hud();setter_fail=failure;hud_render_device(&f);
         assert(applies==1 && !backup_refs && !texture_refs && !memcmp(&original,&current,sizeof(current)) && stop==1);
@@ -49,5 +59,6 @@ int main(void){
         hud_render_device(&f);assert(!creates && !draws && !texture_refs && !backup_refs && !surface_refs);
     }
     f=reset_hud();hud_render_device(&f);hud_reset_device(&f);assert(stop==1 && f.hud_blocked_generation==1);
-    puts("HUD: fresh generation, pitch, clipping, 48 setter failures, texture failures and full state restoration passed");
+    assert(!texture_refs && !f.hud_texture);
+    puts("HUD: 200 unchanged frames reuse one GPU upload; changed pixels, reset/recreation, gates, 48 setter failures and restoration passed");
 }

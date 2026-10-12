@@ -2,12 +2,12 @@
 #include "block_surface.h"
 #include "block_texture.h"
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
- * All temporary COM references are released in this call; no persistent GPU resources. */
+ * Texture pixels persist per facade; state backups never retain game resources between draws. */
 static void cube_render_device(CubeDevice *f) {
-    CubeCommand command={0};
+    CubeCommand command;
     int complete=cube_command_read(&command);
     int reason=cube_gate(&f->gate,complete?&command:NULL,GetTickCount(),GetAsyncKeyState(VK_F8)&0x8000);
-    if (reason || f->escaped || f->resetting || !f->scene) {cube_record(CUBE_REJECT,f->escaped?CUBE_INTERFACE:reason?reason:CUBE_OFF);return;}
+    if (reason || f->escaped || f->resetting || !f->scene) {block_texture_cache_release(&f->block_texture);cube_record(CUBE_REJECT,f->escaped?CUBE_INTERFACE:reason?reason:CUBE_OFF);return;}
     IDirect3DDevice9 *device=f->inner;
     IDirect3DSurface9 *target=NULL,*back=NULL;
     HRESULT hr=device->lpVtbl->GetRenderTarget(device,0,&target);
@@ -80,19 +80,18 @@ static void cube_render_device(CubeDevice *f) {
     IDirect3DStateBlock9 *backup=NULL;
     hr=device->lpVtbl->CreateStateBlock(device,D3DSBT_ALL,&backup);
     if (FAILED(hr) || !backup) {if (surface) HeapFree(GetProcessHeap(),0,surface);f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)(FAILED(hr)?hr:E_FAIL));return;}
-    IDirect3DTexture9 *stone=NULL;
     hr=backup->lpVtbl->Capture(backup);
     if (SUCCEEDED(hr)) {
-        if (atlas) hr=block_texture_create_with_tiles(device,&stone,&command);
-        else if (textured) hr=block_texture_create(device,&stone);
-        if(SUCCEEDED(hr))hr=overlay_prepare_state(device,(IDirect3DBaseTexture9*)stone,textured,atlas);
+        if (textured) hr=block_texture_cached(device,&f->block_texture,atlas?&command:NULL);
+        else block_texture_cache_release(&f->block_texture);
+        if(SUCCEEDED(hr))hr=overlay_prepare_state(device,textured?(IDirect3DBaseTexture9*)f->block_texture.texture:NULL,textured,atlas);
         if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,solid?D3DPT_TRIANGLELIST:D3DPT_LINELIST,count/(solid?3:2),vertices,solid?sizeof(BlockSurfaceVertex):sizeof(BlockVertex));
         HRESULT restored=backup->lpVtbl->Apply(backup);
         if (FAILED(restored)) {f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);}
         else if (SUCCEEDED(hr)) cube_record(CUBE_DRAW,(uint32_t)hr);
     }
-    if (stone) stone->lpVtbl->Release(stone);
     backup->lpVtbl->Release(backup);
     if (surface) HeapFree(GetProcessHeap(),0,surface);
+    if (FAILED(hr) || f->gate.fatal)block_texture_cache_release(&f->block_texture);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);}
 }

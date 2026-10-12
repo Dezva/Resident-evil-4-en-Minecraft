@@ -26,7 +26,7 @@ static uint32_t current_player(void){return player_value==(uint32_t)(uintptr_t)p
 static int writable(const void *p,size_t n){assert(p==(void*)(player_data+0x94) && n==12);if(late_slot)player_value=0;return !bad_writable;}
 static int GetAsyncKeyState(int key){assert(key==VK_F8);async_calls++;return(f8 || (late_f8 && async_calls==2))?0x8000:0;}
 static uint32_t GetTickCount(void){if(late_change) {float value;memcpy(&value,player_data+0x94,4);value+=3;memcpy(player_data+0x94,&value,4);}return now;}
-static int cube_command_read(CubeCommand *out){*out=published;return !torn;}
+static int cube_collision_command_read(CubeCommand *out){memcpy(out,&published,3168);return !torn;}
 #include "collision_tick.h"
 static void pose(float x,float y,float z){float p[3]={x,y,z};memcpy(player_data+0x94,p,12);}
 static float coordinate(unsigned i){float v;memcpy(&v,player_data+0x94+4*i,4);return v;}

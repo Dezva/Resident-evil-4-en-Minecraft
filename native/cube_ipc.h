@@ -11,7 +11,7 @@ _Static_assert(sizeof(CubeTelemetry)==92,"Cube telemetry layout");
 typedef struct {uint32_t magic,version;volatile LONG sequence;uint32_t build,pid,ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 _Static_assert(sizeof(CollisionTelemetry)==48,"Collision telemetry layout");
 static CollisionTelemetry *collision_shared;static HANDLE collision_mapping;
-static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=426,.reason=CUBE_OFF};
+static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=427,.reason=CUBE_OFF};
 static CubeTelemetry *cube_shared;
 static CubeCommand *cube_command;
 static HANDLE cube_telemetry_mapping,cube_command_mapping;
@@ -46,7 +46,7 @@ static BOOL CALLBACK cube_initialize(PINIT_ONCE once,PVOID parameter,PVOID *cont
     HANDLE barrier=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CollisionTelemetry),name);
     if(barrier && GetLastError()!=ERROR_ALREADY_EXISTS) {
         CollisionTelemetry *report=MapViewOfFile(barrier,FILE_MAP_ALL_ACCESS,0,0,sizeof(*report));
-        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=426;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
+        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=427;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
     }else if(barrier)CloseHandle(barrier);
     hud_initialize(pid);
     return TRUE;
@@ -54,20 +54,23 @@ static BOOL CALLBACK cube_initialize(PINIT_ONCE once,PVOID parameter,PVOID *cont
 static int cube_ensure_mapping(void) {
     return InitOnceExecuteOnce(&cube_mapping_once,cube_initialize,NULL,NULL)!=0;
 }
-static int cube_command_read(CubeCommand *out) {
+static int cube_command_read_prefix(CubeCommand *out,size_t bytes) {
     if (!cube_command) return 0;
     for (unsigned attempt=0;attempt<3;++attempt) {
         uint32_t before=((volatile CubeCommand *)cube_command)->sequence;
-        MemoryBarrier();memcpy(out,cube_command,sizeof(*out));MemoryBarrier();
+        MemoryBarrier();memcpy(out,cube_command,bytes);MemoryBarrier();
         if (!(before&1) && before==((volatile CubeCommand *)cube_command)->sequence
                 && before==out->sequence && out->magic==0x52453454 && out->version==6
-                && !out->reserved && !out->material_reserved && out->collisions<=1
+                && !out->reserved && !out->material_reserved && out->enabled<=1 && out->collisions<=1
                 && out->tile_count<=BLOCK_MAX_TILES && (!out->collisions || (out->mode==2 && out->arm_generation>0 && out->arm_generation<=2147483647))
                 && (out->style!=3 || out->tile_count>0) && out->mode<=2
                 && (out->mode==2 ? out->count>0 && out->count<=CUBE_MAX_BOXES && out->style<=3 : !out->count && !out->style)) return 1;
     }
     return 0;
 }
+static int cube_command_read(CubeCommand *out){return cube_command_read_prefix(out,sizeof(*out));}
+/* Collision needs only the lease, transform and boxes, never UVs or atlas pixels. */
+static int cube_collision_command_read(CubeCommand *out){return cube_command_read_prefix(out,offsetof(CubeCommand,materials));}
 static void cube_record_wrap(int delta,int failed) {
     AcquireSRWLockExclusive(&cube_metrics_lock);
     cube_metrics.live_devices=(uint32_t)((int32_t)cube_metrics.live_devices+delta);

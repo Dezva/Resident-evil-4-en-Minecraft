@@ -26,6 +26,8 @@ class NativeCaptureTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         fixture=(root/'native/test_cube_draw.c').read_text().replace('uint32_t player;','uint32_t player,hud_generation,hud_blocked_generation;')
         fixture=fixture.replace('height==width','height==32')
+        fixture=fixture.replace('uint32_t player,hud_generation,hud_blocked_generation;',
+            'uint32_t player,hud_generation,hud_blocked_generation;IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[8192];')
         # Use the typed simulated driver with the actual HUD renderer.
         a=fixture.index('static HRESULT draw(');b=fixture.index('static IDirect3DDevice9Vtbl table',a)
         fixture=fixture[:a]+"""static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride){

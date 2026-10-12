@@ -7,13 +7,6 @@ static inline int block_collision_scene_valid(const CubeCommand *command) {
     if(command->mode!=2 || !command->count || command->count>CUBE_MAX_BOXES)return 0;
     for(unsigned i=0;i<4;++i)if(!isfinite(command->origin[i]) || fabsf(command->origin[i])>(i==3?3.141593f:20000000.f))return 0;
     for(unsigned i=0;i<command->count;++i)if(!block_valid_shape_bounds(command->boxes[i]))return 0;
-    if(command->style==3) {
-        if(!command->tile_count || command->tile_count>BLOCK_MAX_TILES)return 0;
-        for(unsigned i=0;i<command->count;++i)for(unsigned j=0;j<6;++j){
-            if(command->materials[i][j].tile>=command->tile_count)return 0;
-            for(unsigned k=0;k<8;++k)if(!isfinite(command->materials[i][j].uv[k]) || command->materials[i][j].uv[k]<0 || command->materials[i][j].uv[k]>1)return 0;
-        }
-    }
     return 1;
 }
 static inline void block_local_point(const float *origin,const float *point,float *local) {
@@ -37,8 +30,7 @@ static inline int block_sweep_horizontal(const float *box,const float *start,con
     *time=entry;*axis=hit_axis;*normal=sign;return 1;
 }
 /* Sweeps rather than checking only the final position, so sprint cannot tunnel through a wall. */
-static inline int block_resolve_horizontal(const CubeCommand *command,const float *before,const float *after,float *result) {
-    if(!block_collision_scene_valid(command))return -1;
+static inline int block_resolve_horizontal_validated(const CubeCommand *command,const float *before,const float *after,float *result) {
     float start[3],end[3],delta[3];block_local_point(command->origin,before,start);block_local_point(command->origin,after,end);
     for(unsigned i=0;i<3;++i){if(!isfinite(before[i]+after[i]) || fabsf(before[i])>20000000.f || fabsf(after[i])>20000000.f)return -1;delta[i]=end[i]-start[i];}
     int contacts=0;
@@ -51,5 +43,8 @@ static inline int block_resolve_horizontal(const CubeCommand *command,const floa
     }
     float c=cosf(command->origin[3]),s=sinf(command->origin[3]);
     result[0]=command->origin[0]+c*start[0]-s*start[2];result[2]=command->origin[2]+s*start[0]+c*start[2];result[1]=after[1];return contacts;
+}
+static inline int block_resolve_horizontal(const CubeCommand *command,const float *before,const float *after,float *result) {
+    return block_collision_scene_valid(command)?block_resolve_horizontal_validated(command,before,after,result):-1;
 }
 #endif

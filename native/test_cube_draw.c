@@ -1,7 +1,8 @@
 #include "test_cube_platform.h"
 #include "cube_policy.h"
 #include "block_surface.h"
-typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;} CubeDevice;
+#include "block_texture.h"
+typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;BlockTextureCache block_texture;} CubeDevice;
 typedef struct {DWORD render[256],stage[2][32],sampler[16],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
@@ -73,7 +74,7 @@ static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const v
         assert(current.stage[0][D3DTSS_COLOROP]==D3DTOP_MODULATE && current.stage[0][D3DTSS_COLORARG1]==D3DTA_TEXTURE);
         assert(current.sampler[D3DSAMP_MINFILTER]==D3DTEXF_POINT && current.sampler[D3DSAMP_MIPFILTER]==D3DTEXF_NONE);
         if(command.style==2)for(unsigned y=0;y<16;++y)for(unsigned x=16;x<20;++x)assert(tile[y*20+x]==0xBABABABA);
-        else {for(unsigned y=0;y<256;++y)for(unsigned x=256;x<260;++x)assert(tile[y*260+x]==0xBABABABA);assert(tile[8*260+8]==command.pixels[0][0] && tile[8*260+40]==command.pixels[1][0]);assert(current.render[D3DRS_ALPHABLENDENABLE]==1 && current.stage[0][D3DTSS_ALPHAOP]==D3DTOP_MODULATE);} // Respect row pitch.
+        else {for(unsigned y=0;y<256;++y)for(unsigned x=256;x<260;++x)assert(tile[y*260+x]==0xBABABABA);assert(tile[8*260+8]==command.pixels[0][0] && tile[8*260+40]==command.pixels[command.tile_count>1?1:0][0]);assert(current.render[D3DRS_ALPHABLENDENABLE]==1 && current.stage[0][D3DTSS_ALPHAOP]==D3DTOP_MODULATE);} // Respect row pitch.
     }
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
@@ -82,6 +83,8 @@ static IDirect3DDevice9Vtbl table={.GetRenderTarget=get_target,.GetBackBuffer=ge
     .CreateTexture=texture_create,.SetSamplerState=sampler_state,.SetTexture=texture,.SetTextureStageState=stage,.SetRenderState=render,.DrawPrimitiveUP=draw};
 static IDirect3DDevice9 inner={&table};
 #include "cube_draw.h"
+/* Each ordinary failure fixture also simulates device resource teardown. */
+static void cube_render_and_teardown(CubeDevice *f){cube_render_device(f);block_texture_cache_release(&f->block_texture);}
 static CubeDevice reset(void) {
     memset(events,0,sizeof(events));memset(&current,0x37,sizeof(current));original=current;
     assert(allocations==frees && !texture_refs);texture_creates=texture_releases=texture_locks=texture_unlocks=0;
@@ -93,67 +96,67 @@ static CubeDevice reset(void) {
     return (CubeDevice){.inner=&inner,.scene=1};
 }
 int main(void) {
-    CubeDevice f=reset();cube_render_device(&f);
+    CubeDevice f=reset();cube_render_and_teardown(&f);
     assert(events[CUBE_DRAW]==1 && draws==1 && creates==1 && captures==1 && applies==1 && releases==1 && !backup_refs && !surface_refs);
     assert(!memcmp(&current,&original,sizeof(current)) && f.gate.anchored && f.gate.bounds[2]==-650);
-    float fixed[6];memcpy(fixed,f.gate.bounds,sizeof(fixed));shift=10;cube_render_device(&f);assert(!memcmp(fixed,f.gate.bounds,sizeof(fixed)));
-    command.epoch=8;cube_render_device(&f);assert(f.gate.bounds[0]==-60);
+    float fixed[6];memcpy(fixed,f.gate.bounds,sizeof(fixed));shift=10;cube_render_and_teardown(&f);assert(!memcmp(fixed,f.gate.bounds,sizeof(fixed)));
+    command.epoch=8;cube_render_and_teardown(&f);assert(f.gate.bounds[0]==-60);
     /* Minecraft supplies explicit world bounds. Moving the camera or changing
        the player pointer must not relocate them; a new placement replaces them. */
     f=reset();command.mode=1;
     float supplied[6]={-50,-50,-650,50,50,-550};memcpy(command.bounds,supplied,sizeof(supplied));
-    cube_render_device(&f);assert(draws==1 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
-    shift=10;player_id=99;cube_render_device(&f);assert(draws==2 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
-    command.enabled=0;cube_render_device(&f);assert(draws==2);
+    cube_render_and_teardown(&f);assert(draws==1 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
+    shift=10;player_id=99;cube_render_and_teardown(&f);assert(draws==2 && !memcmp(f.gate.bounds,supplied,sizeof(supplied)));
+    command.enabled=0;cube_render_and_teardown(&f);assert(draws==2);
     command.enabled=1;command.epoch++;command.bounds[0]+=10;command.bounds[3]+=10;
-    cube_render_device(&f);assert(draws==3 && f.gate.bounds[0]==-40);
+    cube_render_and_teardown(&f);assert(draws==3 && f.gate.bounds[0]==-40);
     unsigned prior_explicit=draws;command.bounds[3]=command.bounds[0];
-    cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==1);
-    command.bounds[3]=NAN;cube_render_device(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==2);
+    cube_render_and_teardown(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==1);
+    command.bounds[3]=NAN;cube_render_and_teardown(&f);assert(draws==prior_explicit && events[CUBE_CAMERA_REJECT]==2);
     /* One stable rigid grid, two boxes and a half-height slab, one state backup. */
     f=reset();command.mode=2;command.count=3;command.origin[2]=-600;
     float cube[6]={-50,-50,-50,50,50,50};
     for (unsigned i=0;i<3;++i) {memcpy(command.boxes[i],cube,sizeof(cube));command.boxes[i][0]+=i*100;command.boxes[i][3]+=i*100;}
-    command.boxes[2][4]=0;cube_render_device(&f);
+    command.boxes[2][4]=0;cube_render_and_teardown(&f);
     assert(draws==1 && last_vertices==72 && creates==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
     float native_origin[4];memcpy(native_origin,command.origin,sizeof(native_origin));float first=first_x;
-    shift=10;player_id=99;cube_render_device(&f);
+    shift=10;player_id=99;cube_render_and_teardown(&f);
     assert(draws==2 && first_x>first && !memcmp(native_origin,command.origin,sizeof(native_origin)));
-    command.count=2;cube_render_device(&f);assert(last_vertices==48); // Individual removal.
-    command.origin[3]=0.5f;cube_render_device(&f);assert(draws==4 && last_vertices==48);
-    command.boxes[1][0]=NAN;cube_render_device(&f);assert(draws==4 && events[CUBE_CAMERA_REJECT]==1);
-    command.boxes[1][0]=0;command.origin[3]=NAN;cube_render_device(&f);assert(draws==4);
+    command.count=2;cube_render_and_teardown(&f);assert(last_vertices==48); // Individual removal.
+    command.origin[3]=0.5f;cube_render_and_teardown(&f);assert(draws==4 && last_vertices==48);
+    command.boxes[1][0]=NAN;cube_render_and_teardown(&f);assert(draws==4 && events[CUBE_CAMERA_REJECT]==1);
+    command.boxes[1][0]=0;command.origin[3]=NAN;cube_render_and_teardown(&f);assert(draws==4);
     f=reset();command.mode=2;command.count=CUBE_MAX_BOXES;command.origin[2]=-600;
     for (unsigned i=0;i<CUBE_MAX_BOXES;++i) memcpy(command.boxes[i],cube,sizeof(cube));
-    cube_render_device(&f);assert(last_vertices==24*CUBE_MAX_BOXES && draws==1 && creates==1 && applies==1 && !surface_refs && !backup_refs);
-    command.count=CUBE_MAX_BOXES+1;cube_render_device(&f);assert(draws==1);
+    cube_render_and_teardown(&f);assert(last_vertices==24*CUBE_MAX_BOXES && draws==1 && creates==1 && applies==1 && !surface_refs && !backup_refs);
+    command.count=CUBE_MAX_BOXES+1;cube_render_and_teardown(&f);assert(draws==1);
     for(unsigned failure=1;failure<=30;++failure) {
-        f=reset();setter_fail=failure;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
+        f=reset();setter_fail=failure;cube_render_and_teardown(&f);assert(events[CUBE_FAILURE]==1 && !draws && applies==1 && releases==1 && !backup_refs && !surface_refs && !memcmp(&current,&original,sizeof(current)));
     }
-    f=reset();draw_fail=1;cube_render_device(&f);assert(draws==1 && events[CUBE_FAILURE]==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
-    cube_render_device(&f);assert(draws==1 && events[CUBE_REJECT]==1);
-    f=reset();create_fail=1;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !setters && !captures && !releases && !backup_refs);
-    f=reset();capture_fail=1;cube_render_device(&f);assert(events[CUBE_FAILURE]==1 && !setters && !applies && releases==1 && !backup_refs && !memcmp(&current,&original,sizeof(current)));
-    f=reset();apply_fail=1;cube_render_device(&f);assert(f.gate.fatal && events[CUBE_RESTORE_FAILURE]==1 && !events[CUBE_DRAW] && !backup_refs);
-    unsigned prior=draws;command.epoch=8;cube_render_device(&f);assert(draws==prior && events[CUBE_REJECT]==1);
-    f=reset();f8=1;cube_render_device(&f);f8=0;cube_render_device(&f);assert(!draws);command.epoch=8;cube_render_device(&f);assert(draws==1);
-    f=reset();now=1500;cube_render_device(&f);assert(!draws && !creates && events[CUBE_REJECT]==1);
-    f=reset();command.enabled=0;cube_render_device(&f);assert(!creates);
-    f=reset();f.scene=0;cube_render_device(&f);assert(!creates);
-    f=reset();f.resetting=1;cube_render_device(&f);assert(!creates);
-    f=reset();f.escaped=1;cube_render_device(&f);assert(!creates);
-    f=reset();offscreen=1;cube_render_device(&f);assert(!draws && events[CUBE_PASS_SKIP]==1 && !surface_refs);
-    f=reset();back_fail=1;cube_render_device(&f);assert(!creates && !surface_refs);
-    f=reset();camera_invalid=1;cube_render_device(&f);assert(!creates && events[CUBE_CAMERA_REJECT]==1 && !surface_refs);
-    f=reset();viewport_fail=1;cube_render_device(&f);assert(!creates && events[CUBE_FAILURE]==1);
+    f=reset();draw_fail=1;cube_render_and_teardown(&f);assert(draws==1 && events[CUBE_FAILURE]==1 && applies==1 && !memcmp(&current,&original,sizeof(current)));
+    cube_render_and_teardown(&f);assert(draws==1 && events[CUBE_REJECT]==1);
+    f=reset();create_fail=1;cube_render_and_teardown(&f);assert(events[CUBE_FAILURE]==1 && !setters && !captures && !releases && !backup_refs);
+    f=reset();capture_fail=1;cube_render_and_teardown(&f);assert(events[CUBE_FAILURE]==1 && !setters && !applies && releases==1 && !backup_refs && !memcmp(&current,&original,sizeof(current)));
+    f=reset();apply_fail=1;cube_render_and_teardown(&f);assert(f.gate.fatal && events[CUBE_RESTORE_FAILURE]==1 && !events[CUBE_DRAW] && !backup_refs);
+    unsigned prior=draws;command.epoch=8;cube_render_and_teardown(&f);assert(draws==prior && events[CUBE_REJECT]==1);
+    f=reset();f8=1;cube_render_and_teardown(&f);f8=0;cube_render_and_teardown(&f);assert(!draws);command.epoch=8;cube_render_and_teardown(&f);assert(draws==1);
+    f=reset();now=1500;cube_render_and_teardown(&f);assert(!draws && !creates && events[CUBE_REJECT]==1);
+    f=reset();command.enabled=0;cube_render_and_teardown(&f);assert(!creates);
+    f=reset();f.scene=0;cube_render_and_teardown(&f);assert(!creates);
+    f=reset();f.resetting=1;cube_render_and_teardown(&f);assert(!creates);
+    f=reset();f.escaped=1;cube_render_and_teardown(&f);assert(!creates);
+    f=reset();offscreen=1;cube_render_and_teardown(&f);assert(!draws && events[CUBE_PASS_SKIP]==1 && !surface_refs);
+    f=reset();back_fail=1;cube_render_and_teardown(&f);assert(!creates && !surface_refs);
+    f=reset();camera_invalid=1;cube_render_and_teardown(&f);assert(!creates && events[CUBE_CAMERA_REJECT]==1 && !surface_refs);
+    f=reset();viewport_fail=1;cube_render_and_teardown(&f);assert(!creates && events[CUBE_FAILURE]==1);
     /* Filled path uses the same scene/state policy and releases scratch on every exit. */
     f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;
-    memcpy(command.boxes[0],cube,sizeof(cube));cube_render_device(&f);
+    memcpy(command.boxes[0],cube,sizeof(cube));cube_render_and_teardown(&f);
     assert(draws==1 && last_vertices==6 && allocations==1 && frees==1 && setters==30 && !memcmp(&current,&original,sizeof(current)));
-    command.style=0;cube_render_device(&f);assert(draws==2 && last_vertices==24 && allocations==1 && frees==1);
+    command.style=0;cube_render_and_teardown(&f);assert(draws==2 && last_vertices==24 && allocations==1 && frees==1);
     for(unsigned failure=1;failure<=30;++failure) {
         f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-        setter_fail=failure;cube_render_device(&f);
+        setter_fail=failure;cube_render_and_teardown(&f);
         assert(!draws && applies==1 && allocations==1 && frees==1 && !memcmp(&current,&original,sizeof(current)));
     }
     for(unsigned failure=0;failure<6;++failure) {
@@ -164,31 +167,31 @@ int main(void) {
         if(failure==3)draw_fail=1;
         if(failure==4)apply_fail=1;
         if(failure==5)command.origin[2]=600; // Behind camera: no state modification.
-        cube_render_device(&f);assert(allocations==frees && !surface_refs && !backup_refs);
+        cube_render_and_teardown(&f);assert(allocations==frees && !surface_refs && !backup_refs);
         if(failure!=4)assert(!memcmp(&current,&original,sizeof(current)));
         if(failure==0 || failure==5)assert(!creates && !draws);
         if(failure==4)assert(f.gate.fatal);
     }
     f=reset();command.mode=2;command.style=1;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-    f8=1;cube_render_device(&f);assert(!allocations && !creates);f8=0;command.epoch++;cube_render_device(&f);assert(draws==1 && allocations==frees);
-    now=1500;cube_render_device(&f);assert(draws==1 && allocations==frees);
+    f8=1;cube_render_and_teardown(&f);assert(!allocations && !creates);f8=0;command.epoch++;cube_render_and_teardown(&f);assert(draws==1 && allocations==frees);
+    now=1500;cube_render_and_teardown(&f);assert(draws==1 && allocations==frees);
     /* Texture create/lock/unlock, sampler failures and restoration use actual draw code. */
     f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-    cube_render_device(&f);assert(draws==1 && setters==38 && texture_creates==1 && texture_releases==1 && texture_locks==1 && texture_unlocks==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
-    command.style=1;cube_render_device(&f);assert(draws==2 && texture_creates==1);
+    cube_render_and_teardown(&f);assert(draws==1 && setters==38 && texture_creates==1 && texture_releases==1 && texture_locks==1 && texture_unlocks==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
+    command.style=1;cube_render_and_teardown(&f);assert(draws==2 && texture_creates==1);
     f=reset();command.mode=2;command.style=2;command.count=CUBE_MAX_BOXES;command.origin[2]=-600;
     for(unsigned i=0;i<CUBE_MAX_BOXES;++i)memcpy(command.boxes[i],cube,sizeof(cube));
-    cube_render_device(&f);assert(draws==1 && last_vertices==6*CUBE_MAX_BOXES && texture_creates==1 && texture_releases==1 && allocations==frees);
+    cube_render_and_teardown(&f);assert(draws==1 && last_vertices==6*CUBE_MAX_BOXES && texture_creates==1 && texture_releases==1 && allocations==frees);
     f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-    f8=1;cube_render_device(&f);assert(!texture_creates && !allocations);f8=0;command.epoch++;cube_render_device(&f);assert(draws==1 && !texture_refs);
-    now=1500;cube_render_device(&f);assert(draws==1 && texture_creates==1);
+    f8=1;cube_render_and_teardown(&f);assert(!texture_creates && !allocations);f8=0;command.epoch++;cube_render_and_teardown(&f);assert(draws==1 && !texture_refs);
+    now=1500;cube_render_and_teardown(&f);assert(draws==1 && texture_creates==1);
     /* Padded rows are checked at draw time; pixel pattern is deterministic and opaque. */
     unsigned dark=255,light=0;
     for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x){uint32_t pixel=block_stone_pixel(x,y);assert((pixel>>24)==255 && (pixel&255)==((pixel>>8)&255));unsigned value=pixel&255;if(value<dark)dark=value;if(value>light)light=value;}
     assert(light-dark>=40);
     for(unsigned failure=1;failure<=38;++failure) {
         f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-        setter_fail=failure;cube_render_device(&f);assert(!draws && applies==1 && texture_creates==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
+        setter_fail=failure;cube_render_and_teardown(&f);assert(!draws && applies==1 && texture_creates==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
     }
     for(unsigned failure=0;failure<12;++failure) {
         f=reset();command.mode=2;command.style=2;command.count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
@@ -204,7 +207,7 @@ int main(void) {
         if(failure==9)apply_fail=1;
         if(failure==10)draw_fail=1;
         if(failure==11)command.enabled=0;
-        cube_render_device(&f);assert(!texture_refs && allocations==frees && !surface_refs && !backup_refs);
+        cube_render_and_teardown(&f);assert(!texture_refs && allocations==frees && !surface_refs && !backup_refs);
         if(failure!=9)assert(!memcmp(&current,&original,sizeof(current)));
         if(failure<6)assert(!draws && !setters && applies==1 && events[CUBE_FAILURE]==1);
         if(failure==9)assert(f.gate.fatal);
@@ -213,13 +216,26 @@ int main(void) {
     f=reset();command.mode=2;command.style=3;command.count=1;command.tile_count=2;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
     for(unsigned i=0;i<256;++i){command.pixels[0][i]=0xFF112233;command.pixels[1][i]=0x80445566;}
     for(unsigned i=0;i<6;++i){command.materials[0][i].tile=1;float uv[8]={0,0,1,0,1,1,0,1};memcpy(command.materials[0][i].uv,uv,sizeof(uv));}
-    cube_render_device(&f);assert(draws==1 && setters==43 && allocations==frees && !texture_refs && !memcmp(&current,&original,sizeof(current)));
+    cube_render_and_teardown(&f);assert(draws==1 && setters==43 && allocations==frees && !texture_refs && !memcmp(&current,&original,sizeof(current)));
     for(unsigned failure=1;failure<=43;++failure){
         f=reset();command.mode=2;command.style=3;command.count=1;command.tile_count=2;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-        setter_fail=failure;cube_render_device(&f);assert(!draws && applies==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
+        setter_fail=failure;cube_render_and_teardown(&f);assert(!draws && applies==1 && !texture_refs && allocations==frees && !memcmp(&current,&original,sizeof(current)));
     }
     f=reset();command.mode=2;command.style=3;command.count=1;command.tile_count=1;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
-    command.materials[0][0].tile=1;cube_render_device(&f);assert(!draws && !texture_creates && allocations==frees);
-    command.materials[0][0].tile=0;command.materials[0][0].uv[0]=NAN;cube_render_device(&f);assert(!draws && !texture_creates && allocations==frees);
-    puts("Cube rendering: all setter/draw failures restore full state, temporary resources balanced, restore-failure latch, F8/TTL, offscreen rejection and world anchor passed");
+    command.materials[0][0].tile=1;cube_render_and_teardown(&f);assert(!draws && !texture_creates && allocations==frees);
+    command.materials[0][0].tile=0;command.materials[0][0].uv[0]=NAN;cube_render_and_teardown(&f);assert(!draws && !texture_creates && allocations==frees);
+    /* Stable scenes keep their GPU atlas even when camera/epoch changes. */
+    f=reset();command.mode=2;command.style=3;command.count=1;command.tile_count=2;command.origin[2]=-600;memcpy(command.boxes[0],cube,sizeof(cube));
+    for(unsigned i=0;i<256;i++){command.pixels[0][i]=0xFF112233;command.pixels[1][i]=0x80445566;}
+    for(unsigned frame=0;frame<200;frame++){command.epoch++;cube_render_device(&f);}
+    assert(draws==200 && texture_creates==1 && texture_locks==1 && texture_refs==1 && allocations==frees && !backup_refs);
+    command.pixels[0][0]=0xFF556677;cube_render_device(&f);
+    assert(texture_creates==1 && texture_locks==2 && tile[8*260+8]==0xFF556677);
+    command.tile_count=1;cube_render_device(&f);assert(texture_creates==1 && texture_locks==3);
+    command.enabled=0;cube_render_device(&f);assert(!texture_refs && !f.block_texture.texture);
+    command.enabled=1;command.epoch++;cube_render_device(&f);assert(texture_creates==2 && texture_refs==1);
+    command.style=2;cube_render_device(&f);assert(texture_creates==3 && texture_locks==5 && texture_refs==1);
+    command.style=3;texture_lock_fail=1;cube_render_device(&f);assert(!texture_refs && events[CUBE_FAILURE]==1 && !memcmp(&current,&original,sizeof(current)));
+    block_texture_cache_release(&f.block_texture);assert(!texture_refs && !memcmp(&current,&original,sizeof(current)));
+    puts("Cube rendering: 200 stable frames reuse atlas; changed pixels/count/style, teardown, failures, full restoration, F8/TTL and world anchor passed");
 }

@@ -6,6 +6,10 @@ static unsigned events[32],renders,begins,ends,begin_fail,end_fail,reset_fail,pr
 static DWORD last_error;
 static IDirect3DDevice9 *reset_reentry;
 static unsigned reset_drop_reference;
+static unsigned resource_releases;
+static ULONG resource_release(IDirect3DTexture9 *texture){(void)texture;assert(native_refs>1);native_refs--;resource_releases++;return 0;}
+static TestTextureVtbl resource_table={.Release=resource_release};
+static IDirect3DTexture9 resource={&resource_table};
 static void EnterCriticalSection(CRITICAL_SECTION *lock) {lock->held++;}
 static void LeaveCriticalSection(CRITICAL_SECTION *lock) {assert(lock->held);lock->held--;last_error=999;}
 static int InitializeCriticalSectionAndSpinCount(CRITICAL_SECTION *lock,DWORD spin) {assert(!spin);lock->held=0;return !lock_fail;}
@@ -27,6 +31,7 @@ static HRESULT fake_BeginScene(IDirect3DDevice9 *self) {assert(self==&inner);beg
 static HRESULT fake_EndScene(IDirect3DDevice9 *self) {assert(self==&inner);ends++;last_error=444;return end_fail?E_FAIL:27;}
 static HRESULT fake_Reset(IDirect3DDevice9 *self,D3DPRESENT_PARAMETERS *p) {
     assert(self==&inner && p->marker==123);
+    assert(resource_releases); // default-pool resources must already be gone before native Reset
     if (reset_reentry) assert(reset_reentry->lpVtbl->GetAvailableTextureMem(reset_reentry)==(UINT)0x7004);
     if (reset_drop_reference) {assert(reset_reentry->lpVtbl->Release(reset_reentry)==1 && native_refs==1);reset_reentry=NULL;reset_drop_reference=0;}
     last_error=444;return reset_fail?E_FAIL:28;
@@ -37,6 +42,7 @@ static HRESULT fake_Present(IDirect3DDevice9 *self,const RECT *a,const RECT *b,H
 #include "cube_device.h"
 static void hud_render_device(CubeDevice *f){(void)f;}
 static void hud_reset_device(CubeDevice *f){(void)f;}
+static void hud_release_texture(CubeDevice *f){if(f->hud_texture)f->hud_texture->lpVtbl->Release(f->hud_texture);f->hud_texture=NULL;f->hud_pixels_valid=0;}
 static void cube_render_device(CubeDevice *f) {if (f->scene && !f->escaped && !f->resetting) renders++;}
 int main(void) {
     inner.lpVtbl=&native_table;native_refs=1;last_error=777;
@@ -53,14 +59,18 @@ int main(void) {
     begin_fail=0;assert(w->lpVtbl->BeginScene(w)==S_OK);assert(w->lpVtbl->EndScene(w)==27 && renders==1);
     assert(last_error==444 && events[CUBE_FRAME]==3 && events[CUBE_BEGIN]==2);
     D3DPRESENT_PARAMETERS parameters={123};CubeDevice *f=(CubeDevice *)w;f->gate.epoch=9;f->gate.anchored=1;f->scene=1;
+    f->block_texture.texture=&resource;native_refs++; // texture owns a native device reference
     reset_reentry=w;reset_fail=1;assert(w->lpVtbl->Reset(w,&parameters)==E_FAIL && f->gate.lost && !f->scene && !f->gate.anchored && f->gate.blocked==9 && last_error==444 && !f->resetting && !f->lock.held);
     reset_fail=0;assert(w->lpVtbl->Reset(w,&parameters)==28 && !f->gate.lost && f->gate.blocked==9);
+    assert(resource_releases==1 && !f->block_texture.texture);
     present_fail=1;assert(w->lpVtbl->Present(w,(void *)1,(void *)2,(void *)3,(void *)4)==E_FAIL && f->gate.lost && last_error==444);
     assert(events[CUBE_PRESENT_FAILURE]==1 && events[CUBE_RESET]==2 && events[CUBE_RESET_FAILURE]==1);
     GUID unknown={42,0,0,{0}};assert(w->lpVtbl->QueryInterface(w,&unknown,&out)==29 && out==&inner && native_refs==2 && f->escaped && events[CUBE_ESCAPE]==1 && last_error==444);
     assert(w->lpVtbl->BeginScene(w)==S_OK && w->lpVtbl->EndScene(w)==27 && renders==1);
+    f->hud_texture=&resource;native_refs++;
     // The escaped interface owns a native reference after the facade dies.
     assert(w->lpVtbl->Release(w)==0 && live==0 && frees==1 && native_refs==1 && last_error==444);
+    assert(resource_releases==2);
     assert(inner.lpVtbl->Release(&inner)==0);
     native_refs=1;allocation_fail=1;last_error=777;
     assert(cube_wrap_device(&inner)==&inner && wrap_failures==1 && native_refs==1 && last_error==777);

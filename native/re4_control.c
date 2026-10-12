@@ -154,6 +154,8 @@ static void hide_weapons(uint32_t player) {
 
 /* Restore before native logic. Only restore a model while it is still the same player. */
 static void restore_first_person(void) {
+    /* This callback is on a shared projection thunk, including ordinary RE4 draws. */
+    if(!render_saved && !eye_matrix && !hidden_player && !hidden_weapons[0].object && !hidden_weapons[1].object)return;
     if (render_saved) {
         if (writable(camera_ctrl+0x60,sizeof(saved_ctrl))) memcpy(camera_ctrl+0x60,saved_ctrl,sizeof(saved_ctrl));
         uint32_t global = global_slot ? *global_slot : 0;
@@ -198,8 +200,8 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     int complete = read_control_frame(&control);
     uint32_t stamp = control.stamp, armed = control.armed, flags = control.flags, generation = control.generation;
     float total = control.total, pitch = control.pitch, eye = control.eye;
-    if(self==camera_ctrl+0x278)cube_collision_tick(&control,complete,GetTickCount());
-    uint32_t player = current_player();
+    if(complete && armed && state->armed && !state->stop)cube_collision_tick(&control,complete,GetTickCount());
+    uint32_t player = complete && armed && state->armed && !state->stop && (flags&3u)==3u ? current_player() : 0;
     if (!complete || !armed || !state->armed || state->stop
             || (uint32_t)(GetTickCount()-stamp) >= RE4_TTL_MS || (flags & 3u) != 3u
             || !(state->capabilities & 2u) || !re4_valid_look(total,pitch,eye,flags) || !player
@@ -274,6 +276,18 @@ static int refresh_render_frame(const ControlFrame *control,uint32_t player,floa
 }
 /* Projection's validated cdecl entry sees the final CAMERA after interpolation. */
 static void __cdecl projection_hook(void) {
+    /* Never query actor/camera memory or poll keys on dormant projection calls.
+       The observed E9 entry serves callers beyond the six recognized call sites. */
+    if(!state || !state->armed || state->stop){
+        restore_first_person();
+        if(state)state->camera_active=0;
+        if(diagnostics && diagnostics->applied){
+            InterlockedIncrement(&diagnostics->sequence);MemoryBarrier();
+            diagnostics->applied=0;diagnostics->rejected++;diagnostics->stamp=GetTickCount();
+            MemoryBarrier();InterlockedIncrement(&diagnostics->sequence);
+        }
+        original_projection();return;
+    }
     ControlFrame control = {0};
     int complete = read_control_frame(&control);
     uint32_t armed = control.armed, stamp = control.stamp, generation = control.generation;
@@ -374,7 +388,7 @@ static void __cdecl pad_hook(void) {
         *key_on = (*key_on & ~(uint64_t)RE4_CONTROL_MASK) | input;
         state->native_buttons = input;
     } else {
-        uint32_t player = current_player();
+        uint32_t player = relative_walk ? current_player() : 0;
         if (relative_walk && player == last_player && isfinite(view_yaw)
                 && writable((void *)(uintptr_t)(player+0xA4),4))
             *(float *)(uintptr_t)(player+0xA4) = view_yaw;
@@ -462,7 +476,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=427; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=428; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

@@ -69,10 +69,10 @@ class CameraTraceTests(unittest.TestCase):
     def test_trace_collision_metrics_are_readonly_and_include_reference_reasons(self):
         from re4_camera_trace import add_barrier_observation
         from test_cube_test import Kernel
-        kernel=Kernel(version=6,build=427);before=kernel.collision.raw;row={}
+        kernel=Kernel(version=6,build=428);before=kernel.collision.raw;row={}
         add_barrier_observation(row,kernel,42)
         self.assertEqual(kernel.collision.raw,before);self.assertEqual(row['collision_state']['reason'],1)
-        self.assertEqual(row['cube_state']['build'],427)
+        self.assertEqual(row['cube_state']['build'],428)
         self.assertNotIn('collision_error',row)
 
     def frame(self):

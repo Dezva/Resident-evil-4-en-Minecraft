@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "374e92fc07b52abc1ed894897374869f4d69955b9d50ab0f80b1e9ae0ff93187": "0.4.28 (dormant projection and device forwarding)",
     "44e9f3fbb0531acc6a5460beaaa8960951b5dca9f2bf770b97e25293da39a141": "0.4.27 (cached GPU textures and compact collision reads)",
     "0c26f90b1f1aff959a72a207c5e80b17c9943ccec924eb6b37e8a5030be9e35d": "0.4.26 (synchronized editor, HUD and collision reference)",
     "f75dc2d963d984fa7da1822aca08a95607bac0ab33bdcfdf14749be8fe68b3e4": "0.4.24 (local block materials and horizontal collision)",

@@ -3,7 +3,7 @@
 #include "block_texture.h"
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
  * Texture pixels persist per facade; state backups never retain game resources between draws. */
-static void cube_render_device(CubeDevice *f) {
+static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) {
     CubeCommand command;
     int complete=cube_command_read(&command);
     int reason=cube_gate(&f->gate,complete?&command:NULL,GetTickCount(),GetAsyncKeyState(VK_F8)&0x8000);
@@ -94,4 +94,11 @@ static void cube_render_device(CubeDevice *f) {
     if (surface) HeapFree(GetProcessHeap(),0,surface);
     if (FAILED(hr) || f->gate.fatal)block_texture_cache_release(&f->block_texture);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);}
+}
+/* Keep the large scene/vertex stack frame out of ordinary, dormant RE4 frames. */
+static void cube_render_device(CubeDevice *f){
+    if(!cube_command_requested()){
+        block_texture_cache_release(&f->block_texture);cube_record(CUBE_REJECT,CUBE_OFF);return;
+    }
+    cube_render_enabled_device(f);
 }

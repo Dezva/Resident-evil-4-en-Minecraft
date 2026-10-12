@@ -4,7 +4,8 @@ static int armed=1,stop;static struct {int armed;int32_t stop;} shared_state={1,
 typedef struct {uint32_t armed,stamp,flags,generation;} ControlFrame;
 static int read_control_frame(ControlFrame *out){*out=(ControlFrame){armed,1000,3,1};return 1;}
 static uint32_t current_player(void){return player_id;}
-static void MemoryBarrier(void){}
+static unsigned hud_barriers;
+static void MemoryBarrier(void){hud_barriers++;}
 static int32_t InterlockedCompareExchange(int32_t *v,int32_t value,int32_t expected){int32_t old=*v;
         if(old==expected){*v=value;}stop=*v;return old;}
 /* ACTUAL_HUD_READER */
@@ -15,6 +16,9 @@ static CubeDevice reset_hud(void){
     state->armed=armed=1;state->stop=stop=0;return f;
 }
 int main(void){
+    CubeDevice dormant=reset_hud();state->armed=0;unsigned old_barriers=hud_barriers;
+    for(unsigned i=0;i<10000;i++)hud_render_device(&dormant);
+    assert(hud_barriers==old_barriers && !creates && !texture_creates && !draws);
     CubeDevice f=reset_hud();hud_render_device(&f);
     assert(draws==2 && creates==1 && applies==1 && !backup_refs && texture_refs==1 && !surface_refs && !memcmp(&original,&current,sizeof(current)));
     for(unsigned y=0;y<32;y++){assert(tile[y*260]==0xFF112233);for(unsigned x=256;x<260;x++)assert(tile[y*260+x]==0xBABABABA);}

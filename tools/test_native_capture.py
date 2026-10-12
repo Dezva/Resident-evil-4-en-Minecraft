@@ -72,7 +72,7 @@ class NativeCaptureTests(unittest.TestCase):
     def test_cube_command_actual_reader_rejects_torn_publications(self):
         root=Path(__file__).resolve().parents[1]
         body=(root/'native/cube_ipc.h').read_text()
-        body=body[body.index('static int cube_command_read'):body.index('static void cube_record_wrap')]
+        body=body[body.index('static int cube_command_requested'):body.index('static void cube_record_wrap')]
         fixture=(root/'native/test_cube_command.c').read_text()
         self.compile_run('cube_command.c',fixture.replace('/* ACTUAL_READER */',body))
 

@@ -722,3 +722,28 @@ Resultado:104 Python,11 fixtures C bajo ASan/UBSan, cuatro suites C portátiles
 y los fixtures PowerShell. JAR/API/instaladores/VIEW idénticos a 0.4.26 y comprobados
 al empaquetar. No se recompila ni cambia Minecraft. **No se mide aquí FPS real,
 tiempo GPU ni arranque de RE4; la mejora de rendimiento en Windows está pendiente.**
+
+## 0.4.28
+
+El usuario confirma lentitud de RE4 solo con DLL0.4.27, sin Minecraft/host/VIEW.
+Su captura identifica build427 y dibujo inactivo, sin fallos de dibujo/restore;
+174 fallos acumulados de Present no incluyen tiempos ni el HRESULT correspondiente.
+
+Se comparan cuerpos reales de callbacks publicados en0.4.27 y corregidos con
+la misma API simulada:10000 proyecciones desarmadas hacen40000 consultas de
+memoria,20000 al jugador y10000 lecturas de control/tecla/barrera/diagnóstico
+en0.4.27; cero de esas operaciones en0.4.28. Sigue llamándose la función original.
+Restauración ocurre una vez;1000 cámaras/pads inactivos no vuelven a consultar
+memoria del actor. Pasan todas las comprobaciones activas previas de mirada,
+generación/F8 y restauración. Dibujo/HUD inactivos10000 veces no leen buffers
+grandes ni asignan GPU/heap. Cabecera32byte real rechaza estado impar/desactivado.
+
+Passthrough119slots, incluyendo112 normales, verifica argumentos/resultados/
+LastError sin pares COM nativos extra por llamada. Liberaciones reentrantes
+deferidas sobreviven métodos anidados y una/dos referencias finales durante Reset;
+recursos propios se liberan antes del Reset/última liberación nativa. La DLL
+compilada mantiene separados los frames grandes de los renderizadores activos.
+
+Resultado:104 Python,11 fixtures C con ASan/UBSan, cuatro suites C portátiles y
+fixtures PowerShell. JAR/API/instaladores/VIEW byte-idénticos a0.4.26. No se ejecuta
+RE4 ni un driver real; no se atribuye aún una recuperación de FPS al cambio.

@@ -7,6 +7,7 @@ static DWORD last_error;
 static IDirect3DDevice9 *reset_reentry;
 static unsigned reset_drop_reference;
 static unsigned resource_releases;
+static unsigned native_adds,native_drops;
 static ULONG resource_release(IDirect3DTexture9 *texture){(void)texture;assert(native_refs>1);native_refs--;resource_releases++;return 0;}
 static TestTextureVtbl resource_table={.Release=resource_release};
 static IDirect3DTexture9 resource={&resource_table};
@@ -25,15 +26,20 @@ static int cube_ensure_mapping(void) {last_error=123;return !mapping_fail;}
 static void cube_record_wrap(int delta,int failed) {live=(unsigned)((int)live+delta);wrap_failures+=(unsigned)failed;last_error=123;}
 static void cube_record(unsigned event,uint32_t value) {(void)value;events[event]++;last_error=123;}
 static HRESULT fake_QueryInterface(IDirect3DDevice9 *self,REFIID iid,void **out) {assert(self==&inner);last_error=444;*out=NULL;if(iid && iid->Data1==42){*out=self;native_refs++;return 29;}return E_NOINTERFACE;}
-static ULONG fake_AddRef(IDirect3DDevice9 *self) {assert(self==&inner);last_error=444;return ++native_refs;}
-static ULONG fake_Release(IDirect3DDevice9 *self) {assert(self==&inner && native_refs);last_error=444;return --native_refs;}
+static ULONG fake_AddRef(IDirect3DDevice9 *self) {assert(self==&inner);native_adds++;last_error=444;return ++native_refs;}
+static ULONG fake_Release(IDirect3DDevice9 *self) {assert(self==&inner && native_refs);native_drops++;last_error=444;return --native_refs;}
 static HRESULT fake_BeginScene(IDirect3DDevice9 *self) {assert(self==&inner);begins++;last_error=444;return begin_fail?E_FAIL:S_OK;}
 static HRESULT fake_EndScene(IDirect3DDevice9 *self) {assert(self==&inner);ends++;last_error=444;return end_fail?E_FAIL:27;}
 static HRESULT fake_Reset(IDirect3DDevice9 *self,D3DPRESENT_PARAMETERS *p) {
     assert(self==&inner && p->marker==123);
     assert(resource_releases); // default-pool resources must already be gone before native Reset
     if (reset_reentry) assert(reset_reentry->lpVtbl->GetAvailableTextureMem(reset_reentry)==(UINT)0x7004);
-    if (reset_drop_reference) {assert(reset_reentry->lpVtbl->Release(reset_reentry)==1 && native_refs==1);reset_reentry=NULL;reset_drop_reference=0;}
+    if (reset_drop_reference) {
+        for(unsigned i=0;i<reset_drop_reference;i++)assert(reset_reentry->lpVtbl->Release(reset_reentry)==reset_drop_reference-i);
+        assert(native_refs==reset_drop_reference); // retain backing references until all nested methods return
+        assert(reset_reentry->lpVtbl->GetAvailableTextureMem(reset_reentry)==(UINT)0x7004 && native_refs==reset_drop_reference);
+        reset_reentry=NULL;reset_drop_reference=0;
+    }
     last_error=444;return reset_fail?E_FAIL:28;
 }
 static HRESULT fake_Present(IDirect3DDevice9 *self,const RECT *a,const RECT *b,HWND c,const RGNDATA *d) {assert(self==&inner && a==(void *)1 && b==(void *)2 && c==(void *)3 && d==(void *)4);last_error=444;return present_fail?E_FAIL:30;}
@@ -53,7 +59,9 @@ int main(void) {
     assert(w->lpVtbl->QueryInterface(w,&cube_iid_device,&out)==S_OK && out==w);
     assert(w->lpVtbl->Release(w)==1);
     assert(w->lpVtbl->QueryInterface(w,&cube_iunknown,NULL)==E_POINTER);
+    unsigned before_adds=native_adds,before_drops=native_drops;
     #include "test_device_calls.h"
+    assert(native_adds==before_adds && native_drops==before_drops && native_refs==1); // 112 forwards, zero native ref churn
     assert(w->lpVtbl->EndScene(w)==27 && !renders && ends==1 && last_error==444);
     begin_fail=1;assert(w->lpVtbl->BeginScene(w)==E_FAIL);assert(w->lpVtbl->EndScene(w)==27 && !renders);
     begin_fail=0;assert(w->lpVtbl->BeginScene(w)==S_OK);assert(w->lpVtbl->EndScene(w)==27 && renders==1);
@@ -78,6 +86,9 @@ int main(void) {
     mapping_fail=0;lock_fail=1;assert(cube_wrap_device(&inner)==&inner && allocations==frees && wrap_failures==2 && last_error==777);
     assert(!memcmp(&before,&inner,sizeof(inner)));
     lock_fail=0;reset_reentry=cube_wrap_device(&inner);reset_drop_reference=1;unsigned prior_frees=frees;
+    assert(reset_reentry->lpVtbl->Reset(reset_reentry,&parameters)==28 && native_refs==0 && live==0 && frees==prior_frees+1 && allocations==frees);
+    native_refs=1;reset_reentry=cube_wrap_device(&inner);assert(reset_reentry->lpVtbl->AddRef(reset_reentry)==2 && native_refs==2);
+    reset_drop_reference=2;prior_frees=frees;
     assert(reset_reentry->lpVtbl->Reset(reset_reentry,&parameters)==28 && native_refs==0 && live==0 && frees==prior_frees+1 && allocations==frees);
     CubeGate gate={0};CubeCommand cmd={.enabled=1,.epoch=7,.stamp=UINT32_MAX-10};
     assert(!cube_gate(&gate,&cmd,10,0));assert(cube_gate(&gate,&cmd,600,0)==CUBE_STALE);

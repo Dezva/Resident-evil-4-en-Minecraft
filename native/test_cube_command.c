@@ -14,9 +14,11 @@ static void MemoryBarrier(void) {
 int main(void) {
     shared=(CubeCommand){.magic=0x52453454,.version=6,.sequence=2,.enabled=1,.epoch=7,.stamp=40};
     CubeCommand out={0};CubeCommand before=shared;
+    assert(cube_command_requested());shared.enabled=0;assert(!cube_command_requested());shared.enabled=1;
     assert(cube_command_read(&out) && out.epoch==7 && !memcmp(&shared,&before,sizeof(shared)));
     mode=1;barriers=0;assert(cube_command_read(&out) && out.epoch==9 && out.stamp==41 && out.sequence==4 && barriers==4);
     mode=2;barriers=0;assert(!cube_command_read(&out) && barriers==6);
+    barriers=0;assert(!cube_command_requested());
     mode=0;shared.sequence=4;shared.reserved=1;assert(!cube_command_read(&out));shared.reserved=0;
     shared.magic=0;assert(!cube_command_read(&out));shared.magic=0x52453454;shared.version=1;assert(!cube_command_read(&out));
     shared.version=2;assert(!cube_command_read(&out));shared.version=3;assert(!cube_command_read(&out));shared.version=4;assert(!cube_command_read(&out));shared.version=6;shared.mode=3;assert(!cube_command_read(&out));

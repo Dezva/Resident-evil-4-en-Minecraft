@@ -1,5 +1,30 @@
 # Registro de desarrollo
 
+## 0.4.28 — camino inactivo y llamadas gráficas nativas
+
+RE4 sigue lento incluso solo, según nueva confirmación del usuario. Captura
+build427:escena inactiva,0 fallos de dibujo/restauración,174 Present fallidos
+acumulados sin HRESULT específico. Se guardará el HRESULT de futuros fallos.
+La corrección27 de atlas/HUD no cubría proyecciones ni pasoD3D inactivos.
+
+Shared E9 projection retorna al original cuando el puente está desarmado/parado,
+restaurando préstamos solo una vez. Restauración sin dueño evita consultas al
+jugador; cámara/mando inactivos evitan consultas al actor. Comparación de código
+real enAPI simulada10000proyecciones:40000 memoryquery+20000actor+10000control/
+F8/collision/diagnostics pasan a0. No se mide FPS ni driver real.
+
+Facada sigue retenida durante callbacks mediante referencia temporal local;
+liberaciones nativas del cliente se difieren hasta retornar llamada exterior.
+112 forwards dejan de hacer AddRef/Release nativos adicionales. Tests cubren
+119slots, LastError, métodos anidados,1/2 últimas referencias duranteReset y
+recursos propios. Dibujo inactivo sololee32byte coherentes; funcionesnoinline
+separan los buffers grandes. HUDinactivo omite lectura completa y framegrande.
+
+Build428/JAR0.4.26 idéntico;ABI control/escena/HUD igual.104Python,11fixturesC
+ASan/UBSan, cuatroCportátiles y fixturesPowerShell. Primera pruebaWindows será
+RE4solo, luego armado si mejora. Se conserva recuperación27; no se amplía mapa.
+DLL374e92fc07b52abc1ed894897374869f4d69955b9d50ab0f80b1e9ae0ff93187.
+
 ## 0.4.27 — trabajo gráfico repetido y colisión compacta
 
 El usuario confirma Minecraft estable y comunica caída fuerte de rendimiento

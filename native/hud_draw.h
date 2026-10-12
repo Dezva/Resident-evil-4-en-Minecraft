@@ -14,7 +14,7 @@ static void hud_quad(BlockSurfaceVertex *out,float x,float y,float w,float h){
     const unsigned order[6]={0,1,2,0,2,3};
     for(unsigned i=0;i<6;i++){unsigned n=order[i];float u=n==1 || n==2?1.f:0.f,v=n>=2?1.f:0.f;out[i]=(BlockSurfaceVertex){x+u*w,y+v*h,0,1,0xFFFFFFFF,u,v};}
 }
-static void hud_render_device(CubeDevice *f){
+static void __attribute__((noinline)) hud_render_enabled_device(CubeDevice *f){
     ControlFrame control={0};uint32_t now=GetTickCount();
     if(!state || !state->armed || state->stop || !read_control_frame(&control)
         || !control.armed || (control.flags&3u)!=3u){hud_release_texture(f);return;}
@@ -71,4 +71,8 @@ static void hud_render_device(CubeDevice *f){
     }
     backup->lpVtbl->Release(backup);
     if(FAILED(hr)){cube_record(CUBE_FAILURE,(uint32_t)hr);hud_reset_device(f);}
+}
+static void hud_render_device(CubeDevice *f){
+    if(!state || !state->armed || state->stop){hud_release_texture(f);return;}
+    hud_render_enabled_device(f);
 }

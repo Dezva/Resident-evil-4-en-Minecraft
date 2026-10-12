@@ -18,7 +18,9 @@ static unsigned f8;static uint32_t player_id=42;static uint32_t now=1000;static 
 static unsigned last_vertices;
 static float first_x;
 static CubeCommand command={.enabled=1,.epoch=7,.stamp=1000};
-static int cube_command_read(CubeCommand *out) {*out=command;return 1;}
+static unsigned scene_reads;
+static int cube_command_read(CubeCommand *out) {scene_reads++;*out=command;return 1;}
+static int cube_command_requested(void){return command.enabled==1 && command.epoch!=0;}
 static DWORD GetTickCount(void) {return now;}
 static int GetAsyncKeyState(int key) {assert(key==VK_F8);return f8?0x8000:0;}
 static void cube_record(unsigned event,uint32_t value) {(void)value;events[event]++;}
@@ -96,6 +98,9 @@ static CubeDevice reset(void) {
     return (CubeDevice){.inner=&inner,.scene=1};
 }
 int main(void) {
+    CubeDevice dormant=reset();command.enabled=0;scene_reads=0;
+    for(unsigned i=0;i<10000;i++)cube_render_device(&dormant);
+    assert(!scene_reads && !creates && !setters && !texture_creates && !draws && !allocations);
     CubeDevice f=reset();cube_render_and_teardown(&f);
     assert(events[CUBE_DRAW]==1 && draws==1 && creates==1 && captures==1 && applies==1 && releases==1 && !backup_refs && !surface_refs);
     assert(!memcmp(&current,&original,sizeof(current)) && f.gate.anchored && f.gate.bounds[2]==-650);

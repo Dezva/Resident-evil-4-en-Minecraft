@@ -6,6 +6,7 @@
 typedef struct {
     IDirect3DDevice9 iface;IDirect3DDevice9 *inner;
     volatile LONG references;CRITICAL_SECTION lock;
+    unsigned method_depth,deferred_releases;
     CubeGate gate;unsigned scene,escaped,resetting;uint32_t player,hud_generation,hud_blocked_generation;
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
@@ -21,14 +22,20 @@ static void hud_render_device(CubeDevice *f);
 static void hud_reset_device(CubeDevice *f);
 static void hud_release_texture(CubeDevice *f);
 #endif
-/* A window-message callback may release the caller's last reference during a
-   native call. Hold one owned reference until that call and our bookkeeping end. */
+/* Keep the facade alive across native callbacks. Client native releases during
+   a call are deferred until the outer call returns; no COM AddRef/Release pair
+   is needed on each of the game's ordinary drawing/state calls. */
 static void cube_method_enter(CubeDevice *f) {
     EnterCriticalSection(&f->lock);
-    InterlockedIncrement(&f->references);f->inner->lpVtbl->AddRef(f->inner);
+    InterlockedIncrement(&f->references);f->method_depth++;
 }
 static void cube_method_leave(CubeDevice *f,DWORD error) {
-    LONG refs=InterlockedDecrement(&f->references);if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}f->inner->lpVtbl->Release(f->inner);
+    LONG refs=InterlockedDecrement(&f->references);f->method_depth--;
+    if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}
+    if(!f->method_depth){
+        unsigned pending=f->deferred_releases;f->deferred_releases=0;
+        while(pending--)f->inner->lpVtbl->Release(f->inner);
+    }
     LeaveCriticalSection(&f->lock);
     if (!refs) {DeleteCriticalSection(&f->lock);cube_record_wrap(-1,0);HeapFree(GetProcessHeap(),0,f);}
     SetLastError(error);
@@ -40,7 +47,9 @@ static ULONG WINAPI cube_AddRef(IDirect3DDevice9 *iface) {
 }
 static ULONG WINAPI cube_Release(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;EnterCriticalSection(&f->lock);
-    LONG refs=InterlockedDecrement(&f->references);if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}f->inner->lpVtbl->Release(f->inner);
+    LONG refs=InterlockedDecrement(&f->references);
+    if(f->method_depth)f->deferred_releases++;
+    else {if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}f->inner->lpVtbl->Release(f->inner);}
     DWORD error=GetLastError();LeaveCriticalSection(&f->lock);
     if (!refs) {DeleteCriticalSection(&f->lock);cube_record_wrap(-1,0);HeapFree(GetProcessHeap(),0,f);}
     SetLastError(error);return (ULONG)refs;

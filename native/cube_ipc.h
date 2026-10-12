@@ -11,7 +11,7 @@ _Static_assert(sizeof(CubeTelemetry)==92,"Cube telemetry layout");
 typedef struct {uint32_t magic,version;volatile LONG sequence;uint32_t build,pid,ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 _Static_assert(sizeof(CollisionTelemetry)==48,"Collision telemetry layout");
 static CollisionTelemetry *collision_shared;static HANDLE collision_mapping;
-static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=427,.reason=CUBE_OFF};
+static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=428,.reason=CUBE_OFF};
 static CubeTelemetry *cube_shared;
 static CubeCommand *cube_command;
 static HANDLE cube_telemetry_mapping,cube_command_mapping;
@@ -46,13 +46,23 @@ static BOOL CALLBACK cube_initialize(PINIT_ONCE once,PVOID parameter,PVOID *cont
     HANDLE barrier=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CollisionTelemetry),name);
     if(barrier && GetLastError()!=ERROR_ALREADY_EXISTS) {
         CollisionTelemetry *report=MapViewOfFile(barrier,FILE_MAP_ALL_ACCESS,0,0,sizeof(*report));
-        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=427;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
+        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=428;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
     }else if(barrier)CloseHandle(barrier);
     hud_initialize(pid);
     return TRUE;
 }
 static int cube_ensure_mapping(void) {
     return InitOnceExecuteOnce(&cube_mapping_once,cube_initialize,NULL,NULL)!=0;
+}
+static int cube_command_requested(void){
+    if(!cube_command)return 0;
+    for(unsigned attempt=0;attempt<3;attempt++){
+        uint32_t header[8],before=((volatile CubeCommand*)cube_command)->sequence;
+        MemoryBarrier();memcpy(header,cube_command,sizeof(header));MemoryBarrier();
+        if(!(before&1) && before==header[2] && before==((volatile CubeCommand*)cube_command)->sequence)
+            return header[0]==0x52453454 && header[1]==6 && header[4]==1 && header[5]!=0 && !header[7];
+    }
+    return 0;
 }
 static int cube_command_read_prefix(CubeCommand *out,size_t bytes) {
     if (!cube_command) return 0;
@@ -88,7 +98,7 @@ static void cube_record(unsigned event,uint32_t value) {
     case CUBE_ESCAPE:cube_metrics.escapes++;break;
     case CUBE_RESET:cube_metrics.resets++;cube_metrics.active=0;break;
     case CUBE_RESET_FAILURE:cube_metrics.reset_failures++;cube_metrics.last_hresult=value;break;
-    case CUBE_PRESENT_FAILURE:cube_metrics.present_failures++;cube_metrics.active=0;cube_metrics.reason=CUBE_LOST;break;
+    case CUBE_PRESENT_FAILURE:cube_metrics.present_failures++;cube_metrics.last_hresult=value;cube_metrics.active=0;cube_metrics.reason=CUBE_LOST;break;
     case CUBE_REJECT:cube_metrics.rejections++;cube_metrics.active=0;cube_metrics.reason=value;break;
     case CUBE_CAMERA_REJECT:cube_metrics.camera_rejections++;cube_metrics.active=0;cube_metrics.reason=CUBE_CAMERA;break;
     case CUBE_PASS_SKIP:cube_metrics.pass_skips++;break;

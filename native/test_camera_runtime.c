@@ -23,20 +23,21 @@ static float consumed_yaw,view_yaw,render_matrix[12],render_view[12],render_righ
 static CameraPoint render_point;static void *eye_matrix;static float saved_eye_matrix[12];
 static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon hidden_weapons[2];
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
+static unsigned memory_queries,actor_queries,control_reads,key_polls,collision_calls;
 #define VK_F8 119
 static uint32_t GetTickCount(void){return now;}
-static int GetAsyncKeyState(int key){assert(key==VK_F8);return f8?0x8000:0;}
+static int GetAsyncKeyState(int key){assert(key==VK_F8);key_polls++;return f8?0x8000:0;}
 static LONG InterlockedIncrement(LONG *v){return ++*v;}
 static LONG InterlockedExchange(LONG *v,LONG n){LONG old=*v;*v=n;return old;}
 static LONG InterlockedCompareExchange(LONG *v,LONG n,LONG old){LONG value=*v;if(value==old)*v=n;return value;}
 static void MemoryBarrier(void){}
-static int writable(const void *p,size_t size){return p && size;}
-static int readable(const void *p,size_t size){return p && size;}
-static uint32_t current_player(void){return slot;}
+static int writable(const void *p,size_t size){memory_queries++;return p && size;}
+static int readable(const void *p,size_t size){memory_queries++;return p && size;}
+static uint32_t current_player(void){actor_queries++;return slot;}
 static uint32_t weapon_controller(uint32_t player){(void)player;return 0;}
 static void hide_weapons(uint32_t player){(void)player;}
-static int read_control_frame(ControlFrame *out){*out=packet;return 1;}
-static void cube_collision_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
+static int read_control_frame(ControlFrame *out){control_reads++;*out=packet;return 1;}
+static void cube_collision_tick(const ControlFrame *c,int complete,uint32_t stamp){collision_calls++;(void)c;(void)complete;(void)stamp;}
 static void original_camera(void *a,void *b,void *c,void *d,CameraPoint *e){(void)a;(void)b;(void)c;(void)d;(void)e;native_camera_calls++;}
 static void original_projection(void){projection_calls++;}
 static void original_pad(void){}
@@ -76,5 +77,18 @@ int main(void){
     f8=1;projection_hook();assert(!diagnostics->applied && !state->camera_active && (*(uint32_t *)(uintptr_t)(id+4)&0x12)==0x12);
     f8=0;state->stop=0;now=1500;projection_hook();assert(!diagnostics->applied);
     now=1000;packet.generation=2;projection_hook();assert(!diagnostics->applied);
-    assert(projection_calls>270);munmap(memory,65536);puts("Camera callbacks: auxiliary/idle/alternating directions preserve gaze; stop restores");
+    // No Minecraft/host: high-frequency projection calls must do only native forwarding.
+    storage.armed=0;packet.armed=0;projection_hook(); // allow one final restore/invalidation
+    unsigned old_queries=memory_queries,old_actor=actor_queries,old_control=control_reads,old_keys=key_polls,old_collision=collision_calls,old_calls=diag.calls;
+    for(unsigned i=0;i<10000;i++)projection_hook();
+    assert(memory_queries==old_queries && actor_queries==old_actor && control_reads==old_control && key_polls==old_keys && collision_calls==old_collision && diag.calls==old_calls);
+    pad_hook(); // release the earlier relative-walk heading once
+    old_queries=memory_queries;old_actor=actor_queries;
+    for(unsigned i=0;i<1000;i++){camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);pad_hook();}
+    assert(memory_queries==old_queries && actor_queries==old_actor);
+    // Stop while an eye/model is borrowed restores ownership once, then becomes dormant.
+    storage.stop=0;storage.armed=packet.armed=1;packet.generation=1;pad_hook();projection_hook();assert(state->camera_active);
+    storage.stop=1;projection_hook();assert(!diag.applied && !render_saved && !hidden_player && !state->camera_active);
+    old_queries=memory_queries;for(unsigned i=0;i<1000;i++)projection_hook();assert(memory_queries==old_queries);
+    assert(projection_calls>11000);munmap(memory,65536);puts("Camera callbacks: active gaze/restoration; 10000 dormant projections do zero memory/key/control/collision work");
 }

@@ -9,14 +9,14 @@ from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
-    def test_performance_build_427_keeps_scene_and_collision_channels_compatible(self):
+    def test_performance_build_428_keeps_scene_and_collision_channels_compatible(self):
         import struct
         from test_cube_test import Kernel
         from re4_cube_test import read_collision_status
-        kernel=Kernel(version=6,build=427)
-        struct.pack_into('<I',kernel.collision,12,427)
+        kernel=Kernel(version=6,build=428)
+        struct.pack_into('<I',kernel.collision,12,428)
         preview=NativePreview(42,kernel,user=kernel)
-        self.assertEqual(preview.baseline['build'],427)
+        self.assertEqual(preview.baseline['build'],428)
         preview.publish(True,7,self.bounds)
         self.assertTrue(struct.unpack_from('<I',kernel.command,16)[0])
         self.assertEqual(read_collision_status(kernel,42)['reason'],1)

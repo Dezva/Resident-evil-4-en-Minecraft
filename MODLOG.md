@@ -1,5 +1,20 @@
 # Registro de desarrollo
 
+## 0.4.34 — capa visual hasta60Hz y diagnóstico de interrupciones
+
+La prueba del usuario confirma HUD oculto y mano/inventario correctos en33;
+reporta tirones y retornos a RE4 normal. Captura PBO/fence triple sin esperas,
+recursos de dibujo reutilizados y transporte hasta60Hz con fuente visual
+independiente de los ticks. El límite fresco de controles200ms no se prolonga.
+Se descartan frames sobredimensionados sin matar el encoder. ACK con buffer.
+VIEW coalesce cursor de menú y mantiene orden posición/clic; registro local de
+causa de interrupción. Status incluye tiempos/edad de encoder y GPU ocupada.
+Base offline BVH/raycast/intersección exacta sobre430 triángulos de exportación
+real; integración de colocación/flechas y profundidad visual pendientes.
+DLL434 reutiliza textura/header durante escritura IPC, con TTL/generación/F8
+independientes.27 core,39 Minecraft,124 Python y fixtures VIEW pasan en cloud.
+No se ejecutaron OpenGL/GLFW/RE4 reales; mejora visual por comprobar en Windows.
+
 ## 0.4.33 — interfaz con E/mano/selección y lease de visibilidad de sesión
 
 La firma HUD32 se detectaba pero la captura real seguía mostrando cockpit. Se

@@ -63,18 +63,21 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
         }
     }
     $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval=40
+    $timer.Interval=16
     $keys = @{F8=$false; F9=$false}
     $timer.Add_Tick({
         $f8=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x77) -band 0x8000) -ne 0
         $f9=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0
         try {
+            if ($session.Active) { $session.PumpMouse() }
             if ($f8 -and !$keys.F8) { Return-ToNormal }
             elseif ($f9 -and !$keys.F9) {
                 if ($session.Active) { Set-ViewPanel $false; $session.Prepare($bounds); $label.Text='Minecraft visible. Requiere otro arm; F9 vuelve a mostrar RE4.' }
                 else { $session.Enter($bounds); Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
             } elseif ($session.Active -and !$session.StillFocused()) {
-                $session.Normal($false); Set-ViewPanel $false; $label.Text='Modo detenido al perder foco o fallar el envio de raton. Preparar Minecraft, arm y F9 para volver.'
+                $reason=$session.Interruption()
+                $session.Normal($false); Set-ViewPanel $false; $label.Text=$reason+' Preparar Minecraft, arm y F9 para volver.'
+                try { Add-Content -LiteralPath (Join-Path $PSScriptRoot 'view-events.log') -Value ((Get-Date -Format o)+' '+$reason) } catch {}
             }
         } catch { $label.Text=$_.Exception.Message }
         $keys.F8=$f8; $keys.F9=$f9

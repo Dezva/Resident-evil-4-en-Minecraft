@@ -323,3 +323,14 @@ state backup/restoration/Reset/escape lifetime follow existing facade policy.
 Native build433; ABI80/v6 scene/legacy HUD1 preserved, new channel required for33.
 Validation includes actual extracted callbacks and renderer with simulated APIs;
 no real Windows driver or RE4 draw has been executed in cloud.
+
+## 0.4.34 busy producer / cached overlay texture
+
+Build434 retains the cockpit visibility implementation confirmed in433.
+An incomplete overlay header or pixel-copy seqlock is a dropped update, not
+a texture/device failure: retain and draw the last successfully uploaded image
+only for the same arm generation, with its original timestamp younger than500ms.
+Independent control freshness, native stop, F8, actor, Reset/escape and graphics
+gates still apply before cached drawing. Expiry/generation change release cache.
+IPC sizes/versions unchanged. Simulated renderer tests cover1,000 busy reads,
+torn writes, image expiry with fresh controls and stop/F8/disarm/new generation.

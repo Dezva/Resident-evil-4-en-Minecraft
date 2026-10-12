@@ -10,6 +10,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ControlTests {
     @TempDir Path temp;
+    private static HudFrame overlay(int width,boolean menu) throws Exception {
+        var out=new java.io.ByteArrayOutputStream();
+        try(var zip=new java.util.zip.DeflaterOutputStream(out)){zip.write(new byte[width*32*4]);}
+        return HudFrame.overlay(java.util.Base64.getEncoder().encodeToString(out.toByteArray()),width,32,menu);
+    }
+    @Test void imageWorkerCanRefreshBetweenTicksButCannotKeepArmedAfterClientTicksStop() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("config.json");var log=temp.resolve("overlay-peer.log");
+        Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString(),"--overlay")
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});
+            var image=new java.util.concurrent.atomic.AtomicReference<>(overlay(32,false));bridge.overlaySource(image::get);
+            bridge.start();await(()->bridge.nativeTicks()==123);
+            var look=new MouseLook.Input(true,true,0,0,1620);
+            bridge.publishSceneControl(true,1,1,look,null,image.get());
+            await(bridge::nativeArmed);
+            image.set(overlay(64,false)); // No new control tick here.
+            await(()->{try{return Files.readString(log).contains("OVERLAY width=64 menu=False");}catch(Exception e){return false;}});
+            image.set(overlay(96,true)); // A menu image cannot be mixed with gameplay buttons.
+            Thread.sleep(25);assertFalse(Files.readString(log).contains("OVERLAY width=96 menu=True"));
+            bridge.publishSceneControl(true,0,1,look,null,image.get());
+            await(()->{try{return Files.readString(log).contains("OVERLAY width=96 menu=True");}catch(Exception e){return false;}});
+            image.set(overlay(128,true));await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
+        }finally{peer.destroyForcibly();}
+    }
     @Test void controlStartsDisarmedTransmitsOnlyFreshInputAndDisarmsAfterSamplingStops() throws Exception {
         int port;
         try (var socket = new ServerSocket(0)) { port = socket.getLocalPort(); }

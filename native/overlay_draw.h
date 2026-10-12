@@ -1,6 +1,10 @@
 /* Full GUI/hand layer: bounded shared pixels, heap storage, no giant stack copy. */
 #include "overlay_policy.h"
-typedef struct {IDirect3DTexture9 *texture;uint32_t revision,width,height;uint32_t pixels[OVERLAY_MAX_PIXELS];} OverlayDevice;
+typedef struct {IDirect3DTexture9 *texture;uint32_t revision,width,height;OverlayHeader cached;unsigned valid;uint32_t pixels[OVERLAY_MAX_PIXELS];} OverlayDevice;
+static int overlay_cached_header(OverlayDevice *p,OverlayHeader *h,const ControlFrame *control,uint32_t now){
+ if(!p || !p->texture || !p->valid || !p->cached.enabled || p->cached.generation!=control->generation || now-p->cached.stamp>=500)return 0;
+ *h=p->cached;return 1;
+}
 static void overlay_release(CubeDevice *f){
  OverlayDevice *p=f->overlay;f->overlay=NULL;
  if(p){if(p->texture)p->texture->lpVtbl->Release(p->texture);HeapFree(GetProcessHeap(),0,p);}
@@ -8,8 +12,13 @@ static void overlay_release(CubeDevice *f){
 static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
  ControlFrame control={0};OverlayHeader h;uint32_t now=GetTickCount();
  if(!state || !state->armed || state->stop || !read_control_frame(&control) || !control.armed || (control.flags&3)!=3
-   || !overlay_header_read(&h) || !h.enabled || h.generation!=control.generation || now-h.stamp>=500 || now-control.stamp>=500
-   || !current_player() || (GetAsyncKeyState(VK_F8)&0x8000) || f->escaped || f->resetting || f->gate.fatal || f->gate.lost || f->hud_blocked_generation==h.generation){overlay_release(f);return;}
+   || now-control.stamp>=500 || !current_player() || (GetAsyncKeyState(VK_F8)&0x8000)
+   || f->escaped || f->resetting || f->gate.fatal || f->gate.lost || f->hud_blocked_generation==control.generation){overlay_release(f);return;}
+ if(!overlay_header_read(&h) && !overlay_cached_header(f->overlay,&h,&control,now)){
+  OverlayDevice *prior=f->overlay;if(prior && prior->valid && (now-prior->cached.stamp>=500 || prior->cached.generation!=control.generation))overlay_release(f);
+  return;
+ }
+ if(!h.enabled || h.generation!=control.generation || now-h.stamp>=500){overlay_release(f);return;}
  if(!f->scene)return;
  f->hud_generation=h.generation;
  IDirect3DDevice9 *d=f->inner;IDirect3DSurface9 *target=NULL,*back=NULL;
@@ -24,9 +33,9 @@ static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
  OverlayDevice *p=f->overlay;if(!p)return;
  int changed=!p->texture || p->revision!=h.revision || p->width!=h.width || p->height!=h.height;
  if(changed){
-  MemoryBarrier();if(((volatile OverlayHeader*)&overlay_command->header)->sequence!=h.sequence)return;
-  memcpy(p->pixels,overlay_command->pixels,(size_t)h.width*h.height*4);MemoryBarrier();
-  if(((volatile OverlayHeader*)&overlay_command->header)->sequence!=h.sequence)return;
+  MemoryBarrier();int stable=((volatile OverlayHeader*)&overlay_command->header)->sequence==h.sequence;
+  if(stable){memcpy(p->pixels,overlay_command->pixels,(size_t)h.width*h.height*4);MemoryBarrier();stable=((volatile OverlayHeader*)&overlay_command->header)->sequence==h.sequence;}
+  if(!stable){if(!overlay_cached_header(p,&h,&control,now))return;changed=0;}
  }
  IDirect3DStateBlock9 *saved=NULL;hr=d->lpVtbl->CreateStateBlock(d,D3DSBT_ALL,&saved);if(FAILED(hr)||!saved)return;
  hr=saved->lpVtbl->Capture(saved);
@@ -65,6 +74,7 @@ static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
   BlockSurfaceVertex quad[6];hud_quad(quad,(float)vp.X-.5f,(float)vp.Y-.5f,(float)vp.Width,(float)vp.Height);
   if(SUCCEEDED(hr))hr=d->lpVtbl->DrawPrimitiveUP(d,D3DPT_TRIANGLELIST,2,quad,sizeof(*quad));
   HRESULT restored=saved->lpVtbl->Apply(saved);if(FAILED(restored)){f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);hud_reset_device(f);}
+  else if(SUCCEEDED(hr)){p->cached=h;p->valid=1;}
  }
  saved->lpVtbl->Release(saved);if(FAILED(hr)){cube_record(CUBE_FAILURE,(uint32_t)hr);hud_reset_device(f);}
 }

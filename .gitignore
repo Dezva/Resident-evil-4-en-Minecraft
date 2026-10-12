@@ -8,3 +8,4 @@ dist/
 .idea/
 *.iml
 config/re4bridge.json
+view-events.log

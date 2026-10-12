@@ -877,3 +877,26 @@ remain. JPEG/game resources/map exports are not bundled. Native view/FOV project
 MC-selected outline and helper-floor top; no native terrain raycast, map import,
 vertical/jump physics or Minecraft damage to RE4 actors is added. Native DLL433
 SHA256 f707036409bad6f7044baf49fdc29f790af8f654ff11617730aa350055968a11.
+
+## 0.4.34 — resultados12 de octubre de2026
+
+-27 pruebas bridge-core y39 Minecraft:0 fallos/errores/omitidas; JAR remapeado34.
+-124 pruebas Python, incluyendo las12 fixtures nativas existentes y5 consultas
+ de geometría nuevas. DLL434 compilada y4 suites C pasan (SHA en guía34).
+-VIEW:10.000 movimientos de menú coalescidos a un envío; orden posición/clic,
+ botones simultáneos, cursor OS, captura/liberación, rechazo de inputs ajenos,
+ pérdida de foco, errores de envío y restauración pasan con desktop simulado.
+-GPU simulada: saturación de tres buffers no espera/copia/reutiliza un pendiente;
+ solo el más reciente completado se copia; resultados tardíos no retroceden.
+-Encoder descarta ruido sobredimensionado y procesa el siguiente frame; TCP
+ envía imagen nueva entre ticks, no mezcla menú/movimiento ni prolonga armado.
+-La exportación real completa contiene430 triángulos SAT/EAT. Query vertical
+ en la posición exportada da Y=-454.6412477 frente a Y=-454.6429443 de Leon.
+-Estas pruebas no ejecutan una GPU, OpenGL/GLFW, Win32 o RE4 reales. La frecuencia
+60Hz es un máximo de captura/transporte, no una medida del equipo del usuario.
+ No hay importación física del mapa ni oclusión visual activadas en34.
+
+-DLL434:1.000 lecturas con productor ocupado conservan textura/dibujo sin
+ nuevas creaciones; un snapshot roto reutiliza solo el último validado. TTL de
+ la imagen, cambio de generación, F8, stop y desarmado impiden dibujar caché
+ y liberan recursos. Se mantienen las45 pruebas de fallo de setters/restauración.

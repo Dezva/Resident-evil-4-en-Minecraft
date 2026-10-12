@@ -39,7 +39,13 @@ public static class MouseChecks {
         Check(api.Sent[api.Sent.Count-1]=="2:524:0:2","X2 cleanup");
         count=api.Sent.Count;
         Check(!router.Route(0,0x200,p,0,0),"never duplicate raw mouse motion");
-        api.MenuOpen=true;int moves=api.Sent.Count;Check(!router.Route(0,0x200,p,0,0) && api.Sent.Count==moves+1,"inventory cursor forwarded without freezing the OS cursor");
+        api.MenuOpen=true;int moves=api.Sent.Count;
+        for(int i=0;i<10000;i++)Check(!router.Route(0,0x200,p,0,0),"OS cursor continues during menu flood");
+        Check(api.Sent.Count==moves,"menu flood does not fill the message queue");router.FlushMotion();
+        Check(api.Sent.Count==moves+1,"only latest menu position is sent at display cadence");
+        router.Route(0,0x200,p,0,0);router.Route(0,0x201,p,0,0);
+        Check(api.Sent[api.Sent.Count-2].Contains(":512:") && api.Sent[api.Sent.Count-1].Contains(":513:"),"menu position precedes click");router.Release(p);
+        router.Route(0,0x200,p,0,0);api.Current=new IntPtr(3);moves=api.Sent.Count;router.FlushMotion();Check(api.Sent.Count==moves,"queued cursor cannot enter another window");api.Current=new IntPtr(2);
         api.MenuOpen=false;count=api.Sent.Count;
         Check(!router.Route(-1,0x201,p,0,0),"negative hook code");
         Check(!router.Route(0,0x201,p,0,1),"injected events are not forwarded");
@@ -71,6 +77,8 @@ public class FakeViewDesktop : Desktop {
     public void Restore(Snapshot s) { Calls.Add("restore"); if(FailRestore) throw new Exception("restore failed"); }
     public bool Focus(IntPtr h) { Calls.Add("focus"+h); if (DenyFocus) return false; Current=h; return true; }
     public bool MouseFailed {get;set;}
+    public string MouseFailure {get{return "test delivery failure";}}
+    public void PumpMouse(){}
     public void StartMouse(Snapshot s,IntPtr mc,uint pid){Calls.Add("mouseon");if(FailMouse)throw new Exception("mouse unavailable");}
     public void EndMouse(){Calls.Add("mouseoff");if(FailMouseEnd)throw new Exception("mouse cleanup failed");}
     public bool Stop(uint pid) { Calls.Add("stop"); return true; }

@@ -1,6 +1,6 @@
 # Ver RE4 mientras Minecraft controla: complemento de vista 0.1.2
 
-Actualizado con0.4.31 para colocar/romper bloques sin perder foco.
+Actualizado con0.4.34: movimiento de cursor agrupado, orden de clics y registro de interrupciones.
 Compatible con los paquetes de controles ya publicados (IPC v1/v2). No necesita
 cambiar mod, host ni DLL. Windows PowerShell 5.1 y WinForms vienen con Windows;
 no requiere instalar otra biblioteca. Usa los mismos permisos que RE4/host.
@@ -106,3 +106,13 @@ jugando. No hay cambio de foco en abrir/cerrar inventario, ni rearme por alt-tab
 La calidad final también depende de la resolución/GUI scale configuradas en los
 juegos. La capa se captura hasta1600×900; resolución1366×768 cabe sin reducción.
 Comprobación visual y GLFW/D3D reales pendientes en Windows.
+
+## Diagnóstico0.4.34
+
+Los movimientos del cursor del inventario se agrupan hasta la siguiente
+actualización de presentación (timer16ms), conservando el último punto. Antes
+de cada clic se vacía esa posición pendiente. Los movimientos raw del modo de
+juego no se reenvían. PostMessage fallido, excepción del hook, cambio/cierre
+de ventana y pérdida de foco tienen causas separadas. VIEW escribe
+`view-events.log` con hora local después de detener/restaurar. Un error de
+log no impide detener. No se rearma ni se recupera el foco automáticamente.

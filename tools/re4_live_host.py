@@ -35,7 +35,7 @@ def main():
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.33: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
+            print('Host 0.4.34: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

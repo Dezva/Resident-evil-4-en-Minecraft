@@ -22,6 +22,7 @@ class Writer:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path, required=True)
+parser.add_argument("--overlay",action="store_true")
 args = parser.parse_args()
 config = load_config(args.config)
 class Preview:
@@ -41,8 +42,10 @@ class Preview:
                              'collision_state':dict(contacts=5,corrections=4,active=self.enabled,reason=0)}
 class Hud:
     available=True
+    supports_overlay=args.overlay
     def publish(self,enabled,generation=0,hud=None):
         print(f'HUD enabled={enabled} generation={generation} pixels={len(hud["image"]) if hud else 0}',flush=True)
+        if hud and args.overlay:print(f'OVERLAY width={hud["width"]} menu={hud["menu"]}',flush=True)
 policy = ControlPolicy(Writer(),Preview(),Hud())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))

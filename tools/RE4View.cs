@@ -24,6 +24,8 @@ namespace RE4BridgeView {
         void StartMouse(Snapshot game,IntPtr minecraft,uint minecraftPid);
         void EndMouse();
         bool MouseFailed {get;}
+        string MouseFailure {get;}
+        void PumpMouse();
     }
     // The mode changes only one verified game window; it never sends desktop keys.
     public sealed class Session {
@@ -81,8 +83,15 @@ namespace RE4BridgeView {
             }catch{Normal(false);throw;}
         }
         public bool StillFocused() {
-            return desktop.SameWindow(game.Handle,game.Pid) && desktop.SameWindow(minecraft,minecraftPid)
-                && desktop.Foreground() == minecraft && !desktop.MouseFailed;
+            return Interruption()==null;
+        }
+        public void PumpMouse(){desktop.PumpMouse();}
+        public string Interruption(){
+            if(!desktop.SameWindow(game.Handle,game.Pid))return "La ventana de RE4 cambio o se cerro.";
+            if(!desktop.SameWindow(minecraft,minecraftPid))return "La ventana de Minecraft cambio o se cerro.";
+            if(desktop.MouseFailed)return "Fallo de raton: "+desktop.MouseFailure;
+            if(desktop.Foreground()!=minecraft)return "Minecraft perdio el foco (ventana activa "+desktop.Foreground()+").";
+            return null;
         }
     }
     public interface MouseDesktop {
@@ -98,6 +107,7 @@ namespace RE4BridgeView {
     public sealed class MouseRouter {
         readonly MouseDesktop desktop;readonly Snapshot game;readonly IntPtr minecraft;readonly uint minecraftPid;
         uint held;
+        bool pendingMove;Point move;
         public bool Failed {get;private set;}
         public MouseRouter(MouseDesktop api,Snapshot state,IntPtr mc,uint pid){desktop=api;game=state;minecraft=mc;minecraftPid=pid;}
         public static bool ButtonOrWheel(uint message){
@@ -105,9 +115,13 @@ namespace RE4BridgeView {
                 || message==0x207 || message==0x208 || message==0x20a || message==0x20b || message==0x20c || message==0x20e;
         }
         public bool Route(int code,uint message,Point point,uint data,uint flags){
+            // Menu motion is latest-value only; do not fill GLFW's message queue at mouse polling rate.
+            if(message==0x200){
+                if(code>=0 && flags==0 && !Failed && desktop.MenuOpen && desktop.Foreground()==minecraft){move=point;pendingMove=true;}
+                return false;
+            }
             if(!ButtonOrWheel(message) || code<0 || flags!=0 || Failed || !desktop.SameWindow(game.Handle,game.Pid)
                 || !desktop.SameWindow(minecraft,minecraftPid) || desktop.Foreground()!=minecraft)return false;
-            if(message==0x200 && !desktop.MenuOpen)return false;
             uint bit=0;bool down=false,up=false;ushort high=0;
             switch(message){
             case 0x200:break;
@@ -122,11 +136,19 @@ namespace RE4BridgeView {
             }
             // A forwarded down must have a matching up even after Minecraft captures the mouse.
             if(!(up && (held&bit)!=0) && desktop.At(point)!=game.Handle)return false;
+            FlushMotion();if(Failed)return true;
             uint next=down?held|bit:up?held&~bit:held;
             if(!desktop.Send(minecraft,message,next|desktop.Modifiers(),point,high)){Failed=true;return true;}
             held=next;return message!=0x200; // Cursor motion must continue through Windows; only clicks/wheel are consumed.
         }
+        public void FlushMotion(){
+            if(!pendingMove)return;pendingMove=false;
+            if(Failed || !desktop.MenuOpen || !desktop.SameWindow(game.Handle,game.Pid)
+                || !desktop.SameWindow(minecraft,minecraftPid) || desktop.Foreground()!=minecraft || desktop.At(move)!=game.Handle)return;
+            if(!desktop.Send(minecraft,0x200,held|desktop.Modifiers(),move,0))Failed=true;
+        }
         public void Release(Point point){
+            pendingMove=false;
             if(desktop.SameWindow(minecraft,minecraftPid)){
                 foreach(uint bit in new uint[]{1,2,16,32,64})if((held&bit)!=0){
                     held&=~bit;uint message=bit==1?0x202u:bit==2?0x205u:bit==16?0x208u:0x20cu;
@@ -149,14 +171,16 @@ namespace RE4BridgeView {
         [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr h,ref Point point);
         [DllImport("user32.dll",SetLastError=true)] static extern bool PostMessageW(IntPtr h,uint message,UIntPtr wparam,IntPtr lparam);
         MouseCallback mouseCallback;IntPtr mouseHook;MouseRouter mouseRouter;uint mouseGamePid;
-        IntPtr menuMapping,menuView;
+        IntPtr menuMapping,menuView;string hookFailure,sendFailure;
         public bool MenuOpen {get {
             if(menuView==IntPtr.Zero)return false;
             int before=Marshal.ReadInt32(menuView,8);if((before&1)!=0)return false;
             bool menu=Marshal.ReadInt32(menuView,16)==1 && Marshal.ReadInt32(menuView,32)==1;
             return menu && unchecked(GetTickCount()-(uint)Marshal.ReadInt32(menuView,12))<500 && before==Marshal.ReadInt32(menuView,8);
         }}
-        public bool MouseFailed {get{return mouseRouter!=null && mouseRouter.Failed;}}
+        public bool MouseFailed {get{return hookFailure!=null || mouseRouter!=null && mouseRouter.Failed;}}
+        public string MouseFailure {get{return hookFailure??sendFailure??"envio rechazado";}}
+        public void PumpMouse(){if(mouseRouter!=null)mouseRouter.FlushMotion();}
         public IntPtr At(Point point){return GetAncestor(WindowFromPoint(point),2);}
         public uint Modifiers(){return (GetAsyncKeyState(0x10)&0x8000)!=0?4u|((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u):((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u);}
         public bool Send(IntPtr h,uint message,uint buttons,Point point,ushort wheel){
@@ -164,10 +188,13 @@ namespace RE4BridgeView {
             if(message!=0x20a && message!=0x20e && !ScreenToClient(h,ref point))return false;
             uint coordinates=(uint)((point.X&0xffff)|((point.Y&0xffff)<<16));
             uint wparam=buttons|((uint)wheel<<16);
-            return PostMessageW(h,message,new UIntPtr(wparam),new IntPtr(unchecked((int)coordinates)));
+            bool sent=PostMessageW(h,message,new UIntPtr(wparam),new IntPtr(unchecked((int)coordinates)));
+            if(!sent)sendFailure="PostMessage, Win32 "+Marshal.GetLastWin32Error();
+            return sent;
         }
         public void StartMouse(Snapshot game,IntPtr mc,uint mcPid){
             EndMouse();
+            hookFailure=null;sendFailure=null;
             menuMapping=OpenFileMappingW(4,false,"Local\\RE4Bridge-OverlayCommand-"+game.Pid);
             if(menuMapping!=IntPtr.Zero){menuView=MapViewOfFile(menuMapping,4,0,0,new UIntPtr(128));
                 if(menuView==IntPtr.Zero || Marshal.ReadInt32(menuView)!=0x5245344f || Marshal.ReadInt32(menuView,4)!=1){if(menuView!=IntPtr.Zero)UnmapViewOfFile(menuView);menuView=IntPtr.Zero;CloseHandle(menuMapping);menuMapping=IntPtr.Zero;}}
@@ -178,13 +205,17 @@ namespace RE4BridgeView {
         IntPtr OnMouse(int code,IntPtr message,IntPtr data){
             try {
                 if(code>=0 && mouseRouter!=null && MouseRouter.ButtonOrWheel((uint)message.ToInt64())){
+                    if((uint)message.ToInt64()==0x200 && !MenuOpen)return CallNextHookEx(mouseHook,code,message,data);
                     MouseHookData input=(MouseHookData)Marshal.PtrToStructure(data,typeof(MouseHookData));
                     if(mouseRouter.Route(code,(uint)message.ToInt64(),input.Position,input.Data,input.Flags)){
                         if(mouseRouter.Failed)Stop(mouseGamePid);
                         return new IntPtr(1);
                     }
                 }
-            } catch {if(mouseRouter!=null)Stop(mouseGamePid);}
+            } catch(Exception error){
+                hookFailure=error.GetType().Name+": "+error.Message;
+                if(mouseRouter!=null){Stop(mouseGamePid);if((uint)message.ToInt64()!=0x200)return new IntPtr(1);}
+            }
             return CallNextHookEx(mouseHook,code,message,data);
         }
         public void EndMouse(){

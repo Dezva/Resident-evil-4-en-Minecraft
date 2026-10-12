@@ -21,6 +21,15 @@ public final class HudFrame {
         this.image=image;this.width=width;this.height=height;this.menu=menu;this.selection=selection==null?null:selection.clone();
     }
     public static HudFrame overlay(String image,int width,int height,boolean menu){return new HudFrame(image,width,height,menu,null);}
+    private HudFrame(HudFrame visual,double[] selection){
+        image=visual.image;width=visual.width;height=visual.height;menu=visual.menu;
+        this.selection=selection; // Both arrays/visuals are already immutable and validated.
+    }
+    /** Combine a fresh captured image with this tick's world selection without decoding it again. */
+    public HudFrame visual(HudFrame visual){
+        if(visual==null || visual.menu!=menu || (width==0)!=(visual.width==0))throw new IllegalArgumentException("Incompatible overlay");
+        return new HudFrame(visual,selection);
+    }
     public HudFrame selection(double[] selection){return new HudFrame(image,width,height,menu,selection);}
     public String image(){return image;}public boolean menu(){return menu;}
     public JsonObject toJson(){

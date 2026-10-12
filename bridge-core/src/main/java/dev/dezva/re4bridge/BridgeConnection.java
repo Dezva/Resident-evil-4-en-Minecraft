@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /** One background worker; latest-value slots bound memory when the peer is slow. */
 public final class BridgeConnection implements AutoCloseable {
@@ -14,7 +15,10 @@ public final class BridgeConnection implements AutoCloseable {
     private final BridgeConfig config;
     public enum Mode { SIMULATOR, READER, CONTROL }
     private final Mode mode;
-    private record ControlFrame(JsonObject frame, long createdNs) {}
+    private record ControlFrame(JsonObject frame, HudFrame hud, long createdNs) {}
+    private volatile Supplier<HudFrame> overlaySource;
+    /** Source reads only an immutable encoder result, never Minecraft or OpenGL state. */
+    public void overlaySource(Supplier<HudFrame> source) { overlaySource=source; }
     private final AtomicReference<ControlFrame> control = new AtomicReference<>();
     private volatile boolean nativeArmed;
     private volatile int nativeStop;
@@ -107,14 +111,13 @@ public final class BridgeConnection implements AutoCloseable {
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
         if (armed && preview != null) frame.add("preview",preview);
-        if(armed && hud!=null && look!=null && look.firstPerson())frame.add("hud",hud.toJson());
         if (look != null && armed) {
             JsonObject data = new JsonObject();
             data.addProperty("enabled", look.enabled()); data.addProperty("first_person", look.firstPerson());
             data.addProperty("total_yaw", look.totalYaw()); data.addProperty("pitch", look.pitch());
             data.addProperty("absolute_yaw",look.absoluteYaw()); data.addProperty("eye_height", look.eyeHeight()); frame.add("look", data);
         }
-        control.set(new ControlFrame(frame, System.nanoTime()));
+        control.set(new ControlFrame(frame,armed && look!=null && look.firstPerson()?hud:null, System.nanoTime()));
     }
     public Re4Sample re4Sample() { return re4Sample; }
     public Status status() { return status; }
@@ -138,13 +141,14 @@ public final class BridgeConnection implements AutoCloseable {
             peer.connect(new InetSocketAddress("127.0.0.1", config.port()), 1500);
             peer.setSoTimeout(2500);
             peer.setTcpNoDelay(true);
+            var input = new java.io.BufferedInputStream(peer.getInputStream(),16384);
             JsonObject hello = new JsonObject();
             hello.addProperty("protocol", LineProtocol.VERSION);
             hello.addProperty("type", "hello");
             hello.addProperty("session", session);
             hello.addProperty("token", config.token());
             peer.getOutputStream().write(LineProtocol.encode(hello));
-            JsonObject welcome = LineProtocol.read(peer.getInputStream());
+            JsonObject welcome = LineProtocol.read(input);
             if (!"welcome".equals(string(welcome, "type")) || !session.equals(string(welcome, "session"))
                     || !(mode == Mode.CONTROL ? "re4_control" : readerMode() ? "re4_reader" : "simulator").equals(string(welcome, "mode"))) {
                 throw new IOException("Unexpected peer mode");
@@ -157,15 +161,23 @@ public final class BridgeConnection implements AutoCloseable {
             while (running) {
                 JsonObject frame = null;
                 if (readerMode()) {
-                    if (sequence > 0 && System.nanoTime() - lastSend < (controllerMode() ? 50_000_000L : 100_000_000L)) {
-                        Thread.sleep(Duration.ofMillis(10));
+                    if (sequence > 0 && System.nanoTime() - lastSend < (controllerMode() ? 16_666_667L : 100_000_000L)) {
+                        Thread.sleep(Duration.ofMillis(1));
                         continue;
                     }
                     frame = new JsonObject();
                     frame.addProperty("type", "re4_poll");
                     if (controllerMode()) {
                         var latest = control.get();
-                        if (latest != null && System.nanoTime() - latest.createdNs() < 200_000_000L) frame = latest.frame().deepCopy();
+                        if (latest != null && System.nanoTime() - latest.createdNs() < 200_000_000L) {
+                            frame = latest.frame().deepCopy();
+                            var hud=latest.hud();var source=overlaySource;
+                            if(hud!=null && source!=null){
+                                var visual=source.get();
+                                hud=visual!=null && visual.menu()==hud.menu()?hud.visual(visual):null;
+                            }
+                            if(hud!=null)frame.add("hud",hud.toJson());
+                        }
                         else {
                             frame.addProperty("type", "re4_control"); frame.addProperty("armed", false);
                             frame.addProperty("buttons", 0);
@@ -188,7 +200,7 @@ public final class BridgeConnection implements AutoCloseable {
                 frame.addProperty("seq", ++sequence);
                 peer.getOutputStream().write(LineProtocol.encode(frame));
                 lastSend = System.nanoTime();
-                JsonObject ack = LineProtocol.read(peer.getInputStream());
+                JsonObject ack = LineProtocol.read(input);
                 if (!"ack".equals(string(ack, "type")) || !session.equals(string(ack, "session"))
                         || !Long.toString(sequence).equals(string(ack, "seq"))) {
                     throw new IOException("Invalid acknowledgement");

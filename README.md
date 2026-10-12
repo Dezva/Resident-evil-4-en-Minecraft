@@ -5,29 +5,20 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.33: interfaz, inventario, mano y selección](docs/RE4-BLOCK-0.4.33.md).
-La ocultación nativa ahora gestiona las primitivas del cockpit y mantiene la lease
-entre actualizaciones de cámara; se restaura al salir de primera persona/F8.
-La capa Minecraft renderiza hotbar, mano/objeto y pantalla E con sus recursos
-locales, a mayor resolución y compresión fuera del hilo de render. VIEW mantiene
-ambas ventanas alineadas y reenvía el cursor del inventario sin robar foco.
-Se añade contorno negro proyectado del bloque/celda seleccionado en la cuadrícula.
-DLL/build433, mod0.4.33 y host/VIEW nuevos; Fabric/API iguales. Compilación/pruebas
-pasan; ocultación, calidad, interacción y coste GPU necesitan prueba real Windows.
-El mapa SAT/EAT430 triángulos sigue validado, sin importar. Faltan integrar relieve/
-obstáculos/ocupación de terreno, apoyo vertical/salto y combate.64 bloques/128
-cajas/64 teselas; escala1000. **0.4.13 está retirada.**
-Incluye [ratón y cámara experimental](docs/RE4-MOUSE-CAMERA.md) y
-[controles nativos](docs/RE4-CONTROLS.md). Imágenes se obtienen solo en tu equipo,
-sin añadir recursos originales al ZIP/GitHub. Los modelos activos, arranque,
-apariencia y física reales de esta versión requieren prueba en Windows.
-El simulador sigue siendo un modo de diagnóstico separado.
+**Estado actual:** [0.4.34: fluidez de mano/inventario y eventos de VIEW](docs/RE4-BLOCK-0.4.34.md).
+La capa visual usa lectura GPU con buffers/fences sin esperas, hasta60Hz de
+captura/transporte y recursos de dibujo reutilizados. Los controles conservan
+su caducidad independiente. VIEW agrupa movimientos de menú, mantiene el foco
+y registra interrupciones. La DLL434 conserva la ocultación HUD confirmada y reutiliza imágenes válidas
+durante escrituras del host.
+[Consultas de geometría](docs/RE4-GEOMETRY.md) comprobadas sobre SAT/EAT:
+la integración física con Minecraft y la oclusión visual siguen pendientes.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.33 |
+| RE4 Bridge | paquete/mod 0.4.34 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "dev.dezva.re4bridge.minecraft.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "OverlayBlurMixin",
+    "OverlayFramebufferMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

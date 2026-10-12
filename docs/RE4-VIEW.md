@@ -89,3 +89,20 @@ limpieza de pulsaciones, rechazo de entradas ajenas, ventanas/PID reutilizados,
 fallos de entrega/preparacion/limpieza y ajuste de tamano antes de arm. Sigue
 siendo una simulacion del escritorio: la respuesta real de Windows/GLFW y los
 juegos necesita comprobacion en tu equipo.
+
+
+## 0.4.33 — inventario con E y ventanas alineadas
+
+Preparar Minecraft ajusta ahora también su ventana al monitor, detrás de RE4,
+para que interfaz/cursor coincidan con la presentación. F8/cierre/fallo restauran
+los estilos/tamaños originales de ambos juegos. Usa E para el inventario vanilla:
+W/A/S/D quedan suspendidos mientras está abierto; E/Esc lo cierran conservando
+arm. Esc desde juego abre pausa y sí desarma. F8 siempre devuelve RE4 normal.
+
+El observador continúa reenviando solo botones/rueda de la sesión verificada.
+Añade movimiento de cursor únicamente si el canal OverlayCommand indica menú
+enabled con TTL<500ms; ese movimiento no se consume ni se duplica como raw input
+jugando. No hay cambio de foco en abrir/cerrar inventario, ni rearme por alt-tab.
+La calidad final también depende de la resolución/GUI scale configuradas en los
+juegos. La capa se captura hasta1600×900; resolución1366×768 cabe sin reducción.
+Comprobación visual y GLFW/D3D reales pendientes en Windows.

@@ -95,8 +95,12 @@ class ControlPolicy:
             self.armed=False
             reason='canal de colision no disponible; reinicia RE4'
         hud=frame.get('hud')
-        if hud is not None and (self.hud is None or not self.hud.available or not look or not look.get('first_person')):
-            self.armed=False;reason='HUD requiere DLL0.4.26 y primera persona'
+        if hud is not None and (self.hud is None or not self.hud.available or not look or not look.get('first_person') or (hud.get("encoding")=="zlib-argb" and not getattr(self.hud,"supports_overlay",False))):
+            self.armed=False;reason='interfaz requiere DLL/mod0.4.33 y primera persona'
+        if hud is not None and getattr(self.hud,"supports_overlay",False) and hud.get("encoding")!="zlib-argb":
+            self.armed=False;reason='interfaz requiere mod Minecraft0.4.33'
+        if hud is not None and hud.get("menu") is True and frame["buttons"]!=0:
+            self.armed=False;reason='inventario requiere movimiento detenido'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
                             look=look if self.armed else None, generation=frame["arm_id"])
         if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
@@ -123,6 +127,7 @@ class ControlPolicy:
                 result['armed']=False
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
                 result['preview_state']=self.preview.status()
+        if self.hud is not None and hasattr(self.hud,"status"):result.update(self.hud.status())
         return result
 
     def stop(self):

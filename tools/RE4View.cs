@@ -17,6 +17,7 @@ namespace RE4BridgeView {
         Snapshot Capture(IntPtr window, uint pid);
         void PrepareView(Snapshot state,Rect screen);
         void Present(Snapshot state, Rect screen);
+        void PrepareInput(Snapshot state,Rect screen);
         void Restore(Snapshot state);
         bool Focus(IntPtr window);
         bool Stop(uint pid);
@@ -27,7 +28,7 @@ namespace RE4BridgeView {
     // The mode changes only one verified game window; it never sends desktop keys.
     public sealed class Session {
         readonly Desktop desktop;
-        readonly Snapshot game;
+        readonly Snapshot game;readonly Snapshot inputWindow;
         readonly IntPtr minecraft;
         readonly uint minecraftPid;
         public bool Active { get; private set; }
@@ -39,7 +40,7 @@ namespace RE4BridgeView {
             desktop = api; minecraft = mc; minecraftPid = mcPid;
             if (!api.SameWindow(re4,re4Pid) || !api.SameWindow(mc,mcPid))
                 throw new InvalidOperationException("Las ventanas cambiaron. Reinicia VIEW-RE4.");
-            game = api.Capture(re4,re4Pid);
+            game = api.Capture(re4,re4Pid);inputWindow=api.Capture(mc,mcPid);
         }
         public void Enter(Rect screen) {
             if (Active) return;
@@ -62,7 +63,8 @@ namespace RE4BridgeView {
             StopConfirmed = desktop.SameWindow(game.Handle,game.Pid) && desktop.Stop(game.Pid);
             try { desktop.EndMouse(); } finally {
             if (Active || Prepared) {
-                if (desktop.SameWindow(game.Handle,game.Pid)) desktop.Restore(game);
+                try{if(desktop.SameWindow(inputWindow.Handle,inputWindow.Pid))desktop.Restore(inputWindow);}
+                finally{if(desktop.SameWindow(game.Handle,game.Pid))desktop.Restore(game);}
                 Active = false;Prepared=false;
             }
             }
@@ -73,6 +75,7 @@ namespace RE4BridgeView {
             if (!desktop.SameWindow(minecraft,minecraftPid)) throw new InvalidOperationException("Minecraft se cerro.");
             Prepared=true;preparedScreen=screen;
             try {
+                desktop.PrepareInput(inputWindow,screen);
                 desktop.PrepareView(game,screen); // Resize only while the native stop is latched.
                 if (!desktop.Focus(minecraft)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa Minecraft.");
             }catch{Normal(false);throw;}
@@ -88,6 +91,7 @@ namespace RE4BridgeView {
         IntPtr At(Point point);
         bool Send(IntPtr h,uint message,uint buttons,Point point,ushort wheel);
         uint Modifiers();
+        bool MenuOpen {get;}
     }
     // Only live user button/wheel events over the presented RE4 window are forwarded.
     // Raw mouse motion and keyboard input remain Minecraft's own events.
@@ -97,14 +101,16 @@ namespace RE4BridgeView {
         public bool Failed {get;private set;}
         public MouseRouter(MouseDesktop api,Snapshot state,IntPtr mc,uint pid){desktop=api;game=state;minecraft=mc;minecraftPid=pid;}
         public static bool ButtonOrWheel(uint message){
-            return message==0x201 || message==0x202 || message==0x204 || message==0x205
+            return message==0x200 || message==0x201 || message==0x202 || message==0x204 || message==0x205
                 || message==0x207 || message==0x208 || message==0x20a || message==0x20b || message==0x20c || message==0x20e;
         }
         public bool Route(int code,uint message,Point point,uint data,uint flags){
             if(!ButtonOrWheel(message) || code<0 || flags!=0 || Failed || !desktop.SameWindow(game.Handle,game.Pid)
                 || !desktop.SameWindow(minecraft,minecraftPid) || desktop.Foreground()!=minecraft)return false;
+            if(message==0x200 && !desktop.MenuOpen)return false;
             uint bit=0;bool down=false,up=false;ushort high=0;
             switch(message){
+            case 0x200:break;
             case 0x201:bit=1;down=true;break;case 0x202:bit=1;up=true;break;
             case 0x204:bit=2;down=true;break;case 0x205:bit=2;up=true;break;
             case 0x207:bit=16;down=true;break;case 0x208:bit=16;up=true;break;
@@ -118,7 +124,7 @@ namespace RE4BridgeView {
             if(!(up && (held&bit)!=0) && desktop.At(point)!=game.Handle)return false;
             uint next=down?held|bit:up?held&~bit:held;
             if(!desktop.Send(minecraft,message,next|desktop.Modifiers(),point,high)){Failed=true;return true;}
-            held=next;return true;
+            held=next;return message!=0x200; // Cursor motion must continue through Windows; only clicks/wheel are consumed.
         }
         public void Release(Point point){
             if(desktop.SameWindow(minecraft,minecraftPid)){
@@ -143,6 +149,13 @@ namespace RE4BridgeView {
         [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr h,ref Point point);
         [DllImport("user32.dll",SetLastError=true)] static extern bool PostMessageW(IntPtr h,uint message,UIntPtr wparam,IntPtr lparam);
         MouseCallback mouseCallback;IntPtr mouseHook;MouseRouter mouseRouter;uint mouseGamePid;
+        IntPtr menuMapping,menuView;
+        public bool MenuOpen {get {
+            if(menuView==IntPtr.Zero)return false;
+            int before=Marshal.ReadInt32(menuView,8);if((before&1)!=0)return false;
+            bool menu=Marshal.ReadInt32(menuView,16)==1 && Marshal.ReadInt32(menuView,32)==1;
+            return menu && unchecked(GetTickCount()-(uint)Marshal.ReadInt32(menuView,12))<500 && before==Marshal.ReadInt32(menuView,8);
+        }}
         public bool MouseFailed {get{return mouseRouter!=null && mouseRouter.Failed;}}
         public IntPtr At(Point point){return GetAncestor(WindowFromPoint(point),2);}
         public uint Modifiers(){return (GetAsyncKeyState(0x10)&0x8000)!=0?4u|((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u):((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u);}
@@ -154,7 +167,11 @@ namespace RE4BridgeView {
             return PostMessageW(h,message,new UIntPtr(wparam),new IntPtr(unchecked((int)coordinates)));
         }
         public void StartMouse(Snapshot game,IntPtr mc,uint mcPid){
-            EndMouse();mouseRouter=new MouseRouter(this,game,mc,mcPid);mouseGamePid=game.Pid;
+            EndMouse();
+            menuMapping=OpenFileMappingW(4,false,"Local\\RE4Bridge-OverlayCommand-"+game.Pid);
+            if(menuMapping!=IntPtr.Zero){menuView=MapViewOfFile(menuMapping,4,0,0,new UIntPtr(128));
+                if(menuView==IntPtr.Zero || Marshal.ReadInt32(menuView)!=0x5245344f || Marshal.ReadInt32(menuView,4)!=1){if(menuView!=IntPtr.Zero)UnmapViewOfFile(menuView);menuView=IntPtr.Zero;CloseHandle(menuMapping);menuMapping=IntPtr.Zero;}}
+            mouseRouter=new MouseRouter(this,game,mc,mcPid);mouseGamePid=game.Pid;
             mouseCallback=OnMouse;mouseHook=SetWindowsHookExW(14,mouseCallback,GetModuleHandleW(null),0);
             if(mouseHook==IntPtr.Zero){int error=Marshal.GetLastWin32Error();EndMouse();throw new Win32Exception(error,"No se pudo preparar el raton de VIEW.");}
         }
@@ -179,6 +196,8 @@ namespace RE4BridgeView {
                 mouseHook=IntPtr.Zero;
             }
             mouseCallback=null;mouseGamePid=0;
+            if(menuView!=IntPtr.Zero){UnmapViewOfFile(menuView);menuView=IntPtr.Zero;}
+            if(menuMapping!=IntPtr.Zero){CloseHandle(menuMapping);menuMapping=IntPtr.Zero;}
         }
         [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
@@ -199,6 +218,7 @@ namespace RE4BridgeView {
         [DllImport("kernel32.dll")] static extern bool UnmapViewOfFile(IntPtr h);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
         [DllImport("kernel32.dll")] static extern void SetLastError(uint error);
+        [DllImport("kernel32.dll")] static extern uint GetTickCount();
         static long GetStyle(IntPtr h,int index) { return IntPtr.Size == 8 ? GetLong64(h,index).ToInt64() : (long)(uint)GetLong32(h,index); }
         static void SetStyle(IntPtr h,int index,long value) {
             SetLastError(0);
@@ -218,6 +238,11 @@ namespace RE4BridgeView {
             SetStyle(state.Handle,-16,state.Style & ~0x21C40000L); // Caption and resize frame.
             SetStyle(state.Handle,-20,(state.Extended & ~0x00000300L)|0x08000000L); // Client/window edges.
             // Resize in the background before arm; never reset graphics while entering the active view.
+            Check(SetWindowPos(state.Handle,new IntPtr(-2),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
+        }
+        public void PrepareInput(Snapshot state,Rect screen){
+            SetStyle(state.Handle,-16,state.Style&~0x21C40000L);
+            SetStyle(state.Handle,-20,state.Extended&~0x00000300L);
             Check(SetWindowPos(state.Handle,new IntPtr(-2),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
         }
         public void Present(Snapshot state,Rect screen) {

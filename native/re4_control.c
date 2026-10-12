@@ -167,25 +167,59 @@ static void hide_weapons(uint32_t player) {
    the old DPF_COCKPIT flag did not suppress those primitives. Hide only the
    life/ammo cockpit classes, preserving messages, prompts and inventory. */
 #define RE4_COCKPIT_CLASSES (0x40000000u | 0x2000u | 0x800u) /* 0x21,0x32,0x34 */
+typedef struct {uint32_t address;uint8_t identity[7],visible;} HudUnitLease;
+static HudUnitLease native_hud_units[256];static unsigned native_hud_unit_count,native_hud_candidates;
+static uint32_t native_hud_array,native_hud_capacity;
+static int cockpit_class(uint8_t id){return id==0x21 || id==0x32 || id==0x34;}
 static void native_hud_restore(void){
     if(native_hud_owner && native_hud_owner==native_hud_system
         && writable((void*)(uintptr_t)(native_hud_owner+0x30),4)){
         uint32_t *off=(uint32_t*)(uintptr_t)(native_hud_owner+0x30);
         *off=(*off&~RE4_COCKPIT_CLASSES)|native_hud_saved;
+        uint32_t array=0,max=0;
+        if(readable((void*)(uintptr_t)native_hud_owner,0x58)){
+            memcpy(&array,(void*)(uintptr_t)(native_hud_owner+0x50),4);memcpy(&max,(void*)(uintptr_t)native_hud_owner,4);
+        }
+        if(array==native_hud_array && max==native_hud_capacity)for(unsigned i=0;i<native_hud_unit_count;i++){
+            HudUnitLease *lease=&native_hud_units[i];uint8_t *unit=(uint8_t*)(uintptr_t)lease->address;
+            if(writable(unit,8) && !memcmp(unit+1,lease->identity,7))unit[0]=(unit[0]&~8u)|lease->visible;
+        }
     }
-    native_hud_owner=0;
+    native_hud_owner=0;native_hud_unit_count=0;native_hud_candidates=0;native_hud_array=0;native_hud_capacity=0;
+}
+static void native_hud_reapply(void){
+    if(!native_hud_owner || native_hud_owner!=native_hud_system)return;
+    *(uint32_t*)(uintptr_t)(native_hud_owner+0x30)|=RE4_COCKPIT_CLASSES;
+    if(*(uint32_t*)(uintptr_t)(native_hud_owner+0x50)!=native_hud_array || *(uint32_t*)(uintptr_t)native_hud_owner!=native_hud_capacity){native_hud_unit_count=0;return;}
+    for(unsigned i=0;i<native_hud_unit_count;i++){
+        HudUnitLease *lease=&native_hud_units[i];uint8_t *unit=(uint8_t*)(uintptr_t)lease->address;
+        if(!memcmp(unit+1,lease->identity,7))unit[0]&=~8u;
+    }
 }
 static void native_hud_hide(void){
     uint32_t system=native_hud_system;
     if(!system || !readable((void*)(uintptr_t)system,0x58)
         || !writable((void*)(uintptr_t)(system+0x30),4))return;
-    int32_t max,count;memcpy(&max,(void*)(uintptr_t)system,4);memcpy(&count,(void*)(uintptr_t)(system+4),4);
+    int32_t max,count;uint32_t array;memcpy(&max,(void*)(uintptr_t)system,4);memcpy(&count,(void*)(uintptr_t)(system+4),4);memcpy(&array,(void*)(uintptr_t)(system+0x50),4);
     if(max<=0 || max>8192 || count<0 || count>max)return;
     if(native_hud_owner!=system){native_hud_restore();native_hud_owner=system;native_hud_saved=*(uint32_t*)(uintptr_t)(system+0x30)&RE4_COCKPIT_CLASSES;}
     *(uint32_t*)(uintptr_t)(system+0x30)|=RE4_COCKPIT_CLASSES;
+    if(native_hud_unit_count){native_hud_reapply();return;}
+    if(array<0x10000 || (array&3u) || array>0xFFFFFFFFu-(uint32_t)max*0x144u
+        || !writable((void*)(uintptr_t)array,(size_t)max*0x144u))return;
+    // Existing ID primitives may ignore the class suppression in this UHD build.
+    // Keep their actual visibility bit leased, never delete them or alter alpha/HP.
+    native_hud_array=array;native_hud_capacity=(uint32_t)max;
+    for(int32_t i=0;i<max;i++){
+        uint8_t *unit=(uint8_t*)(uintptr_t)(array+(uint32_t)i*0x144u);
+        if(!cockpit_class(unit[2]))continue;
+        native_hud_candidates++;
+        if(native_hud_unit_count==256)continue;
+        HudUnitLease *lease=&native_hud_units[native_hud_unit_count++];lease->address=(uint32_t)(uintptr_t)unit;memcpy(lease->identity,unit+1,7);lease->visible=unit[0]&8u;
+        unit[0]&=~8u;
+    }
 }
-static void restore_first_person(void) {
-    native_hud_restore();
+static void restore_rendered_camera(void) {
     /* This callback is on a shared projection thunk, including ordinary RE4 draws. */
     if(!render_saved && !eye_matrix && !hidden_player && !hidden_weapons[0].object && !hidden_weapons[1].object)return;
     projection_cache.valid=0;
@@ -222,11 +256,14 @@ static void restore_first_person(void) {
     hidden_player = 0;
 }
 
+/* Camera/model leases are per native update. HUD visibility is per FP session:
+   restoring it before every native callback allowed cockpit drawing between callbacks. */
+static void restore_first_person(void){native_hud_restore();restore_rendered_camera();}
 static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
         void *matrix, void *offset, CameraPoint *point) {
     // Auxiliary cameras must not clear the primary eye/render lease.
     if(self!=camera_ctrl+0x278){original_camera(self,unused,matrix,offset,point);return;}
-    restore_first_person();
+    restore_rendered_camera();
     InterlockedIncrement(&state->camera_ticks);
     state->camera_active = 0;
     ControlFrame control = {0};
@@ -242,6 +279,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
             || !writable(matrix,48) || !writable(point,sizeof(*point))
             || !writable((void *)(uintptr_t)(player + 4),4)
             || !readable(offset,0x2C)) {
+        native_hud_restore();
         original_camera(self, unused, matrix, offset, point);
         return;
     }
@@ -252,6 +290,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
     if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player
             || !isfinite(fovy) || fovy > 179.f || last_player != player || last_arm_id != generation) {
+        native_hud_restore();
         original_camera(self, unused, matrix, offset, point);
         return;
     }
@@ -276,7 +315,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     hidden_player = player; hidden_vtable = *(uint32_t *)(uintptr_t)player;
     saved_draw_bits = *draw & RE4_MODEL_DRAW_BITS;
     *draw = re4_hide_model(*draw);
-    hide_weapons(player);
+    hide_weapons(player);native_hud_hide();
     state->camera_active = 1;
 }
 
@@ -336,8 +375,7 @@ static int projection_reuse(uint32_t now){
     *(uint32_t*)(uintptr_t)(player+4)=re4_hide_model(*(uint32_t*)(uintptr_t)(player+4));
     for(unsigned i=0;i<2;i++)if(hidden_weapons[i].object){uint32_t *draw=(uint32_t*)(uintptr_t)(hidden_weapons[i].object+4);*draw=re4_hide_model(*draw);}
     write_render_camera(camera_ctrl+0x60);write_render_camera(saved_global_camera);
-    if(native_hud_owner && native_hud_owner==native_hud_system)
-        *(uint32_t*)(uintptr_t)(native_hud_owner+0x30)|=RE4_COCKPIT_CLASSES;
+    native_hud_reapply();
     return 1;
 }
 static void block_camera_publish(uint32_t now){
@@ -433,9 +471,10 @@ static void __cdecl projection_hook(void) {
 }
 
 static void __cdecl pad_hook(void) {
-    restore_first_person();
+    restore_rendered_camera();
     state->camera_active = 0;
     original_pad();
+    int fp_live=0;
     InterlockedIncrement(&state->hook_ticks);
     if (GetAsyncKeyState(VK_F8) & 0x8000) InterlockedExchange(&state->stop, 1);
     ControlFrame control = {0};
@@ -473,7 +512,7 @@ static void __cdecl pad_hook(void) {
                 if ((state->capabilities & 2u) && (flags & 3u) == 3u && isfinite(view_yaw) && *player_slot == player) {
                     uint32_t movement = input & RE4_MOVEMENT_MASK;
                     *(float *)(uintptr_t)(player+0xA4) = movement ? re4_walk_heading(view_yaw,movement) : view_yaw;
-                    input = re4_relative_input(input); relative_walk = 1;native_hud_hide();
+                    input = re4_relative_input(input); relative_walk = 1;native_hud_hide();fp_live=1;
                 }
             }
         }
@@ -486,6 +525,7 @@ static void __cdecl pad_hook(void) {
             *(float *)(uintptr_t)(player+0xA4) = view_yaw;
         relative_walk = 0; state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0;
     }
+    if(!fp_live)native_hud_restore();
     cube_collision_tick(&control,complete,now);
 }
 
@@ -584,7 +624,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=432; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=433; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

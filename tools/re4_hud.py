@@ -9,6 +9,9 @@ SIZE=32792
 
 def validate_hud(value):
     if value is None:return None
+    if isinstance(value,dict) and value.get("encoding")=="zlib-argb":
+        from re4_overlay import validate_overlay
+        return validate_overlay(value)
     if not isinstance(value,dict) or set(value)!={'image'} or not isinstance(value['image'],str) or len(value['image'])!=43692:raise ProtocolError('Invalid HUD')
     try:data=base64.b64decode(value['image'],validate=True)
     except ValueError as error:raise ProtocolError('Invalid HUD encoding') from error

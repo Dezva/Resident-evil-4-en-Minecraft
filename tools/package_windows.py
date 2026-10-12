@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.32"
-    mod_version = "0.4.32"
+    version = "0.4.33"
+    mod_version = "0.4.33"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "24e43b11e2bfc8b652d6b91b96456bbd792480031e785f36bc1f126c9a781b81":
-        raise SystemExit("0.4.32 requires the verified build432 cockpit visibility native DLL")
+    if native_hash != "f707036409bad6f7044baf49fdc29f790af8f654ff11617730aa350055968a11":
+        raise SystemExit("0.4.33 requires the verified build433 GUI/hand/selection native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -68,6 +68,7 @@ def main():
                            (root / "tools/re4_live_host.py", "tools/re4_live_host.py"),
                            (root / "tools/re4_control.py", "tools/re4_control.py"),
                            (root / "tools/re4_hud.py", "tools/re4_hud.py"),
+                           (root / "tools/re4_overlay.py", "tools/re4_overlay.py"),
                            (root / "tools/re4_block_preview.py", "tools/re4_block_preview.py"),
                            (root / "tools/re4_reader.py", "tools/re4_reader.py"),
                            (root / "TRACE-RE4-CAMERA.bat", "TRACE-RE4-CAMERA.bat"),
@@ -78,7 +79,7 @@ def main():
                            (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.32.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.33.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),

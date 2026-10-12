@@ -8,6 +8,7 @@ typedef struct {
     volatile LONG references;CRITICAL_SECTION lock;
     unsigned method_depth,deferred_releases;
     CubeGate gate;unsigned scene,escaped,resetting;uint32_t player,hud_generation,hud_blocked_generation;
+    void *overlay;
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
 } CubeDevice;

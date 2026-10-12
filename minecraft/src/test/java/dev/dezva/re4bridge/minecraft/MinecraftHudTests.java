@@ -25,4 +25,15 @@ class MinecraftHudTests {
         assertThrows(IllegalArgumentException.class,()->MinecraftHud.encode(ByteBuffer.allocate(HudFrame.BYTES),128,64));
         assertThrows(IllegalArgumentException.class,()->new HudFrame("invalid"));
     }
+    @Test void highResolutionTransparentLayerUsesBoundedCompressedPixels() throws Exception {
+        var rgba=ByteBuffer.allocate(1366*768*4);int top=(768-1)*1366*4;
+        rgba.put(top,(byte)128);rgba.put(top+3,(byte)128);
+        var overlay=MinecraftHud.encodeOverlay(rgba,1366,768,true);var json=overlay.toJson();
+        assertEquals(1366,json.get("width").getAsInt());assertTrue(json.get("menu").getAsBoolean());
+        byte[] compressed=Base64.getDecoder().decode(overlay.image());assertTrue(compressed.length<dev.dezva.re4bridge.HudFrame.MAX_COMPRESSED);
+        try(var input=new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(compressed))){
+            byte[] raw=input.readAllBytes();assertEquals(1366*768*4,raw.length);assertEquals(0x80FF0000,ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN).getInt());
+        }
+        assertThrows(IllegalArgumentException.class,()->MinecraftHud.encodeOverlay(ByteBuffer.allocate(4),32,32,false));
+    }
 }

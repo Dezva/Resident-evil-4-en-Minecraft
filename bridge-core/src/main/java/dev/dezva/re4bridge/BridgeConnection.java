@@ -50,6 +50,9 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile boolean textureAvailable;
     private volatile boolean materialsAvailable,collisionAvailable,hudAvailable;
     public boolean hudAvailable(){return hudAvailable;}
+    private volatile boolean overlayAvailable;private volatile int overlayWidth,overlayHeight,nativeHudHidden;
+    public boolean overlayAvailable(){return overlayAvailable;}
+    public int overlayWidth(){return overlayWidth;}public int overlayHeight(){return overlayHeight;}public int nativeHudHidden(){return nativeHudHidden;}
     public boolean materialsAvailable(){return materialsAvailable;}
     public boolean collisionAvailable(){return collisionAvailable;}
     public boolean textureAvailable() {return textureAvailable;}
@@ -256,6 +259,10 @@ public final class BridgeConnection implements AutoCloseable {
                             if (!available.isBoolean()) throw new IOException("Invalid scene capability");
                             sceneAvailable=available.getAsBoolean();
                         }
+                        if(state.has("overlay_available")){var v=state.getAsJsonPrimitive("overlay_available");if(!v.isBoolean())throw new IOException("Invalid overlay capability");overlayAvailable=v.getAsBoolean();}
+                        if(state.has("overlay_viewport_width"))overlayWidth=boundedInteger(state,"overlay_viewport_width",16384);
+                        if(state.has("overlay_viewport_height"))overlayHeight=boundedInteger(state,"overlay_viewport_height",16384);
+                        if(state.has("native_hud_hidden"))nativeHudHidden=boundedInteger(state,"native_hud_hidden",256);
                         if(state.has("hud_available")){var v=state.getAsJsonPrimitive("hud_available");if(!v.isBoolean())throw new IOException("Invalid HUD capability");hudAvailable=v.getAsBoolean();}
                         if(state.has("materials_available")){var v=state.getAsJsonPrimitive("materials_available");if(!v.isBoolean())throw new IOException("Invalid material capability");materialsAvailable=v.getAsBoolean();}
                         if(state.has("collision_available")){var v=state.getAsJsonPrimitive("collision_available");if(!v.isBoolean())throw new IOException("Invalid collision capability");collisionAvailable=v.getAsBoolean();}

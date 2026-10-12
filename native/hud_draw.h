@@ -1,7 +1,9 @@
 /* Independent, bounded 2D layer. No game memory/coordinates in its draw path. */
 #include "hud_policy.h"
 #include "overlay_state.h"
+static void overlay_release(CubeDevice *f);
 static void hud_release_texture(CubeDevice *f){
+    overlay_release(f);
     IDirect3DTexture9 *texture=f->hud_texture;f->hud_texture=NULL;f->hud_pixels_valid=0;
     if(texture)texture->lpVtbl->Release(texture);
 }
@@ -72,7 +74,9 @@ static void __attribute__((noinline)) hud_render_enabled_device(CubeDevice *f){
     backup->lpVtbl->Release(backup);
     if(FAILED(hr)){cube_record(CUBE_FAILURE,(uint32_t)hr);hud_reset_device(f);}
 }
+#include "overlay_draw.h"
 static void hud_render_device(CubeDevice *f){
     if(!state || !state->armed || state->stop){hud_release_texture(f);return;}
-    hud_render_enabled_device(f);
+    if(overlay_command && ((volatile OverlayHeader*)&overlay_command->header)->enabled)overlay_render_device(f);
+    else hud_render_enabled_device(f);
 }

@@ -55,7 +55,7 @@ class NativePreview:
             if self.session.version not in (2,3,4,5,6):
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23; conserva los controles desactivados.')
             self.baseline=read_cube_status(kernel,pid)
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432)) or not self.baseline['live_devices']:
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433)) or not self.baseline['live_devices']:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23 y dispositivo grafico activo.')
             if self.session.version==6:
                 from re4_cube_test import read_collision_status

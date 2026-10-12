@@ -301,3 +301,25 @@ FP projection/pad and restore on F8/TTL/stop. Same-owner restoration preserves
 other bits and previously disabled cockpit classes. Build432; control80/scenev6/
 HUDv1 layouts retained. Eleven real C fixtures run with simulated memory/API;
 Windows native UI rendering has not been executed in cloud.
+
+## 0.4.33 session cockpit visibility / full overlay channel
+
+User screenshot shows32 did not hide cockpit despite signature support31.
+Pinned ID.h ID_UNIT0x144/be_flag+0 visible0x8/class+2, IDSystem.array+0x50:
+HUDTweaks.cpp uses exactly this visibility bit to hide scope/binocular units.
+Own bounded table traversal selects only0x21/0x32/0x34, saves256 identities and
+original visible bits, reapplies while FP, restores only same array/capacity/slot.
+HUD visibility lease lasts through pad/camera updates; camera/model restoration
+is separate. All-stop/invalid camera/TTL/F8 restores native HUD. No HP/ammo writes.
+
+OverlayCommand128-byte header +1600*900 ARGB pixels, separate mapped channel.
+Heap staging/texture per facade, stable revision skips large copy/upload; bounded
+seqlock and dimensions/selection/actor/generation/TTL/device/F8 guards. One native
+2px black selected-shape projection precedes alpha compositing of full GUI/hand
+image; world geometry remains RE4. Uses coherent native camera, not GUI coordinates.
+No scene occlusion or shared terrain-raycast claim. Last overlay draw reports
+viewport/leased-ID counts; telemetry is not proof of visual suppression. D3D9
+state backup/restoration/Reset/escape lifetime follow existing facade policy.
+Native build433; ABI80/v6 scene/legacy HUD1 preserved, new channel required for33.
+Validation includes actual extracted callbacks and renderer with simulated APIs;
+no real Windows driver or RE4 draw has been executed in cloud.

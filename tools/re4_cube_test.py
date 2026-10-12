@@ -42,7 +42,7 @@ def read_cube_status(k,pid):
             data=ctypes.string_at(view,92);words=struct.unpack('<23I',data)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432) or words[4]!=pid:
+            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432,433) or words[4]!=pid:
                 raise ReaderError('Version/build/PID de cubo incompatible.')
             report=dict(zip(FIELDS,words[3:]))
             if report['stop_reason'] not in REASONS or report['last_scene_active'] not in (0,1):
@@ -70,7 +70,7 @@ def read_collision_status(k,pid):
             words=struct.unpack('<12I',ctypes.string_at(view,48))
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
+            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432,433) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
             result=dict(zip(('ticks','contacts','corrections','rejections','reason','active','generation'),words[5:]));result['active']=bool(result['active']);return result
         raise ReaderError('Estado de colision cambiando.')
     finally:

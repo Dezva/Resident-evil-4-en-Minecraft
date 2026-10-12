@@ -1,5 +1,20 @@
 # Registro de desarrollo
 
+## 0.4.33 — interfaz con E/mano/selección y lease de visibilidad de sesión
+
+La firma HUD32 se detectaba pero la captura real seguía mostrando cockpit. Se
+separan leases de cámara/modelos y visibilidad: sesión FP mantiene los bits de
+clase y hasta256 ID_UNIT visibles0x8 con validación/identidad/restauración.
+Capa transparente hasta1600×900 con renderers vanilla de hotbar/mano/Screen E,
+cola de último frame y compresión fuera de render. Modal inventario conserva
+arm/generación con motor detenido. VIEW ajusta también Minecraft y reenvía solo
+movimiento de cursor de menú sin consumirlo; ambos tamaños se restauran en F8.
+Contorno negro2px usa view nativo y outline MC transformado; suelo auxiliar solo
+cara superior. Mapa importado/raycast RE4, salto y daño de combate siguen pendientes.
+Canal Overlay128+5760000 separado; control80/escena96352/HUD legado32792 intactos.
+119 Python,26 core/34 Minecraft,12 fixtures ASan/UBSan,4 suites C, Win32 y
+PowerShell pasan. No hay prueba visual/GPU/GLFW real en la nube; guía33.
+
 ## 0.4.32 — visibilidad de cockpit y hotbar vanilla
 
 La captura real contradice la ocultación DPF_COCKPIT0.4.30: se retira ese intento.

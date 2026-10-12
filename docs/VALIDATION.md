@@ -843,3 +843,37 @@ arrays/vtables; SAT18 references all agree.205+225=430 triangles:98 floor,109 sl
 223 wall. No extraction errors; complete refers to this bounded local collision
 snapshot, not all visible geometry/all rooms. No map import/terrain voxelization/
 placement occupancy/native jump claim. Geometry files remain user-local.
+
+## 0.4.33 — modal vanilla UI / hand image / native selection / HUD session lease
+
+User reports native cockpit visible despite32 signature support31. Own ID_UNIT
+visibility leases use pinned SDK and documented HUDTweaks scope visibility bit;
+leases persist through pad/camera updates and restore for stop/invalid FP/F8.
+Actual C callback fixtures cover visible/already-hidden/prompt classes, native
+callback order, foreign-bit restoration and previous10k active/dormant reuse guards.
+
+119 Python,26 core/34 Minecraft tests pass without skipped tests.12 native
+fixtures pass ASan/UBSan,4 portable C suites and Win32 DLL compile pass. New C
+fixture executes real overlay renderer against simulated device:200 unchanged
+frames reuse image/upload, black native-view selection, native telemetry,45
+setter failures and state restoration, torn header/age/F8/gen/escape/reset cleanup.
+Compressed IPC tests reject zip bombs, extra/truncated streams and wrong geometry
+without writes; menu movement/old-mod rejection occurs before native arm.
+CPU1366×768 codec exercises channels/alpha/size, latest-only encoder and queue
+close. Gate retains inventory generation while focus/stop cancel permanently.
+
+PowerShell compiles real WindowsDesktop/Session/MouseRouter with fake desktop:
+both window leases/restoration,400 build clicks, menu movement sent without
+consuming OS movement, no game raw duplication, modifiers/held release/failures
+and legacy native-stop-only mapping contract. Installer/diagnostic fixtures pass.
+Java remap/AW/strict versioned mixin compilation completes, but neither real GL
+framebuffer rendering/mixin-driven inventory interaction nor Win32/GLFW/RE4 visuals
+execute in this cloud. Do not infer actual cockpit suppression, faithful skin/UI
+appearance, pointer alignment, FPS or latency from these CPU/API fixtures. User
+must validate the full workflow and F8 restoration on the actual games.
+
+New overlay mapping128+5760000 is independent; old80 control/96352 scene/32792 HUD
+remain. JPEG/game resources/map exports are not bundled. Native view/FOV projects
+MC-selected outline and helper-floor top; no native terrain raycast, map import,
+vertical/jump physics or Minecraft damage to RE4 actors is added. Native DLL433
+SHA256 f707036409bad6f7044baf49fdc29f790af8f654ff11617730aa350055968a11.

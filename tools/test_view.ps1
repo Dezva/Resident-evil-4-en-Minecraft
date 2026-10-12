@@ -5,7 +5,7 @@ namespace RE4BridgeView {
 public sealed class FakeMouseDesktop : MouseDesktop {
     public IntPtr Current=new IntPtr(2),Target=new IntPtr(1);
     public bool GameAlive=true,McAlive=true,FailSend;
-    public uint Mods;
+    public uint Mods;public bool MenuOpen {get;set;}
     public System.Collections.Generic.List<string> Sent=new System.Collections.Generic.List<string>();
     public bool SameWindow(IntPtr h,uint pid){return h==new IntPtr(1)?GameAlive && pid==10:h==new IntPtr(2) && McAlive && pid==20;}
     public IntPtr Foreground(){return Current;}
@@ -39,6 +39,8 @@ public static class MouseChecks {
         Check(api.Sent[api.Sent.Count-1]=="2:524:0:2","X2 cleanup");
         count=api.Sent.Count;
         Check(!router.Route(0,0x200,p,0,0),"never duplicate raw mouse motion");
+        api.MenuOpen=true;int moves=api.Sent.Count;Check(!router.Route(0,0x200,p,0,0) && api.Sent.Count==moves+1,"inventory cursor forwarded without freezing the OS cursor");
+        api.MenuOpen=false;count=api.Sent.Count;
         Check(!router.Route(-1,0x201,p,0,0),"negative hook code");
         Check(!router.Route(0,0x201,p,0,1),"injected events are not forwarded");
         api.Target=new IntPtr(3);Check(!router.Route(0,0x201,p,0,0),"click elsewhere is not captured");
@@ -63,6 +65,7 @@ public class FakeViewDesktop : Desktop {
     public bool SameWindow(IntPtr h,uint pid) { return h == new IntPtr(1) ? GameAlive && pid == 10 : h == new IntPtr(2) && pid == 20; }
     public IntPtr Foreground() { return Current; }
     public Snapshot Capture(IntPtr h,uint pid) { Calls.Add("capture"); return new Snapshot {Handle=h,Pid=pid}; }
+    public void PrepareInput(Snapshot s,Rect r){Calls.Add("inputsize");}
     public void PrepareView(Snapshot s,Rect r){Calls.Add("resize");Resizes++;}
     public void Present(Snapshot s,Rect r) { Calls.Add("present"); if(FailPresent) throw new Exception("partial present"); }
     public void Restore(Snapshot s) { Calls.Add("restore"); if(FailRestore) throw new Exception("restore failed"); }
@@ -79,20 +82,20 @@ public class ViewChecks {
     public static void Run() {
         var api=new FakeViewDesktop();var unprepared=Create(api);
         try{unprepared.Enter(new Rect());throw new Exception("unprepared view accepted");}catch(InvalidOperationException){}
-        unprepared.Prepare(new Rect());Check(String.Join(",",api.Calls.ToArray())=="capture,stop,mouseoff,resize,focus2","Stop and resize before arming, Minecraft visible");
+        unprepared.Prepare(new Rect());Check(String.Join(",",api.Calls.ToArray())=="capture,capture,stop,mouseoff,inputsize,resize,focus2","Stop and resize before arming, Minecraft visible");
         Check(unprepared.Prepared && !unprepared.Active,"prepare must not cover Minecraft");unprepared.Normal(false);Check(!unprepared.Prepared,"F8 restores even an inactive prepared view");
         api=new FakeViewDesktop(); var session=Ready(api);
         session.Enter(new Rect()); Check(session.Active && api.Resizes==1 && api.Current==new IntPtr(2),"Presentation stole Minecraft focus");
         Check(!api.Calls.Contains("focus1") && !api.Calls.Contains("focus2"),"Enter must never focus a different window");
         session.Normal(true);
-        Check(String.Join(",",api.Calls.ToArray())=="present,mouseon,stop,mouseoff,restore,focus1","Stop must precede window restoration and game focus");
+        Check(String.Join(",",api.Calls.ToArray())=="present,mouseon,stop,mouseoff,restore,restore,focus1","Stop must precede window restoration and game focus");
         Check(!session.Active && session.StopConfirmed,"Normal must end presentation and latch native stop");
         session.Prepare(new Rect()); Check(api.Current==new IntPtr(2),"Prepare must give Minecraft focus after stopping");
         api.Current=new IntPtr(3);
         try { session.Enter(new Rect()); throw new Exception("wrong focus accepted"); } catch(InvalidOperationException) {}
         api.Current=new IntPtr(2); session.Enter(new Rect());
         api.GameAlive=false; int count=api.Calls.Count;
-        session.Normal(true); Check(api.Calls.Count==count+1 && api.Calls[api.Calls.Count-1]=="mouseoff","Never write IPC or restore/focus a reused or closed game HWND");
+        session.Normal(true); Check(api.Calls.Count==count+2 && api.Calls[api.Calls.Count-2]=="mouseoff" && api.Calls[api.Calls.Count-1]=="restore","Never write IPC or restore/focus a reused or closed game HWND");
         api=new FakeViewDesktop(); session=Ready(api); api.FailPresent=true;
         try { session.Enter(new Rect()); throw new Exception("partial failure accepted"); } catch(Exception e) { Check(e.Message=="partial present","Unexpected failure"); }
         Check(!session.Active && api.Calls.Contains("restore") && api.Calls.Contains("stop"),"Partial presentation needs stop and restoration");

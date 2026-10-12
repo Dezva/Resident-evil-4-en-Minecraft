@@ -5,17 +5,18 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.32: cockpit y hotbar vanilla](docs/RE4-BLOCK-0.4.32.md).
-El usuario confirma texturas y colocación estable de bloques; el suelo temporal
-permite editar en Minecraft. VIEW conserva el foco al construir. Se reemplazan
-los iconos planos por la hotbar dibujada por Minecraft y se corrige el intento de
-ocultar vida/munición nativas durante primera persona, con retorno normal en F8.
-DLL/build432, mod0.4.32 y host actualizados; Fabric/API iguales. Compilación y
-pruebas pasan; el resultado visual de esta corrección requiere probar en Windows.
-La exportación local SAT/EAT del usuario contiene430 triángulos sin errores.
-Faltan importar ese terreno/losas, restringir colocación en estructuras, apoyo
-vertical/salto, inventario completo y combate.64 bloques/128 cajas/64 teselas;
-escala1000. **0.4.13 está retirada.**
+**Estado actual:** [0.4.33: interfaz, inventario, mano y selección](docs/RE4-BLOCK-0.4.33.md).
+La ocultación nativa ahora gestiona las primitivas del cockpit y mantiene la lease
+entre actualizaciones de cámara; se restaura al salir de primera persona/F8.
+La capa Minecraft renderiza hotbar, mano/objeto y pantalla E con sus recursos
+locales, a mayor resolución y compresión fuera del hilo de render. VIEW mantiene
+ambas ventanas alineadas y reenvía el cursor del inventario sin robar foco.
+Se añade contorno negro proyectado del bloque/celda seleccionado en la cuadrícula.
+DLL/build433, mod0.4.33 y host/VIEW nuevos; Fabric/API iguales. Compilación/pruebas
+pasan; ocultación, calidad, interacción y coste GPU necesitan prueba real Windows.
+El mapa SAT/EAT430 triángulos sigue validado, sin importar. Faltan integrar relieve/
+obstáculos/ocupación de terreno, apoyo vertical/salto y combate.64 bloques/128
+cajas/64 teselas; escala1000. **0.4.13 está retirada.**
 Incluye [ratón y cámara experimental](docs/RE4-MOUSE-CAMERA.md) y
 [controles nativos](docs/RE4-CONTROLS.md). Imágenes se obtienen solo en tu equipo,
 sin añadir recursos originales al ZIP/GitHub. Los modelos activos, arranque,
@@ -26,7 +27,7 @@ El simulador sigue siendo un modo de diagnóstico separado.
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.32 |
+| RE4 Bridge | paquete/mod 0.4.33 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

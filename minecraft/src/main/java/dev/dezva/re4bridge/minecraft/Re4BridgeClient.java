@@ -252,7 +252,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; motivo="+bridge.previewReason()+". Construccion="+blocksEnabled));
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
-                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; HUD RE4="+((bridge.nativeCapabilities()&16)!=0?"ocultacion disponible":"firma no disponible")+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
+                            +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; Ultimos ID HUD="+bridge.nativeHudHidden()+"; HUD RE4="+((bridge.nativeCapabilities()&16)!=0?"ocultacion disponible":"firma no disponible")+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -261,7 +261,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     }
                     return 1;
                 }))));
-        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((context,ticks) -> minecraftHud.render(MinecraftClient.getInstance(),ticks));
+        OverlayCapture.renderer=ticks -> minecraftHud.render(MinecraftClient.getInstance(),ticks);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> minecraftHud.close());
         ClientTickEvents.START_CLIENT_TICK.register(this::beforeTick);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
@@ -273,7 +273,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private int hud(MinecraftClient client,boolean enabled){
-        stopDriving();hudEnabled=enabled;say(client,"HUD en RE4: "+enabled+". Requiere DLL 0.4.26 y primera persona; usa arm.");return 1;
+        hudEnabled=enabled;say(client,"Interfaz de Minecraft: "+(enabled?"activada":"desactivada")+". La vida y municion de RE4 se ocultan automaticamente con arm y primera persona; F8 vuelve a RE4 normal.");return 1;
     }
     private int editMap(MinecraftClient client,boolean enabled){
         stopDriving();mapEditing=enabled;
@@ -301,7 +301,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             && current!=null && current.controllerMode() && current.status().connected()
             && sample!=null && sample.fresh(System.nanoTime()) && client.isInSingleplayer()
             && (!synchronizedMovement || client.player!=null && client.player.isCreative())
-            && client.currentScreen==null && !client.isPaused() && client.isWindowFocused();
+            && (client.currentScreen==null || controlArming.active() && firstPersonEnabled && hudEnabled && current.overlayAvailable() && MinecraftHud.inventory(client)) && !client.isPaused() && client.isWindowFocused();
         controllerInput.update(client.player,lock);
         if(lock && synchronizedMovement && controllerMapping!=null && client.player!=null && client.player.isCreative()){
             try {
@@ -491,13 +491,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
             var sample = current.re4Sample();
             long now = System.nanoTime();
             var screen = client.currentScreen == null ? ControlArming.Screen.NONE
-                : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : ControlArming.Screen.OTHER;
+                : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : firstPersonEnabled && hudEnabled && current.overlayAvailable() && MinecraftHud.inventory(client) ? ControlArming.Screen.INVENTORY : ControlArming.Screen.OTHER;
             controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
                 sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
             if(controlArming.active() && synchronizedMovement && !client.player.isCreative()){stopDriving();say(client,"Sincronizacion detenida al salir de creativo.");}
             if(!controlArming.active()){controllerInput.release();controllerFollower.release();}
             int buttons = 0;
-            if (controlArming.active()) {
+            if (controlArming.active() && screen==ControlArming.Screen.NONE) {
                 if (client.options.forwardKey.isPressed()) buttons |= 1;
                 if (client.options.backKey.isPressed()) buttons |= 2;
                 if (client.options.rightKey.isPressed()) buttons |= 4;
@@ -536,7 +536,14 @@ public final class Re4BridgeClient implements ClientModInitializer {
             var scene=placedScene.snapshot((pos,state) -> blockMaterials.faces(client,pos,state),blockMaterials);
             dev.dezva.re4bridge.HudFrame hud=null;
             if(controlArming.active() && firstPersonEnabled && hudEnabled && current.hudAvailable()){
-                try{hud=minecraftHud.snapshot(client);}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;say(client,"HUD desactivado: "+error.getMessage());}
+                try{hud=minecraftHud.snapshot(client,current.overlayWidth(),current.overlayHeight());
+                    if(hud!=null && controllerMapping!=null && !MinecraftHud.inventory(client) && client.crosshairTarget instanceof BlockHitResult hit && hit.getType()==HitResult.Type.BLOCK){
+                        var shape=client.world.getBlockState(hit.getBlockPos()).getOutlineShape(client.world,hit.getBlockPos(),ShapeContext.of(client.player));
+                        if(!shape.isEmpty()){
+                            var p=hit.getBlockPos();var bounds=shape.getBoundingBox();var origin=controllerMapping.toNative(p.getX(),p.getY(),p.getZ());double scale=controllerMapping.scale();
+                            hud=hud.selection(new double[]{origin.x(),origin.y(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
+                        }
+                    }}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
             }
             if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);

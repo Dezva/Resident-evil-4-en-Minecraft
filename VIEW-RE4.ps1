@@ -33,7 +33,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.StartPosition = 'Manual'; $form.Location = [System.Drawing.Point]::new($screen.Left+12,$screen.Top+12)
     $label = New-Object System.Windows.Forms.Label
     $label.Location=[System.Drawing.Point]::new(10,10); $label.Size=[System.Drawing.Size]::new(405,65)
-    $label.Text="RE4 en ventana, Minecraft abierto sin minimizar.`r`nPulsa Preparar Minecraft; luego controller/arm. F9 muestra RE4.`r`nF8 detiene el puente y devuelve control directo a RE4."
+    $label.Text="RE4 en ventana, Minecraft abierto sin minimizar.`r`nPulsa Preparar Minecraft; luego controller/arm. F9 muestra RE4.`r`nE abre el inventario; F8 devuelve RE4 normal con su HUD."
     $form.Controls.Add($label)
     $prepare = New-Object System.Windows.Forms.Button
     $prepare.Text='Preparar Minecraft'; $prepare.Location=[System.Drawing.Point]::new(10,83); $prepare.Size=[System.Drawing.Size]::new(160,45)

@@ -1,4 +1,6 @@
 #include "hud_policy.h"
+#include "overlay_policy.h"
+static OverlayShared *overlay_command;static uint32_t native_hud_candidates,native_hud_unit_count;
 static HudCommand publication,*hud_command=&publication;
 static int armed=1,stop;static struct {int armed;int32_t stop;} shared_state={1,0},*state=&shared_state;
 typedef struct {uint32_t armed,stamp,flags,generation;} ControlFrame;

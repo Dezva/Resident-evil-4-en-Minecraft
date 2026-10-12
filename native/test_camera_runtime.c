@@ -114,17 +114,22 @@ int main(void){
     packet.total=0;packet.generation++;packet.sequence+=2;*(float*)(uintptr_t)(id+0xA4)=.7f;pad_hook();
     // Existing cockpit ID primitives are hidden without changing gameplay/global flags.
     restore_first_person();native_hud_system=(uint32_t)(uintptr_t)(memory+45056);
-    *(int32_t*)(uintptr_t)native_hud_system=256;
+    *(int32_t*)(uintptr_t)native_hud_system=4;
+    uint8_t *units=memory+50000;*(uint32_t*)(uintptr_t)(native_hud_system+0x50)=(uint32_t)(uintptr_t)units;
+    units[0]=0x19;units[1]=7;units[2]=0x21;
+    units[0x144]=0x11;units[0x144+2]=0x32; // already hidden before FP
+    units[0x288]=0x19;units[0x288+2]=0x20; // interaction prompt is untouched
     uint32_t *off=(uint32_t*)(uintptr_t)(native_hud_system+0x30);
     *off=0x40000000u|0x80u;native_hud_hide();
     assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES);
-    *off|=0x400u;native_hud_restore();assert(*off==(0x40000000u|0x480u));
+    assert(units[0]==0x11 && units[0x144]==0x11 && units[0x288]==0x19);
+    *off|=0x400u;native_hud_restore();assert(*off==(0x40000000u|0x480u));assert(units[0]==0x19 && units[0x144]==0x11);
     assert(*(uint32_t*)(uintptr_t)(global+0x58)==0);
     *off=0;pad_hook();project();assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES);
     *off=0;project();assert((*off&RE4_COCKPIT_CLASSES)==RE4_COCKPIT_CLASSES); // engine overwrites during cached scene
     restore_first_person();assert(*off==0);
     *(int32_t*)(uintptr_t)native_hud_system=8193;native_hud_hide();assert(*off==0);
-    *(int32_t*)(uintptr_t)native_hud_system=256;
+    *(int32_t*)(uintptr_t)native_hud_system=4;
     // Repeated projections in one update reuse view, while restoring game-overwritten matrices/models.
     uint32_t controller=(uint32_t)(uintptr_t)(memory+32768);
     *(uint32_t*)(uintptr_t)(id+0x7D8)=controller;

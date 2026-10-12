@@ -56,4 +56,14 @@ class ControlArmingTests {
             assertFalse(gate.active());
         }
     }
+    @Test void inventoryPreservesGenerationButFocusOrStopCannotResume() {
+        var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);
+        int generation=gate.generation();gate.tick(1_000_000_002L,false,true,INVENTORY,true,true,0);
+        assertTrue(gate.active());assertEquals(generation,gate.generation());assertTrue(gate.reason().contains("inventario"));
+        gate.tick(1_000_000_003L,false,true,NONE,true,true,0);assertTrue(gate.active());
+        gate.tick(1_000_000_004L,false,false,INVENTORY,true,true,0);assertFalse(gate.active());
+        gate.tick(1_000_000_005L,false,true,NONE,true,true,0);assertFalse(gate.active());
+        gate.request(2_000_000_000L);gate.tick(2_000_000_001L,false,true,NONE,true,false,0);
+        gate.tick(3_000_000_002L,false,true,INVENTORY,true,true,1);assertFalse(gate.active());
+    }
 }

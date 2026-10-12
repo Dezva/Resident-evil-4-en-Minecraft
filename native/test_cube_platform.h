@@ -77,6 +77,7 @@ typedef struct {unsigned held;} CRITICAL_SECTION;
 #define D3DTOP_MODULATE 4
 #define D3DTADDRESS_CLAMP 3
 #define D3DTEXF_POINT 1
+#define D3DTEXF_LINEAR 2
 #define D3DTEXF_NONE 0
 #define D3DSAMP_ADDRESSU 1
 #define D3DSAMP_ADDRESSV 2

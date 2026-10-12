@@ -2,7 +2,7 @@ package dev.dezva.re4bridge;
 
 /** Client-thread arming: wait for command chat to close before requesting native input. */
 public final class ControlArming {
-    public enum Screen { NONE, CHAT, OTHER }
+    public enum Screen { NONE, CHAT, INVENTORY, OTHER }
     private boolean pending;
     private boolean active;
     private int generation;
@@ -39,12 +39,12 @@ public final class ControlArming {
             reason = "solicitando control nativo";
             return;
         }
-        if (screen != Screen.NONE) { stop("chat o menu abierto"); return; }
+        if (screen != Screen.NONE && screen != Screen.INVENTORY) { stop("chat o menu abierto"); return; }
         // Start the acknowledgement deadline when input is actually allowed, not inside chat.
         if (now - activatedNs >= 1_000_000_000L && (!nativeArmed || nativeStop != 0)) {
             stop(nativeStop != 0 ? "parada nativa " + nativeStop : "host rechazo el armado; repite arm");
             return;
         }
-        reason = nativeArmed ? "activo" : "solicitando control nativo";
+        reason = screen == Screen.INVENTORY ? "inventario; movimiento suspendido" : nativeArmed ? "activo" : "solicitando control nativo";
     }
 }

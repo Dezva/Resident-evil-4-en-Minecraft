@@ -22,24 +22,35 @@ class NativeCaptureTests(unittest.TestCase):
                 subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             except subprocess.CalledProcessError as error:self.fail(error.stdout+'\n'+error.stderr)
 
-    def test_actual_hud_draw_restoration_and_failures(self):
+    def hud_fixture(self,extra_name):
         root=Path(__file__).resolve().parents[1]
         fixture=(root/'native/test_cube_draw.c').read_text().replace('uint32_t player;','uint32_t player,hud_generation,hud_blocked_generation;')
+        fixture='#include "overlay_policy.h"\n#define HEAP_ZERO_MEMORY 8\n'+fixture
+        fixture=fixture.replace('!flags && size==sizeof(BlockSurfaceMesh)', '(flags==8 || (!flags && size==sizeof(BlockSurfaceMesh)))')
+        fixture=fixture.replace('return malloc(size);','return flags==8?calloc(1,size):malloc(size);')
         fixture=fixture.replace('height==width','height==32')
         fixture=fixture.replace('uint32_t player,hud_generation,hud_blocked_generation;',
-            'uint32_t player,hud_generation,hud_blocked_generation;IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[8192];')
+            'uint32_t player,hud_generation,hud_blocked_generation;void *overlay;IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[8192];')
         # Use the typed simulated driver with the actual HUD renderer.
         a=fixture.index('static HRESULT draw(');b=fixture.index('static IDirect3DDevice9Vtbl table',a)
         fixture=fixture[:a]+"""static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride){
-            (void)d;assert(type==D3DPT_TRIANGLELIST && (count==2 || count==4) && stride==sizeof(BlockSurfaceVertex));
-            const BlockSurfaceVertex *v=data;for(unsigned i=0;i<count*3;i++)assert(isfinite(v[i].x+v[i].y) && v[i].x>=10 && v[i].x<=650 && v[i].y>=20 && v[i].y<=500);
+            (void)d;
+            if(stride==sizeof(BlockVertex)){const BlockVertex *line=data;assert(type==D3DPT_TRIANGLELIST && count<=24);for(unsigned i=0;i<count*3;i++)assert(line[i].color==0xFF000000);draws++;return S_OK;}
+            assert(type==D3DPT_TRIANGLELIST && (count==2 || count==4) && stride==sizeof(BlockSurfaceVertex));
+            const BlockSurfaceVertex *v=data;for(unsigned i=0;i<count*3;i++)assert(isfinite(v[i].x+v[i].y) && v[i].x>=9.5f && v[i].x<=650 && v[i].y>=19.5f && v[i].y<=500);
             assert(current.render[D3DRS_ALPHABLENDENABLE]==1);draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
         }
         """+fixture[b:]
         fixture=fixture.replace('int main(void)', 'void cube_unused_fixture_main(void)')
-        extra=(root/'native/test_hud_draw_extra.c').read_text()
+        extra=(root/'native'/extra_name).read_text()
         ipc=(root/'native/hud_ipc.h').read_text();ipc=ipc[ipc.index('static int hud_command_read'):]
-        self.compile_run('hud_draw_fixture.c',fixture+extra.replace('/* ACTUAL_HUD_READER */',ipc))
+        return fixture+extra.replace('/* ACTUAL_HUD_READER */',ipc)
+
+    def test_actual_hud_draw_restoration_and_failures(self):
+        self.compile_run('hud_draw_fixture.c',self.hud_fixture('test_hud_draw_extra.c'))
+
+    def test_actual_overlay_cached_image_selection_and_failure_restoration(self):
+        self.compile_run('overlay_draw_fixture.c',self.hud_fixture('test_overlay_draw_extra.c'))
 
     def test_actual_camera_runtime_callback_order_and_gaze(self):
         root=Path(__file__).resolve().parents[1]

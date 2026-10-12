@@ -2,16 +2,25 @@
   "schemaVersion": 1,
   "id": "re4bridge",
   "version": "${version}",
-  "name": "RE4 Bridge — diagnostic prototype",
+  "name": "RE4 Bridge \u2014 diagnostic prototype",
   "description": "Single-player RE4 bridge: telemetry, spectator following and opt-in native movement controls.",
-  "authors": ["Dezva"],
+  "authors": [
+    "Dezva"
+  ],
   "environment": "client",
   "accessWidener": "re4bridge.accesswidener",
-  "entrypoints": {"client": ["dev.dezva.re4bridge.minecraft.Re4BridgeClient"]},
+  "entrypoints": {
+    "client": [
+      "dev.dezva.re4bridge.minecraft.Re4BridgeClient"
+    ]
+  },
   "depends": {
     "fabricloader": ">=0.16.10",
     "minecraft": "1.21.1",
     "java": ">=21",
     "fabric-api": ">=0.116.6+1.21.1"
-  }
+  },
+  "mixins": [
+    "re4bridge.mixins.json"
+  ]
 }

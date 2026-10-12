@@ -430,3 +430,42 @@ reports an error; F8 still restores RE4. No game image is bundled. This is the
 hotbar, not the E inventory screen/health/hunger or Minecraft combat implementation.
 Real GL/Windows appearance/performance require manual validation. HUD ABI stays
 v1/32792, RGBA bottom-up conversion produces top-down straight ARGB pixels.
+
+### 0.4.33 modal inventory / full GUI and hand overlay
+
+Only InventoryScreen/CreativeInventoryScreen in active FP with available enabled
+Minecraft interface are allowed to retain arm. Generation is unchanged; movement
+buttons are zero while modal. Host rejects menu=true with any movement, unsupported
+codec/backend and old HUD image sent to the new overlay backend. Other screens,
+pause/focus loss/stale sample/stop still require explicit rearm. UI is rendered
+by vanilla; existing E/click/drag/scroll callbacks act on actual MC inventory.
+No game-mode switch or health/damage transfer is added for UI/hand rendering.
+
+Overlay image fields: encoding=zlib-argb,width32..1600,height32..900,menu boolean,
+base64 image<=262144 characters/196608 compressed bytes; inflation must terminate
+at exactly width*height*4 with no trailing/second/truncated stream. Optional
+selection[10] comprises rigid origin[xyz,yaw] and6 bounds, finite/range checked.
+Menu suppresses selection. Local auth512KiB framing unchanged. Cached decoding
+is bounded to2 images; stable image identity retains native revision/upload.
+
+Independent Local/OverlayCommand mapping128+5760000, native header magic5245344f,
+version1. Seqlocked writer fields are0..39/64..107; native draw telemetry40..55
+reports actual viewport/last managed ID counts. Pixels begin128. CPU staging is
+heap-only, D3D texture per facade; alpha/linear filtering and half-pixel alignment.
+Native TTL/FP/actor/generation/backbuffer/scene/escape/Reset/F8 gates remain.
+Readback GL/render state is restored; CPU encoder runs a latest-only daemon queue.
+Captured frames older500ms are withheld. UI/hand capture capped20Hz, not native FPS.
+Vanilla screen blur/alternate targets cannot affect Minecraft main frame while
+capture active; original rendering remains unchanged outside that scope.
+
+Native cockpit leases are session-long; camera/model leases remain per update.
+Static manager, counts/bounded writable array, ID class/slot identity gate writes.
+Only visible0x8 on cockpit primitives and their class display-off bits are borrowed;
+existing hidden bits/other classes/bits are retained. At stop only matching slots
+are restored. No HUD function/vtable hook or rectangle-based suppression.
+
+VIEW also leases Minecraft bounds/style and restores both windows on F8/cleanup.
+Cursor motion is forwarded only with fresh enabled menu IPC and original windows/
+foreground verified, and is never consumed so Windows cursor can move. Raw game
+motion remains unforwarded. Outline is mapped MC shape, not native terrain raycast;
+helper floor top is thin outline. Native collision/support/map/combat unchanged.

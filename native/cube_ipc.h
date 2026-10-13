@@ -12,7 +12,7 @@ _Static_assert(sizeof(CubeTelemetry)==92,"Cube telemetry layout");
 typedef struct {uint32_t magic,version;volatile LONG sequence;uint32_t build,pid,ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 _Static_assert(sizeof(CollisionTelemetry)==48,"Collision telemetry layout");
 static CollisionTelemetry *collision_shared;static HANDLE collision_mapping;
-static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=438,.reason=CUBE_OFF};
+static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=439,.reason=CUBE_OFF};
 static CubeTelemetry *cube_shared;
 static CubeCommand *cube_command;
 static HANDLE cube_telemetry_mapping,cube_command_mapping;
@@ -47,7 +47,7 @@ static BOOL CALLBACK cube_initialize(PINIT_ONCE once,PVOID parameter,PVOID *cont
     HANDLE barrier=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CollisionTelemetry),name);
     if(barrier && GetLastError()!=ERROR_ALREADY_EXISTS) {
         CollisionTelemetry *report=MapViewOfFile(barrier,FILE_MAP_ALL_ACCESS,0,0,sizeof(*report));
-        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=438;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
+        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=439;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
     }else if(barrier)CloseHandle(barrier);
     hud_initialize(pid);
     depth_initialize(pid);
@@ -104,7 +104,7 @@ static void cube_record(unsigned event,uint32_t value) {
     case CUBE_REJECT:cube_metrics.rejections++;cube_metrics.active=0;cube_metrics.reason=value;break;
     case CUBE_CAMERA_REJECT:cube_metrics.camera_rejections++;cube_metrics.active=0;cube_metrics.reason=CUBE_CAMERA;break;
     case CUBE_PASS_SKIP:cube_metrics.pass_skips++;break;
-    case CUBE_ACTIVE:cube_metrics.active=value;break;
+    case CUBE_ACTIVE:cube_metrics.active=value;if(value)cube_metrics.reason=0;break;
     }
     cube_publish_locked();ReleaseSRWLockExclusive(&cube_metrics_lock);
 }

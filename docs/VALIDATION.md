@@ -953,3 +953,15 @@ helper por suelo nativo conserva construcciones. Sprint4.15unidades/ms tras
 parada persistente. Backend VIEW compilado, routing/focus/restauración y
 preparación autenticada comprobados; Win32 hook/thread y GPU real no ejecutados.
 DLL438 PE32 y paquete completo mod/host/VIEW/DLL con hashes verificados.
+
+## 0.4.39
+
+Core36/Minecraft51/Python139 y16 fixtures ASan/UBSan. Integración de cube_draw y
+collision_tick:200frames sin vértices visibles con rechazos transitorios previos,
+sprint contra pared y vuelta al viewport sin stop/penetración ni escrituras Y;
+cámara inválida no habilita física. VIEW ejecuta funciones reales de preparación
+sobre desktop fake: foco denegado no envía, espera no redimensiona/reintenta,
+un clic activa una única petición y F8 restaura/cancela. Se comprueba el reset
+noClip de PlayerEntity1.21.1 antes de LivingEntity.tick, lease por jugador exacto,
+límites de edad/parada/cambio de dueño y separación cliente/servidor. Build Fabric
+JDK21 y DLL439 PE32. Interacción/Win32/GPU real no ejecutados en cloud.

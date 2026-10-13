@@ -125,3 +125,12 @@ La pérdida de foco incluye HWND, proceso y clase en `view-events.log`.
 Una salida de primera persona puede ser una parada de la DLL antes de hacer
 Alt+Tab: revisa también `collision_state.reason` del host. No se recupera foco
 ni se rearma automáticamente. Win32/hilo real pendientes de prueba en Windows.
+
+## 0.4.39 — Windows rechaza el foco al preparar
+
+La denegación de foco ya no provoca una excepción/restauración que haga inútil
+la instrucción de pulsar Minecraft. Se conserva la disposición preparada con
+stop latched y sin iniciar ninguna petición al mod. Tras un clic en la ventana
+verificada de Minecraft, el timer inicia preparación una sola vez. F9 espera
+la confirmación y F8 cancela tanto la espera de foco como la petición en curso.
+No hay cambio automático de foco durante esa espera ni pérdida de restauración.

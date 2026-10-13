@@ -7,7 +7,8 @@
     "OverlayFramebufferMixin",
     "TerrainCrosshairMixin",
     "TerrainPlacementMixin",
-    "TerrainArrowMixin"
+    "TerrainArrowMixin",
+    "EditorPhysicsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

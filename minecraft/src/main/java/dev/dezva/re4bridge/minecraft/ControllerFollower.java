@@ -58,11 +58,13 @@ final class ControllerFollower {
         if(!client.player.isCreative()){release();return;}
         if(clientPlayer!=client.player){release();clientPlayer=client.player;clientSlot=EditorMode.player(clientPlayer);}
         clientMode.take(clientSlot);
+        EditorPhysics.follow(clientPlayer,true,System.nanoTime(),()->bridge.status().connected() && bridge.nativeStop()==0);
         clientPlayer.setVelocity(Vec3d.ZERO);clientPlayer.setPosition(point.x(),point.y(),point.z());
         server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,System.nanoTime());schedule();
     }
     void release(){
         task=null;
+        EditorPhysics.release(clientPlayer,true);
         clientMode.release();clientSlot=null;
         clientPlayer=null;schedule();
     }
@@ -77,12 +79,14 @@ final class ControllerFollower {
                     && player.getServerWorld().getRegistryKey().getValue().toString().equals(current.dimension())
                     && System.nanoTime()-current.stamp()<200_000_000L && current.bridge().status().connected() && current.bridge().nativeStop()==0;
                 if(!valid || player!=serverPlayer){
+                    EditorPhysics.release(serverPlayer,false);
                     if(serverPlayer!=null && serverPlayer.getServer()==executor){serverMode.release();serverPlayer.sendAbilitiesUpdate();serverSlot=null;}
                     serverPlayer=null;floor.clear();floorWorld=null;floorSlot=null;
                 }
                 if(valid && task==current){
                     if(serverPlayer==null){serverPlayer=player;serverSlot=EditorMode.player(player);}
                     serverMode.take(serverSlot);
+                    EditorPhysics.follow(player,false,current.stamp(),()->task!=null && current.bridge().status().connected() && current.bridge().nativeStop()==0);
                     floor(player,current);
                     // Normal movement packets retain rotation; no repeated position-look teleports.
                     player.setPosition(current.point().x(),current.point().y(),current.point().z());

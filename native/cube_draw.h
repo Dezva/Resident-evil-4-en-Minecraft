@@ -108,7 +108,12 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         f->gate.anchored=1;
     }
     if (command.mode!=2) count=block_lines(f->gate.bounds,view,fov,(float)viewport.Width,(float)viewport.Height,lines);
-    if (!count) {if (surface) HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_PASS_SKIP,0);return;}
+    if (!count) {
+        if (surface) HeapFree(GetProcessHeap(),0,surface);
+        // A fully validated scene outside the frustum is still a live collision
+        // scene. Revalidate after a torn/omitted pass without inventing a draw.
+        cube_record(CUBE_ACTIVE,1);cube_record(CUBE_PASS_SKIP,0);return;
+    }
     for (unsigned i=0;i<count;++i) {
         if (solid) {
             surface->vertices[i].x+=viewport.X;surface->vertices[i].y+=viewport.Y;

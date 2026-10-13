@@ -1,5 +1,19 @@
 # Registro de desarrollo
 
+## 0.4.39 — referencia física sin dibujo y preparación con foco manual
+
+Log38:36 pases omitidos, sin nuevos dibujos/fallos, seguido por stop1 y
+collision_state.reason4. La escena validada fuera de pantalla publica active
+sin contar dibujo, recuperando referencia de colisión después de un rechazo
+transitorio. No se relaja lease500ms. Fixture integrado renderer+colisiones
+reproduce200frames sin vértices, sprint bloqueado y regreso sin parada.
+VIEW espera un clic manual si Windows rechaza foco: conserva layout/stop y
+comienza petición una sola vez tras activación verificada; F8 cancela.
+Minecraft1.21.1 restablecía noClip después de tomar el seguidor: hook tras el
+reset y antes de movimiento, solo jugador exacto con lease vivo cliente/servidor.
+No se borran ni reimportan construcciones antiguas. Core36/Minecraft51/Python139;
+16 fixtures ASan/UBSan. DLL439/mod39; juego y Win32 real pendientes de prueba.
+
 ## 0.4.38 — suelo de apoyo y paradas con inputs simultáneos
 
 Fotos37 muestran bloques elevados también en Minecraft. Se elimina el salto de

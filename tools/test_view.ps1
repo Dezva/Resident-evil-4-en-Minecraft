@@ -116,6 +116,11 @@ public class ViewChecks {
         api=new FakeViewDesktop(); session=Ready(api); session.Enter(new Rect()); api.DenyFocus=true;
         session.Normal(true);
         Check(!session.Active && session.StopConfirmed && !session.FocusConfirmed,"Denied foreground must still stop and restore without throwing");
+        api=new FakeViewDesktop();api.Current=new IntPtr(3);api.DenyFocus=true;session=Create(api);
+        session.Prepare(new Rect());Check(session.Prepared && !session.Active && !session.InputFocused && session.StopConfirmed,"Denied prepare focus must keep layout/stop pending for one manual click");
+        try{session.Enter(new Rect());throw new Exception("unfocused preparation entered");}catch(InvalidOperationException){}
+        api.Current=new IntPtr(2);Check(session.InputFocused,"Manual Minecraft activation completes the focus prerequisite without another resize");
+        session.Enter(new Rect());Check(session.Active && api.Resizes==1,"Manual activation must reuse the prepared layout");session.Normal(false);
         api=new FakeViewDesktop();session=Ready(api);api.FailMouse=true;
         try{session.Enter(new Rect());throw new Exception("missing mouse accepted");}catch(Exception e){Check(e.Message=="mouse unavailable","mouse failure");}
         Check(!session.Active && api.Calls.Contains("restore") && session.StopConfirmed,"Mouse setup failure must stop and restore");
@@ -154,6 +159,28 @@ $returnFunction=$ast.Find({param($node) $node -is [System.Management.Automation.
 if ($null -eq $returnFunction) { throw 'Missing direct return action.' }
 # Execute the real return action with the panel hidden; no WinForms button click is needed.
 Invoke-Expression $returnFunction.Extent.Text
+foreach ($name in @('Begin-MinecraftPreparation','Continue-MinecraftPreparation','Prepare-All')) {
+    $function=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+    if ($null -eq $function) {throw ('Missing preparation continuation: '+$name)}
+    Invoke-Expression $function.Extent.Text
+}
+# Run the real preparation functions: focus denial cannot arm or start network IO.
+function Set-ViewPanel([bool]$compact) { $script:panelHidden=$compact }
+$api=[RE4BridgeView.FakeViewDesktop]::new();$api.Current=[IntPtr]::new(3);$api.DenyFocus=$true
+$session=[RE4BridgeView.Session]::new($api,[IntPtr]::new(1),10,[IntPtr]::new(2),20)
+$bounds=[RE4BridgeView.Rect]::new();$label=[pscustomobject]@{Text=''}
+$script:waitingForMinecraft=$false;$script:prepareCall=$null;$script:preparationStarts=0
+function Invoke-MinecraftPreparation($directory) {$script:preparationStarts++;return [pscustomobject]@{Completed=$false}}
+Prepare-All
+if (!$script:waitingForMinecraft -or !$session.Prepared -or $script:preparationStarts -ne 0) {throw 'Denied focus must retain layout and wait without sending preparation.'}
+Continue-MinecraftPreparation;Prepare-All
+if ($script:preparationStarts -ne 0 -or $api.Resizes -ne 1) {throw 'Waiting must not retry focus, resize or send commands.'}
+$api.Current=[IntPtr]::new(2);Continue-MinecraftPreparation;Continue-MinecraftPreparation
+if ($script:waitingForMinecraft -or $script:preparationStarts -ne 1 -or $null -eq $script:prepareCall) {throw 'One manual Minecraft click must start preparation exactly once.'}
+$script:prepareCall=$null;$script:waitingForMinecraft=$true
+Return-ToNormal
+if ($script:waitingForMinecraft -or $session.Prepared) {throw 'F8 must cancel pending manual activation.'}
+Remove-Item Function:Invoke-MinecraftPreparation
 $script:panelHidden=$true
 function Set-ViewPanel([bool]$compact) { $script:panelHidden=$compact }
 $api=[RE4BridgeView.FakeViewDesktop]::new()

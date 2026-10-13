@@ -4,6 +4,7 @@ $session = $null
 $viewLock = $null
 $ownsLock = $false
 $script:prepareCall=$null
+$script:waitingForMinecraft=$false
 try {
     . (Join-Path $PSScriptRoot 'tools\Prepare-Minecraft.ps1')
     Add-Type -AssemblyName System.Windows.Forms
@@ -39,16 +40,30 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.Controls.Add($label)
     $prepare = New-Object System.Windows.Forms.Button
     $prepare.Text='Preparar Minecraft'; $prepare.Location=[System.Drawing.Point]::new(10,83); $prepare.Size=[System.Drawing.Size]::new(160,45)
-    function Prepare-All {
-        if ($null -ne $script:prepareCall) {return}
-        $session.Prepare($bounds)
+    function Begin-MinecraftPreparation {
+        $script:waitingForMinecraft=$false
         try {$script:prepareCall=Invoke-MinecraftPreparation $GameDir;$label.Text='Preparando Minecraft... F8 cancela.'}
         catch {$session.Normal($false);$label.Text=$_.Exception.Message}
+    }
+    function Continue-MinecraftPreparation {
+        if (!$script:waitingForMinecraft) {return}
+        if (!$session.Prepared) {$script:waitingForMinecraft=$false;return}
+        if ($session.InputFocused) { Begin-MinecraftPreparation }
+    }
+    function Prepare-All {
+        if ($null -ne $script:prepareCall -or $script:waitingForMinecraft) {return}
+        $session.Prepare($bounds)
+        if ($session.InputFocused) { Begin-MinecraftPreparation }
+        else {
+            $script:waitingForMinecraft=$true
+            $label.Text='Vista ajustada. Pulsa la ventana de Minecraft: la preparacion continuara automaticamente. F8 cancela.'
+        }
     }
     $prepare.Add_Click({ try { Prepare-All } catch { $label.Text=$_.Exception.Message } })
     $normal = New-Object System.Windows.Forms.Button
     $normal.Text='Volver a RE4 normal (F8)'; $normal.Location=[System.Drawing.Point]::new(180,83); $normal.Size=[System.Drawing.Size]::new(235,45)
     function Return-ToNormal {
+        $script:waitingForMinecraft=$false
         if ($null -ne $script:prepareCall) {$script:prepareCall.Dispose();$script:prepareCall=$null}
         try {
             Set-ViewPanel $false
@@ -78,7 +93,8 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
         $f8=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x77) -band 0x8000) -ne 0
         $f9=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0
         try {
-            if ($null -ne $script:prepareCall -and $script:prepareCall.Completed) {
+            if (!$f8) { Continue-MinecraftPreparation }
+            if (!$f8 -and $null -ne $script:prepareCall -and $script:prepareCall.Completed) {
                 try {$label.Text=Complete-MinecraftPreparation $script:prepareCall}
                 catch {$session.Normal($false);$label.Text=$_.Exception.Message}
                 finally {$script:prepareCall.Dispose();$script:prepareCall=$null}
@@ -86,7 +102,8 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
             if ($session.Active) { $session.PumpMouse() }
             if ($f8 -and !$keys.F8) { Return-ToNormal }
             elseif ($f9 -and !$keys.F9) {
-                if ($null -ne $script:prepareCall) {$label.Text='Espera a que termine Preparar Minecraft; F8 cancela.'}
+                if ($script:waitingForMinecraft) {$label.Text='Pulsa la ventana de Minecraft para terminar la preparacion; despues F9. F8 cancela.'}
+                elseif ($null -ne $script:prepareCall) {$label.Text='Espera a que termine Preparar Minecraft; F8 cancela.'}
                 elseif ($session.Active) { Set-ViewPanel $false; Prepare-All }
                 else { $session.Enter($bounds); Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
             } elseif ($session.Active -and !$session.StillFocused()) {

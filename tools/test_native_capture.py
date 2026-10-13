@@ -41,7 +41,7 @@ class NativeCaptureTests(unittest.TestCase):
             assert(current.render[D3DRS_ALPHABLENDENABLE]==1);draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
         }
         """+fixture[b:]
-        fixture=fixture.replace('int main(void)', 'void cube_unused_fixture_main(void)')
+        fixture=fixture.replace('int main(void)', 'int cube_unused_fixture_main(void)')
         extra=(root/'native'/extra_name).read_text()
         ipc=(root/'native/hud_ipc.h').read_text();ipc=ipc[ipc.index('static int hud_command_read'):]
         return fixture+extra.replace('/* ACTUAL_HUD_READER */',ipc)
@@ -78,6 +78,9 @@ class NativeCaptureTests(unittest.TestCase):
 
     def test_actual_collision_callback_guards_and_position_writes(self):
         self.compile_run("test_collision_tick.c")
+
+    def test_offscreen_render_scene_keeps_actual_collision_reference_live(self):
+        self.compile_run("test_offscreen_collision.c")
 
     def test_bounded_import_lookup(self):
         self.compile_run('test_capture_import.c')

@@ -361,6 +361,17 @@ La matriz observada GX4:3 se admite en viewport widescreen. Bloques y contorno
 usan focalX de esa matriz para XY, y los planos reales para profundidad. FOV,
 estructura perspectiva, finitud y límites de aspecto/planos siguen validados.
 
+## Build439
+
+Una escena válida recortada enteramente fuera del viewport publica CUBE_ACTIVE
+sin CUBE_DRAW. Recupera la métrica después de un pase omitido/rechazado y mantiene
+la referencia física sin necesitar un dibujo. Antes, active podía quedar0 hasta
+volver a mirar un bloque, provocando stop1/motivo4 por referencia de más de500ms.
+Se mantienen los checks de lease, geometría, cámara, dispositivo y errores; no
+se relaja el TTL. Fixture integrado de renderer/collision_tick:200 frames,
+rechazos transitorios, pared en sprint sin penetración, vuelta a la vista y
+cámara inválida.16 fixtures ASan/UBSan; GPU Windows pendiente.
+
 ## Build438
 
 Colisiones: presupuesto de desplazamiento500+5×elapsed_ms, con lease500ms

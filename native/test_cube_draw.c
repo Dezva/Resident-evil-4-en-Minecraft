@@ -19,11 +19,16 @@ static unsigned last_vertices;
 static float first_x;
 static CubeCommand command={.enabled=1,.epoch=7,.stamp=1000};
 static unsigned scene_reads;
+static unsigned scene_active;
 static int cube_command_read(CubeCommand *out) {scene_reads++;*out=command;return 1;}
 static int cube_command_requested(void){return command.enabled==1 && command.epoch!=0;}
 static DWORD GetTickCount(void) {return now;}
 static int GetAsyncKeyState(int key) {assert(key==VK_F8);return f8?0x8000:0;}
-static void cube_record(unsigned event,uint32_t value) {(void)value;events[event]++;}
+static void cube_record(unsigned event,uint32_t value) {
+    events[event]++;
+    if(event==CUBE_DRAW || (event==CUBE_ACTIVE && value))scene_active=1;
+    if(event==CUBE_REJECT || event==CUBE_CAMERA_REJECT || event==CUBE_FAILURE || event==CUBE_RESTORE_FAILURE)scene_active=0;
+}
 static int cube_camera(float *view,float *fov,uint32_t *player) {
     float matrix[12]={1,0,0,0,0,1,0,0,0,0,1,0};memcpy(view,matrix,sizeof(matrix));view[3]=shift;*fov=90;*player=player_id;return !camera_invalid;
 }
@@ -243,4 +248,5 @@ int main(void) {
     command.style=3;texture_lock_fail=1;cube_render_device(&f);assert(!texture_refs && events[CUBE_FAILURE]==1 && !memcmp(&current,&original,sizeof(current)));
     block_texture_cache_release(&f.block_texture);assert(!texture_refs && !memcmp(&current,&original,sizeof(current)));
     puts("Cube rendering: 200 stable frames reuse atlas; changed pixels/count/style, teardown, failures, full restoration, F8/TTL and world anchor passed");
+    return 0;
 }

@@ -5,19 +5,19 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.38: apoyo de bloques y paradas de primera persona](docs/RE4-BLOCK-0.4.38.md).
-La colocación ya no salta una celda hacia arriba para evitar el suelo. La
-clasificación nativa distingue apoyo y paredes; el cristal auxiliar usa la
-misma altura de terreno. El barrido de colisiones admite sprint acumulado
-entre pases omitidos sin confundirlo con un teletransporte. VIEW conserva
-captura de clics en un hilo propio y registra el destino de pérdidas de foco.
-Pruebas automáticas pasan; apoyo/estabilidad visual Windows pendientes.
+**Estado actual:** [0.4.39: colisiones fuera de pantalla y preparación de VIEW](docs/RE4-BLOCK-0.4.39.md).
+Una escena válida mantiene su referencia física aunque no haya bloques visibles:
+se corrige una parada al volver a mirarlos tras varios pases sin dibujo.
+Preparar espera un clic en Minecraft si Windows rechaza darle foco y continúa
+sin comandos ni otro resize. El seguidor conserva su física durante el tick
+vanilla para evitar empujes/correcciones de bloques solo locales. Pruebas
+automáticas pasan; ejecución visual Windows pendiente.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.38 |
+| RE4 Bridge | paquete/mod 0.4.39 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

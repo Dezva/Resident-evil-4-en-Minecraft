@@ -61,6 +61,7 @@ namespace RE4BridgeView {
         readonly uint minecraftPid;
         public bool Active { get; private set; }
         public bool Prepared {get;private set;}
+        public bool InputFocused {get{return Prepared && desktop.SameWindow(minecraft,minecraftPid) && desktop.Foreground()==minecraft;}}
         Rect preparedScreen;
         public bool StopConfirmed { get; private set; }
         public bool FocusConfirmed { get; private set; }
@@ -105,7 +106,9 @@ namespace RE4BridgeView {
             try {
                 desktop.PrepareInput(inputWindow,screen);
                 desktop.PrepareView(game,screen); // Resize only while the native stop is latched.
-                if (!desktop.Focus(minecraft)) throw new InvalidOperationException("Windows no permitio dar foco. Pulsa Minecraft.");
+                // Windows may deny foreground activation. Keep the prepared windows
+                // and stop latched; the user can click Minecraft to continue.
+                FocusConfirmed=desktop.Focus(minecraft) && desktop.Foreground()==minecraft;
             }catch{Normal(false);throw;}
         }
         public bool StillFocused() {

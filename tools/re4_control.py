@@ -14,6 +14,7 @@ MAGIC = 0x52453443
 
 
 def validate_control(frame):
+    if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
     validate_health(frame.get('health'))
     if type(frame.get('menu',False)) is not bool or frame.get('menu',False) and frame.get('buttons')!=0:raise ProtocolError('Menu requires zero movement')
     if type(frame.get('depth',False)) is not bool:raise ProtocolError('Invalid depth mode')
@@ -49,18 +50,21 @@ def validate_control(frame):
 
 class ControlPolicy:
     """New explicit arm generation required after a stop. Tested with fake IPC."""
-    def __init__(self, writer, preview=None, hud=None, health=None):
+    def __init__(self, writer, preview=None, hud=None, health=None, runtime=None):
         self.writer = writer
         self.preview = preview
         self.hud = hud
         self.health = health
+        self.runtime = runtime
         self.generation = 0
         self.armed = False
 
     def apply(self, frame, sample):
         validate_control(frame)
+        activity=self.runtime.status() if self.runtime is not None else {}
+        scripted=activity.get('fresh',False) and activity.get('scene')==1
         reason = "requiere otro arm"
-        if not frame["armed"] or sample.get("state") != "player":
+        if not frame["armed"] or sample.get("state") != "player" and not (scripted and self.armed):
             reason = "cliente desarmado" if not frame["armed"] else "sin personaje RE4"
             self.armed = False
             self.writer.publish(False, 0)
@@ -71,7 +75,7 @@ class ControlPolicy:
             self.writer.reset_stop()
             self.armed = True
         status = self.writer.status()
-        if status["stop"] or not status["ticking"]:
+        if status["stop"] or not status["ticking"] and not scripted:
             self.armed = False
             reason = "parada nativa" if status["stop"] else "modulo sin ticks recientes"
         look = frame.get("look")
@@ -107,7 +111,7 @@ class ControlPolicy:
             self.armed=False;reason='interfaz requiere mod Minecraft0.4.33'
         if hud is not None and hud.get("menu") is True and frame["buttons"]!=0:
             self.armed=False;reason='inventario requiere movimiento detenido'
-        self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
+        self.writer.publish(self.armed, frame["buttons"] if self.armed and not scripted else 0,
                             look=look if self.armed else None, generation=frame["arm_id"],menu=frame.get("menu",False))
         if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
         result = {"hud_available":self.hud is not None and self.hud.available,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
@@ -140,9 +144,13 @@ class ControlPolicy:
         if self.health is not None:
             self.health.publish(self.armed,frame['arm_id'],frame.get('health'))
             result['health_state']=self.health.status()
+        if self.runtime is not None:
+            self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0)
+            result['runtime_state']=activity
         return result
 
     def stop(self):
+        if self.runtime is not None:self.runtime.publish(0,0)
         if self.health is not None:self.health.publish(False,0)
         if self.preview is not None and getattr(self.preview,'depth',None) is not None:self.preview.depth.publish(False,0)
         if self.hud is not None:self.hud.publish(False)

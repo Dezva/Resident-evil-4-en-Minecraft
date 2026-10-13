@@ -550,3 +550,30 @@ creativo/supervivencia descarta daño observado en creativo; F8 anula tasks y
 petición. Cero vida fija ambos HP actuales y Die3 solo desde Move/Damage.
 HP nativo0 nunca se revive; nueva generación permite un actor recargado vivo.
 Muerte ya aplicada no mata al jugador que reaparece fuera del puente.
+
+## Escena/acción/enemigos0.4.42
+
+Runtime64bytes v1/build442: magic0/version4/build8/pid12; native report seqlock16,
+stamp20, scene24 (0gameplay/1scripted/2unknown), status_flags28, capabilities32
+(bit0 manager enemigo disponible, bit1 key_trigger disponible), contactos36,
+correcciones40, acciones44; request seqlock48/stamp52/action_id56/generation60.
+Las publicaciones del reporte usan try-lock SRW para impedir escritores nativos
+simultáneos sin bloquear el renderer. Cache de clasificación8ms invalidada por
+epoch/camera/generación; no se hace VirtualQuery por cada objeto dibujado.
+
+Wire opcional action_id entero0..INT_MAX. Token positivo solo armado y sin menú;
+edad máxima500ms y misma generación. Request0 cancela, duplicate token no repite.
+R presta KEY_CK/KEY_ACT_A en key_on/key_trg64bits; restaura solo esos bits antes
+del próximo callback original. No fire/aim/menuconfirm ni mensajes de escritorio.
+RuntimeState fresco permite mantener una sesión ya armada sin actor durante una
+escena clasificada; no inventa PlayerSample, no arma inicialmente sin actor, y
+stop nativo siempre prevalece. Escena nativa suprime movimiento/HUD/cubos y
+mantiene el editor; al salir se renueva solo la referencia temporal del seguidor.
+Foco/F8/TCP/lease conservan las paradas explícitas, sin rearme automático.
+
+Enemy manager/header y actor pos94/id100/guidF8/hp324/routineFC se validan contra
+SDK y memoria. Barrido horizontal de humanoides vivos Move/Damage, máximo256
+slots y64 actores, relectura antes de X/Z. Actor/array/generación/origen cambiado
+o salto real rebaselinean el actor, sin cortar Leon. No se escriben Y/AI/HP/
+velocidad/rutinas ni se garantiza navegación/bloqueo de ataques/bosses.
+Health100bytes mantiene ABI; lector acepta441/442. R requiere host/DLL442.

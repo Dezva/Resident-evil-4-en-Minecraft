@@ -53,7 +53,14 @@ class Health:
         if request:print(f"HEALTH mode={request['mode']} ratio={request['ratio']} damage_ack={request['damage_ack']} generation={generation}",flush=True)
     def status(self):
         return dict(available=True,active=self.enabled,fresh=True,reason=0,generation=self.generation,player=4096,hp=800,maximum=1000,damage=200000,healing=0,dead=False,mode=self.request['mode'] if self.request else 0)
-policy = ControlPolicy(Writer(),Preview(),Hud(),Health())
+class Runtime:
+    def __init__(self):self.last=None;self.actions=0
+    def publish(self,generation,action_id):
+        if action_id and self.last!=(generation,action_id):
+            self.last=(generation,action_id);self.actions+=1
+            print(f'ACTION generation={generation} id={action_id}',flush=True)
+    def status(self):return dict(available=True,fresh=True,scene=0,flags=0,enemies_available=True,action_available=True,enemy_contacts=0,enemy_corrections=0,actions=self.actions)
+policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)

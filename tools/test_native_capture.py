@@ -76,6 +76,17 @@ class NativeCaptureTests(unittest.TestCase):
     def test_horizontal_collision_geometry(self):
         self.compile_run("test_block_collision.c")
 
+    def test_native_runtime_scene_cache_and_action_publication(self):
+        root=Path(__file__).resolve().parents[1]
+        body=(root/'native/runtime_ipc.h').read_text()
+        prefix=body[:body.index('static void runtime_ipc_open')].replace('static HANDLE runtime_mapping;','').replace('static uint32_t enemy_manager,','static uint32_t ')
+        action=body[body.index('static void runtime_action_restore'):]
+        fixture=(root/'native/test_runtime.c').read_text().replace('/* ACTUAL_RUNTIME */',prefix+action)
+        self.compile_run('runtime.c',fixture)
+
+    def test_native_enemy_callback_and_repeated_walls(self):
+        self.compile_run('test_enemy_collision.c')
+
     def test_health_cumulative_damage_and_death(self):
         self.compile_run('test_health.c')
 

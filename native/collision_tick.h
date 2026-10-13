@@ -9,7 +9,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     uint32_t player=0;
     CubeCommand *command=&collision_command;
     if(!collision_shared || !TryAcquireSRWLockExclusive(&collision_tick_lock))return;
-    if(!complete || !control->armed || !state->armed || state->stop || (uint32_t)(now-control->stamp)>=500 || (GetAsyncKeyState(VK_F8)&0x8000))goto disabled;
+    if(runtime_scripted() || !complete || !control->armed || !state->armed || state->stop || (uint32_t)(now-control->stamp)>=500 || (GetAsyncKeyState(VK_F8)&0x8000))goto disabled;
     // Torn publication / a skipped graphics pass must never replace the last safe feet.
     if(!cube_collision_command_read(command))goto transient;
     if(!command->enabled || !command->collisions || !command->epoch || (uint32_t)(now-command->stamp)>=500 || command->arm_generation!=control->generation)goto disabled;

@@ -36,7 +36,7 @@ static HANDLE diagnostic_mapping;
 static HMODULE system_dinput;
 static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 static void (__cdecl *original_pad)(void);
-static volatile uint64_t *key_on;
+static volatile uint64_t *key_on,*key_trigger;
 static volatile uint32_t *player_slot;
 static unsigned char *image_base;
 static DWORD image_size;
@@ -66,9 +66,11 @@ static BlockCameraFrame block_camera_frame;
 static uint32_t native_hud_system,native_hud_owner,native_hud_saved;
 static unsigned block_camera_scene;
 static uint32_t block_camera_epoch;
+static volatile unsigned runtime_last_scene;
 static void block_camera_begin(void){block_camera_epoch++;block_camera_scene=1;}
 static void block_camera_end(void){block_camera_scene=0;}
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now);
+static void enemy_collision_tick(const ControlFrame *control,int complete,uint32_t now);
 static ControlFrame cached_frame;
 static int have_cached_frame;
 static int read_control_frame(ControlFrame *out) {
@@ -95,9 +97,10 @@ static uint32_t hidden_player, hidden_vtable, saved_draw_bits;
 typedef struct { uint32_t controller, object, vtable, draw_bits, slot; } HiddenWeapon;
 static HiddenWeapon hidden_weapons[2];
 static unsigned char *smooth_continue __attribute__((used));
+static int runtime_scripted(void);
 /* Only integer reads; the mid-function hook must not disturb x87/SSE state. */
 static unsigned __attribute__((cdecl,noinline,used)) camera_smoothing_flags(unsigned flags, void *self) {
-    int active = state && state->camera_active && state->armed && !state->stop
+    int active = !runtime_last_scene && state && state->camera_active && state->armed && !state->stop
         && self == camera_ctrl + 0x278;
     return re4_smoothing_flags(flags,active);
 }
@@ -138,6 +141,8 @@ static uint32_t current_player(void) {
     if (vtable < (uintptr_t)image_base || vtable >= (uintptr_t)image_base + image_size) return 0;
     return player;
 }
+
+#include "runtime_ipc.h"
 
 static uint32_t weapon_controller(uint32_t player) {
     if (!player || !readable((void *)(uintptr_t)player,0x7DC)) return 0;
@@ -261,6 +266,8 @@ static void restore_rendered_camera(void) {
 static void restore_first_person(void){native_hud_restore();restore_rendered_camera();}
 static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
         void *matrix, void *offset, CameraPoint *point) {
+    runtime_cache_valid=0;
+    if(runtime_scripted()){restore_first_person();state->camera_active=0;original_camera(self,unused,matrix,offset,point);return;}
     // Auxiliary cameras must not clear the primary eye/render lease.
     if(self!=camera_ctrl+0x278){original_camera(self,unused,matrix,offset,point);return;}
     restore_rendered_camera();
@@ -411,6 +418,7 @@ static void __cdecl projection_hook(void) {
         }
         original_projection();return;
     }
+    if(runtime_scripted()){projection_cache.valid=0;restore_first_person();state->camera_active=0;original_projection();return;}
     if(projection_reuse(GetTickCount())){original_projection();return;}
     projection_cache.valid=0;
     ControlFrame control = {0};
@@ -473,9 +481,11 @@ static void __cdecl projection_hook(void) {
 #include "health_ipc.h"
 
 static void __cdecl pad_hook(void) {
+    runtime_action_restore();
     restore_rendered_camera();
     state->camera_active = 0;
     original_pad();
+    int scripted=runtime_scripted();
     int fp_live=0;
     InterlockedIncrement(&state->hook_ticks);
     if (GetAsyncKeyState(VK_F8) & 0x8000) InterlockedExchange(&state->stop, 1);
@@ -491,7 +501,8 @@ static void __cdecl pad_hook(void) {
         InterlockedCompareExchange(&state->stop, 2, 0);
     if (complete && armed && state->armed && !state->stop && (uint32_t)(now - stamp) < RE4_TTL_MS) {
         uint32_t input = re4_buttons(before,before,now,stamp,armed,(uint32_t)state->stop,buttons);
-        if ((state->capabilities & 1u) && (flags & 1u) && re4_valid_look(total,pitch,eye,flags)) {
+        if(scripted)input=0;
+        if (!scripted && (state->capabilities & 1u) && (flags & 1u) && re4_valid_look(total,pitch,eye,flags)) {
             uint32_t player = current_player();
             if (player && writable((void *)(uintptr_t)(player + 0xA4),4)) {
                 if (last_arm_id != generation || last_player != player) {
@@ -530,12 +541,17 @@ static void __cdecl pad_hook(void) {
     if(!fp_live)native_hud_restore();
     cube_collision_tick(&control,complete,now);
     health_tick(&control,complete,now);
+    enemy_collision_tick(&control,complete,now);
+    runtime_action_apply(&control,complete,now);
+    runtime_publish(runtime_last_scene,runtime_cache_flags);
 }
 
 /* Literal bytes with -1 wildcards; these are interoperable signatures, not absolute addresses. */
 static const int version_pattern[] = {0x68,-1,-1,-1,-1,0x8B,0xC8,0xE8,-1,-1,-1,-1,0xDC,0x2D,-1,-1,-1,-1,0xA1,-1,-1,-1,-1,0xDC,0x25};
 static const int key_pattern[] = {0xA1,-1,-1,-1,-1,0x33,0xC9,0x83,0xE0,-1,0x83,0x3D};
 static const int pad_pattern[] = {0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0x68,-1,-1,-1,-1,0x6A,0x04,0xE8,-1,-1,-1,-1,0x83,0xC4,0x18,0xE8,-1,-1,-1,-1,0xE8,-1,-1,-1,-1,0xA1};
+static const int trigger_pattern[] = {0xA1,-1,-1,-1,-1,0x25,-1,-1,-1,-1,0x0B,0xC1,0x74,-1,0x88,0x0D};
+static const int enemy_pattern[] = {0x81,0xE1,0x01,0x02,0x00,0x00,0x83,0xF9,0x01,0x75,-1,0x50,0xB9,-1,-1,-1,-1,0xE8};
 static const int player_pattern[] = {0xA1,-1,-1,-1,-1,0xD8,0xCC,0xD8,0xC9,0xD8,0xCA,0xD9,0x5D,-1,0xD9,0x45,-1};
 static const int camera_pattern[] = {0x52,0x8D,0x85,-1,-1,-1,-1,0x50,0x8D,0x4D,-1,0x51,0x8B,0xCB,0xE8};
 static const int smooth_pattern[] = {0xE8,-1,-1,-1,-1,0x80,0xBB,0xB6,0x01,0x00,0x00,0x00};
@@ -574,6 +590,7 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
 }
 
 static int cube_camera(float *view,float *fov,uint32_t *player) {
+    if(runtime_scripted())return 0;
     *player=current_player();if (!*player || !global_slot || !readable((void *)global_slot,4)) return 0;
     ControlFrame control={0};
     if(!read_control_frame(&control))return 0;
@@ -611,6 +628,7 @@ static int cube_collision_graphics_ready(void) {
     ReleaseSRWLockShared(&cube_metrics_lock);return ready;
 }
 #include "collision_tick.h"
+#include "enemy_collision.h"
 
 static void install_hook(void) {
     wchar_t name[80];
@@ -624,6 +642,7 @@ static void install_hook(void) {
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
     capture_ensure_mapping();
     health_ipc_open();
+    runtime_ipc_open();
     swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
     HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
     if (telemetry) {
@@ -635,7 +654,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=441; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=442; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -678,6 +697,11 @@ static void install_hook(void) {
     if (!(code_memory.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) return;
     original_pad = (void (__cdecl *)(void))target;
     key_on = (volatile uint64_t *)(uintptr_t)keys_address;
+    unsigned char *trigger=unique_pattern(base,size,nt,trigger_pattern,sizeof(trigger_pattern)/sizeof(int));
+    if(trigger){uint32_t address;memcpy(&address,trigger+1,4);if(!(address&3u) && address>=(uintptr_t)base && address<=(uintptr_t)base+size-8 && writable((void*)(uintptr_t)address,8))key_trigger=(volatile uint64_t*)(uintptr_t)address;}
+    unsigned char *manager=unique_pattern(base,size,nt,enemy_pattern,sizeof(enemy_pattern)/sizeof(int));
+    if(manager){uint32_t address;memcpy(&address,manager+13,4);if(!(address&3u) && address>=(uintptr_t)base && address<=(uintptr_t)base+size-32 && readable((void*)(uintptr_t)address,32)){enemy_manager=address;runtime_enemy_available=1;}}
+
     DWORD old_protect;
     state->status = 3;
     if (!VirtualProtect(call,5,PAGE_EXECUTE_READWRITE,&old_protect)) return;

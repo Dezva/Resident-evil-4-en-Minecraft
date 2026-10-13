@@ -22,11 +22,19 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile boolean menuRequested;
     private volatile HealthRequest healthRequest;
     private volatile HealthState healthState;
+    private volatile RuntimeState runtimeState;
+    private record ActionRequest(int generation,int id,long createdNs){}
+    private volatile ActionRequest actionRequest;private int actionGeneration,actionCounter;
+    public RuntimeState runtimeState(){return runtimeState;}
+    public boolean scripted(){var state=runtimeState;return state!=null && state.scripted(System.nanoTime());}
+    public void clearAction(){actionRequest=null;}
+    public void requestAction(int generation){if(generation<=0)return;if(actionGeneration!=generation){actionGeneration=generation;actionCounter=0;}actionRequest=new ActionRequest(generation,++actionCounter,System.nanoTime());}
     public void healthRequest(HealthRequest request){healthRequest=request;}
     public HealthState healthState(){return healthState;}
     public void menuRequested(boolean value){menuRequested=value;}
     /** Called before vanilla opens a GUI and clears keys/pauses its server. */
     public void suspendForMenu(){
+        clearAction();
         menuRequested=true;
         control.updateAndGet(old->{if(old==null)return null;var frame=old.frame().deepCopy();frame.addProperty("buttons",0);frame.addProperty("menu",true);return new ControlFrame(frame,old.hud(),System.nanoTime());});
     }
@@ -190,6 +198,9 @@ public final class BridgeConnection implements AutoCloseable {
                         // snapshot receives this bounded transition grace; movement never does.
                         if (latest != null && System.nanoTime() - latest.createdNs() < (latest.frame().has("menu") && latest.frame().get("menu").getAsBoolean() && latest.frame().get("buttons").getAsInt()==0?1_000_000_000L:200_000_000L)) {
                             frame = latest.frame().deepCopy();
+                            var action=actionRequest;
+                            if(action!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean()
+                                && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L)frame.addProperty("action_id",action.id());
                             var health=healthRequest;
                             if(health!=null && frame.get("armed").getAsBoolean() && health.generation()==frame.get("arm_id").getAsInt()
                                 && (System.nanoTime()-health.createdNs()<500_000_000L || frame.get("menu").getAsBoolean()))frame.add("health",health.toJson());
@@ -238,6 +249,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 || !state.getAsJsonPrimitive("stop").isNumber() || !state.getAsJsonPrimitive("hook_ticks").isNumber())
                             throw new IOException("Invalid control acknowledgement");
                         nativeArmed = state.get("armed").getAsBoolean();
+                        if(state.has("runtime_state"))runtimeState=RuntimeState.parse(state.getAsJsonObject("runtime_state"),System.nanoTime());
                         if(state.has("health_state"))healthState=HealthState.parse(state.getAsJsonObject("health_state"));
                         if(state.has("terrain"))terrain=TerrainSnapshot.parse(state.getAsJsonObject("terrain"),System.nanoTime());
                         if(state.has("terrain_state")){var value=state.getAsJsonPrimitive("terrain_state");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid terrain state");terrainState=value.getAsString();}

@@ -11,6 +11,8 @@ static void overlay_release(CubeDevice *f){
 }
 static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
  ControlFrame control={0};OverlayHeader h;uint32_t now=GetTickCount();
+ int scripted=runtime_scripted();
+ if(runtime_death()){overlay_release(f);return;}
  if(!state || !state->armed || state->stop || !read_control_frame(&control) || !control.armed || (control.flags&3)!=3
    || now-control.stamp>=500 || !current_player() || (GetAsyncKeyState(VK_F8)&0x8000)
    || f->escaped || f->resetting || f->gate.fatal || f->gate.lost || f->hud_blocked_generation==control.generation){overlay_release(f);return;}
@@ -19,6 +21,7 @@ static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
   return;
  }
  if(!h.enabled || h.generation!=control.generation || now-h.stamp>=500){overlay_release(f);return;}
+ if(scripted && !h.flags){overlay_release(f);return;}
  if(!f->scene)return;
  f->hud_generation=h.generation;
  IDirect3DDevice9 *d=f->inner;IDirect3DSurface9 *target=NULL,*back=NULL;

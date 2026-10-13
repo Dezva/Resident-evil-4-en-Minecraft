@@ -999,3 +999,31 @@ Installer: backups verificados, no sobrescritura, retirada441 y retirada del
 hash439 publicado, DLL ajena conservada y carpeta de partidas vacía rechazada.
 Máximo HP nativo variable compara porcentajes sin atribuir una subida de
 capacidad como curación adicional. No se escribe el máximo.
+
+## 0.4.42
+
+Core43/Minecraft61, build Fabric/JDK21; Python149 y DLL442 PE32 con warnings como
+errores. TCP autenticado transmite R con misma generación; repetición del worker
+no duplica el token, menú cancela la petición y otra generación no la recibe.
+Pruebas de Pacífico→Normal conservan Fácil/Normal/Difícil; ASM comprueba método
+updatePose vanilla con fallbacks de agachado/nado y el hook de pose de pie.
+
+Runtime real con memoria sintética clasifica movie/event/death/door, excluye
+PL_ACTION, cachea10000 consultas sin nuevas lecturas de páginas; try-lock impide
+publicación simultánea. Acción CK/ACT_A64bits preserva otros bits y restaura;
+F8, TTL, menú, generación y snapshots torn rechazan sin escribir. Cámara/pad/
+projection reales ceden a escena sin stop y retoman misma generación. Dibujo
+sintético no superpone mano/HUD/cubos; menú sí se permite salvo muerte nativa.
+
+Enemy callback real:1000 pasos hacia una barrera con dos humanoides produce2000
+correcciones sin atravesarla ni escribir Y; mercader/muerto intactos. Cambios de
+flags/pose/memoria, lease/F8/stop/generación/escena/capacidad inválida evitan
+escrituras; teleport renueva referencia sin parada global. No prueba AI alrededor
+de paredes, ataques, colisión vertical ni bosses: esas funciones no se añadieron.
+
+Siete fixtures de runtime/enemigos/cámara/overlay/cubos/vida/colisión pasan
+ASan/UBSan. VIEW pasa preparación/foco/router/F8; installer verifica copia y
+retirada442, retirada de DLL publicadas439/441, partidas intactas y DLL ajena
+conservada. No se ejecutan Win32 interactivo ni GPU/RE4 real en cloud.
+El usuario sí confirmó en Windows hambre/vida normales fuera de Pacífico y
+que la muerte de Minecraft lleva a la pantalla de muerte de RE4 en 0.4.41.

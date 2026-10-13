@@ -12,4 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class BridgeMenuMixin {
     @Inject(method="setScreen",at=@At("HEAD"))
     private void re4bridge$menu(Screen next,CallbackInfo ci){BridgeKeys.screen(next);}
+    @Inject(method="handleInputEvents",at=@At("HEAD"))
+    private void re4bridge$scripted(CallbackInfo ci){BridgeKeys.input((MinecraftClient)(Object)this);}
 }

@@ -11,6 +11,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PlayerEntity.class)
 abstract class EditorPhysicsMixin {
+    @Inject(method="updatePose",at=@At("HEAD"),cancellable=true)
+    private void re4bridge$standingPose(CallbackInfo ci){
+        var player=(PlayerEntity)(Object)this;
+        if(EditorPhysics.active(player)){
+            player.setSneaking(false);player.setSwimming(false);
+            player.setPose(net.minecraft.entity.EntityPose.STANDING);ci.cancel();
+        }
+    }
     // Borrowed flight must not apply vanilla's fivefold airborne mining penalty
     // while RE4 supplies the grounded movement.
     @Redirect(method="getBlockBreakingSpeed",at=@At(value="INVOKE",target="Lnet/minecraft/entity/player/PlayerEntity;isOnGround()Z"))

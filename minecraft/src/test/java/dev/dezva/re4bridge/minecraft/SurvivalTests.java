@@ -5,6 +5,22 @@ import org.objectweb.asm.tree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SurvivalTests {
+    @Test void survivalDifficultyFixesPeacefulAndPreservesTheChosenDifficulty(){
+        var normal=net.minecraft.world.Difficulty.NORMAL;
+        assertEquals(normal,BridgePlayMode.survivalDifficulty(net.minecraft.world.Difficulty.PEACEFUL));
+        for(var difficulty:new net.minecraft.world.Difficulty[]{net.minecraft.world.Difficulty.EASY,normal,net.minecraft.world.Difficulty.HARD})assertEquals(difficulty,BridgePlayMode.survivalDifficulty(difficulty));
+    }
+    @Test void nativeFollowerOwnsStandingPoseInsteadOfVanillaRoofCrawling() throws Exception {
+        var player=Class.forName("net.minecraft.entity.player.PlayerEntity",false,getClass().getClassLoader());
+        assertNotNull(player.getDeclaredMethod("updatePose"));
+        // All the automatic pose fallbacks live in the method our lease cancels.
+        try(var input=player.getResourceAsStream("PlayerEntity.class")){
+            var tree=new ClassNode();new ClassReader(input).accept(tree,0);
+            var method=tree.methods.stream().filter(m->m.name.equals("updatePose")).findFirst().orElseThrow();
+            var names=new java.util.HashSet<String>();for(var node:method.instructions)if(node instanceof FieldInsnNode field && field.owner.equals("net/minecraft/entity/EntityPose"))names.add(field.name);
+            assertTrue(names.containsAll(java.util.Set.of("STANDING","CROUCHING","SWIMMING")));
+        }
+    }
     private static dev.dezva.re4bridge.HealthState health(long damage,long healing,boolean dead,int mode){return new dev.dezva.re4bridge.HealthState(true,true,true,0,7,4096,800,1000,damage,healing,dead,mode);}
     @Test void nativeHitsAndHealsScaleToMinecraftHeartsAndCannotBeReplayedAfterDeath(){
         var hit=health(200000,0,false,1);assertEquals(16,HealthLink.nextHealth(hit,20,20,0,0,false,false));

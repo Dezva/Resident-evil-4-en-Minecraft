@@ -44,7 +44,7 @@ final class HealthLink {
                     if(!p.isCreative() && nativeHealth.mode()==1 && p.isAlive()){
                         float next=nextHealth(nativeHealth,p.getHealth(),p.getMaxHealth(),damage,healing,deathApplied,p.isCreative());
                         if(next<=0)p.damage(p.getDamageSources().genericKill(),p.getHealth()+p.getAbsorptionAmount()+1);
-                        else {p.setHealth(next);if(hurt>0){p.hurtTime=10;p.getServerWorld().sendEntityStatus(p,(byte)2);}}
+                        else {p.setHealth(next);if(hurt>0){p.addExhaustion(.1f);p.hurtTime=10;p.getServerWorld().sendEntityStatus(p,(byte)2);}}
                     }
                     damage=nativeHealth.damage();healing=nativeHealth.healing();
                     if(nativeHealth.dead())deathApplied=true;

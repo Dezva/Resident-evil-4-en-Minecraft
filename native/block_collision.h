@@ -30,13 +30,14 @@ static inline int block_sweep_horizontal(const float *box,const float *start,con
     *time=entry;*axis=hit_axis;*normal=sign;return 1;
 }
 /* Sweeps rather than checking only the final position, so sprint cannot tunnel through a wall. */
-static inline int block_resolve_horizontal_validated(const CubeCommand *command,const float *before,const float *after,float *result) {
+static inline int block_resolve_horizontal_actor_validated(const CubeCommand *command,const float *before,const float *after,float *result,float radius,float height) {
+    if(!isfinite(radius+height) || radius<100 || radius>1000 || height<300 || height>3000)return -1;
     float start[3],end[3],delta[3];block_local_point(command->origin,before,start);block_local_point(command->origin,after,end);
     for(unsigned i=0;i<3;++i){if(!isfinite(before[i]+after[i]) || fabsf(before[i])>20000000.f || fabsf(after[i])>20000000.f)return -1;delta[i]=end[i]-start[i];}
     int contacts=0;
     for(unsigned iteration=0;iteration<4;++iteration) {
         float earliest=1,normal=0;unsigned axis=0;int found=0;
-        for(unsigned i=0;i<command->count;++i){float t,n;unsigned a;if(block_sweep_horizontal(command->boxes[i],start,delta,250,1600,&t,&a,&n) && (!found || t<earliest)){earliest=t;axis=a;normal=n;found=1;}}
+        for(unsigned i=0;i<command->count;++i){float t,n;unsigned a;if(block_sweep_horizontal(command->boxes[i],start,delta,radius,height,&t,&a,&n) && (!found || t<earliest)){earliest=t;axis=a;normal=n;found=1;}}
         if(!found){for(unsigned i=0;i<3;++i)start[i]+=delta[i];break;}
         for(unsigned i=0;i<3;++i){start[i]+=delta[i]*earliest;delta[i]*=1-earliest;}
         start[axis]+=normal*.5f;delta[axis]=0;contacts++;
@@ -44,6 +45,7 @@ static inline int block_resolve_horizontal_validated(const CubeCommand *command,
     float c=cosf(command->origin[3]),s=sinf(command->origin[3]);
     result[0]=command->origin[0]+c*start[0]-s*start[2];result[2]=command->origin[2]+s*start[0]+c*start[2];result[1]=after[1];return contacts;
 }
+static inline int block_resolve_horizontal_validated(const CubeCommand *command,const float *before,const float *after,float *result){return block_resolve_horizontal_actor_validated(command,before,after,result,250,1600);}
 static inline int block_resolve_horizontal(const CubeCommand *command,const float *before,const float *after,float *result) {
     return block_collision_scene_valid(command)?block_resolve_horizontal_validated(command,before,after,result):-1;
 }

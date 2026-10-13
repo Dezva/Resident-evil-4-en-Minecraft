@@ -17,6 +17,7 @@ static void hud_quad(BlockSurfaceVertex *out,float x,float y,float w,float h){
     for(unsigned i=0;i<6;i++){unsigned n=order[i];float u=n==1 || n==2?1.f:0.f,v=n>=2?1.f:0.f;out[i]=(BlockSurfaceVertex){x+u*w,y+v*h,0,1,0xFFFFFFFF,u,v};}
 }
 static void __attribute__((noinline)) hud_render_enabled_device(CubeDevice *f){
+    if(runtime_scripted()){hud_release_texture(f);return;}
     ControlFrame control={0};uint32_t now=GetTickCount();
     if(!state || !state->armed || state->stop || !read_control_frame(&control)
         || !control.armed || (control.flags&3u)!=3u){hud_release_texture(f);return;}

@@ -1,3 +1,6 @@
+static int test_scripted,test_native_death;
+static inline int runtime_scripted(void){return test_scripted;}
+static inline int runtime_death(void){return test_native_death;}
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>

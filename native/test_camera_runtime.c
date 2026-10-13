@@ -33,6 +33,13 @@ static float consumed_yaw,view_yaw,render_matrix[12],render_view[12],render_righ
 static CameraPoint render_point;static void *eye_matrix;static float saved_eye_matrix[12];
 static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon hidden_weapons[2];
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
+static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
+static int scripted;
+static int runtime_scripted(void){runtime_last_scene=(unsigned)scripted;return scripted;}
+static void runtime_action_restore(void){}
+static void enemy_collision_tick(const ControlFrame *c,int complete,uint32_t now){(void)c;(void)complete;(void)now;}
+static void runtime_action_apply(const ControlFrame *c,int complete,uint32_t now){(void)c;(void)complete;(void)now;}
+static void runtime_publish(unsigned scene,uint32_t flags){(void)scene;(void)flags;}
 static unsigned memory_queries,actor_queries,control_reads,key_polls,collision_calls;
 static unsigned late_projection_move;
 #define VK_F8 119
@@ -101,6 +108,12 @@ int main(void){
     packet.generation++;assert(!cube_camera(block_view,&block_fov,&block_player));packet.generation--;
     block_camera_frame.sequence++;assert(!cube_camera(block_view,&block_fov,&block_player));block_camera_frame.sequence++;
     now+=100;assert(!cube_camera(block_view,&block_fov,&block_player));now-=100;
+    // Native movie owns camera/model/HUD while the logical bridge stays armed.
+    scripted=1;packet.buttons=65;float native_yaw=*(float*)(uintptr_t)(id+0xA4);
+    pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
+    assert(!state->camera_active && state->armed && !state->stop && (*(uint32_t*)(uintptr_t)(id+4)&0x12)==0x12);
+    assert(*(float*)(uintptr_t)(id+0xA4)==native_yaw && !state->native_buttons);
+    scripted=0;packet.buttons=0;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();assert(state->camera_active);
     // Absolute mapped gaze cannot inherit an idle/tank body yaw or lose the first mouse delta.
     packet.flags=7;packet.total=135;packet.sequence+=2;packet.generation++;
     *(float*)(uintptr_t)(id+0xA4)=1.2f;pad_hook();assert(fabsf(view_yaw+2.35619449f)<1e-5f);

@@ -13,8 +13,10 @@ root=pathlib.Path(sys.argv[1])
 (root/'NATIVE-SHA256.txt').write_text(hashlib.sha256((root/'native/dinput8.dll').read_bytes()).hexdigest()+'  native/dinput8.dll\n')
 with zipfile.ZipFile('releases/0.4.39/re4bridge-0.4.39-windows.zip') as archive:
     (root/'legacy.dll').write_bytes(archive.read('native/dinput8.dll'))
+with zipfile.ZipFile('releases/0.4.41/re4bridge-0.4.41-windows.zip') as archive:
+    (root/'health.dll').write_bytes(archive.read('native/dinput8.dll'))
 PY
 XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
-  /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_install.ps1 -PackageDir "$installer_stage" -LegacyDll "$installer_stage/legacy.dll"
+  /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_install.ps1 -PackageDir "$installer_stage" -LegacyDll "$installer_stage/legacy.dll" -HealthDll "$installer_stage/health.dll"
 XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
   /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_diagnostic.ps1

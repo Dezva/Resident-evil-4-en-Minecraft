@@ -1,4 +1,16 @@
-# Native RE4 movement, optional look and explicit cube test, 0.4.18
+# Native RE4 bridge
+
+Current build442 adds a separate64-byte scene/action channel, yields camera,
+model/HUD/world overlays during native movies/events/death/loading, and publishes
+bounded enemy collision metrics. R requests borrow only CK/ACT_A64-bit input
+flags for one native pad pulse and restore them before the next original pad.
+Humanoid enemy sweeps run from the existing pad callback: maximum256 slots,
+64active actors, X/Z only, identity/lease/F8 validation. No AI/pathfinding,
+attack occlusion, vertical support or boss collision is implemented.
+See [0.4.42](../docs/RE4-BLOCK-0.4.42.md) and [IPC contract](../docs/CONTRACT.md).
+Gameplay/driver validation still requires Windows; native fixtures are synthetic.
+
+## Historical creation facade and explicit cube test, 0.4.18
 
 0.4.18 wraps the successful owned CreateDevice result in an external, typed
 119-method device facade. Native object/vtable remain untouched. Initial owned

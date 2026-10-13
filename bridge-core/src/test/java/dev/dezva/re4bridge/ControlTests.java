@@ -16,12 +16,18 @@ class ControlTests {
         try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
             await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==65);
+            bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
+            assertTrue(Files.readString(log).contains("ACTION generation=7 id=1"));
             bridge.suspendForMenu();await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);
             long seq=bridge.status().acknowledgedSequence();Thread.sleep(350);assertTrue(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());assertTrue(bridge.status().acknowledgedSequence()>seq);
             bridge.healthRequest(new HealthRequest(7,1,.8f,200000,0,System.nanoTime()));
             await(()->{try{return Files.readString(log).contains("damage_ack=200000 generation=7");}catch(Exception e){return false;}});
             await(()->bridge.healthState()!=null && bridge.healthState().generation()==7);assertEquals(200000,bridge.healthState().damage());
             bridge.menuRequested(false);bridge.publishControl(true,1,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==1);assertTrue(bridge.nativeArmed());
+            assertEquals(1,bridge.runtimeState().actions()); // no replay of the action cancelled on menu entry
+            bridge.requestAction(8);bridge.publishControl(true,1,7,new MouseLook.Input(true,true,0,0,1620));
+            long acknowledged=bridge.status().acknowledgedSequence();await(()->bridge.status().acknowledgedSequence()>acknowledged);
+            assertFalse(Files.readString(log).contains("ACTION generation=8")); // action from another generation cannot cross the wire
             // Movement still expires at the ordinary 200 ms deadline.
             await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
         }finally{peer.destroyForcibly();}

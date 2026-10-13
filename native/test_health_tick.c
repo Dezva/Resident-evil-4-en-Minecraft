@@ -1,3 +1,4 @@
+static inline int runtime_scripted(void){return 0;}
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

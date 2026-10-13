@@ -154,3 +154,14 @@ funciona también con ambos juegos en ventana, sin VIEW. Fuera del puente no
 intercepta F5. F8 conserva retorno normal. La vida se vincula por porcentaje
 mientras se controla RE4; hambre/regeneración son Minecraft. Menú Minecraft
 no congela RE4. Guía y prueba: RE4-BLOCK-0.4.41.md.
+
+## 0.4.42 — escenas y acción R
+
+Preparar exige host/DLL442 por el canal de escenas/acción. R envía la acción
+contextual de RE4 desde Minecraft sin mover foco; E conserva inventario. F5/Esc/
+F8 mantienen sus funciones anteriores. En escenas de RE4 se cede la cámara y
+se suprime el overlay de juego; al acabar se retoma la misma sesión. Los menús
+Minecraft pueden seguir usándose, pero no se superponen a la muerte nativa.
+No se añade atajo de salto de cinemáticas. Pacífico pasa a Normal al preparar o
+entrar en supervivencia, otras dificultades se conservan. Estas funciones también
+sirven en ventana sin VIEW. Instrucciones: RE4-BLOCK-0.4.42.md.

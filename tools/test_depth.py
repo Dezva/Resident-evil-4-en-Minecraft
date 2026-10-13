@@ -22,7 +22,7 @@ class DepthTests(unittest.TestCase):
   with self.assertRaises(ReaderError):NativeDepth(k,42)
   self.assertEqual(k.closed,1)
  def test_compatibility_draw_count_is_distinct_from_depth_success(self):
-  for build in (435,436,437,438,439,441):
+  for build in (435,436,437,438,439,441,442):
    k=Kernel();struct.pack_into('<I',k.buffer,12,build);struct.pack_into('<I',k.buffer,20,2);struct.pack_into('<I',k.buffer,60,7)
    depth=NativeDepth(k,42);status=depth.status();self.assertEqual(status['depth_draws'],0);self.assertEqual(status['depth_fallback_draws'],7);self.assertEqual(status['depth_reason_code'],2);depth.close()
  def test_nonfinite_projection_is_fatal_not_reported_as_valid(self):

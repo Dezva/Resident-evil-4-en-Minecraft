@@ -247,6 +247,8 @@ int main(void) {
     command.style=2;cube_render_device(&f);assert(texture_creates==3 && texture_locks==5 && texture_refs==1);
     command.style=3;texture_lock_fail=1;cube_render_device(&f);assert(!texture_refs && events[CUBE_FAILURE]==1 && !memcmp(&current,&original,sizeof(current)));
     block_texture_cache_release(&f.block_texture);assert(!texture_refs && !memcmp(&current,&original,sizeof(current)));
-    puts("Cube rendering: 200 stable frames reuse atlas; changed pixels/count/style, teardown, failures, full restoration, F8/TTL and world anchor passed");
+    f=reset();test_scripted=1;cube_render_and_teardown(&f);assert(!draws && !creates && !texture_refs && !allocations);
+    test_scripted=0;cube_render_and_teardown(&f);assert(draws==1 && !f.gate.fatal); // same generation resumes after cinematic
+    puts("Cube rendering: 200 stable frames reuse atlas; changed pixels/count/style, teardown, failures, full restoration, F8/TTL, cinematic yield/resume and world anchor passed");
     return 0;
 }

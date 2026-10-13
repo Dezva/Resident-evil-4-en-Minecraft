@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
@@ -29,6 +29,12 @@ try {
         Copy-Item -LiteralPath $LegacyDll -Destination (Join-Path $game 'dinput8.dll')
         & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
         if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build439 upgrade removal failed'}
+    }
+    if($HealthDll){
+        if((Get-FileHash -LiteralPath $HealthDll).Hash.ToLowerInvariant() -ne 'b83d90809e34634ed34d7b77bee7a61600ecca19fd55e8c2a48ceddec480010e'){throw 'Wrong published build441 fixture'}
+        Copy-Item -LiteralPath $HealthDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build441 upgrade removal failed'}
     }
     Set-Content -LiteralPath (Join-Path $game 'dinput8.dll') -Value 'FOREIGN DLL FIXTURE'
     $foreignHash = (Get-FileHash -LiteralPath (Join-Path $game 'dinput8.dll')).Hash

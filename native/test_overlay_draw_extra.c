@@ -32,6 +32,11 @@ int main(void){
  image.header.flags=0;image.header.selection=1;image.header.origin[2]=-600;
  float box[6]={-50,-50,-50,50,50,50};memcpy(image.header.bounds,box,sizeof(box));prior_draws=draws;hud_render_device(&f);assert(draws==prior_draws+2 && texture_locks==2); // black outline + image
  hud_release_texture(&f);assert(!texture_refs && allocations==frees);
+ f=setup();image.header.flags=0;hud_render_device(&f);unsigned cinematic_draws=draws;
+ test_scripted=1;hud_render_device(&f);assert(draws==cinematic_draws && !f.overlay && !texture_refs); // no gameplay hand/HUD over native movie
+ image.header.flags=1;hud_render_device(&f);assert(draws==cinematic_draws+1); // Esc/E menu still permitted
+ test_native_death=1;hud_render_device(&f);assert(draws==cinematic_draws+1 && !f.overlay && !texture_refs); // native death screen wins
+ test_native_death=test_scripted=0;hud_render_device(&f);assert(draws==cinematic_draws+2);hud_release_texture(&f);assert(allocations==frees);
  for(unsigned error=1;error<=45;error++){
   f=setup();setter_fail=error;hud_render_device(&f);assert(applies==1 && !memcmp(&original,&current,sizeof(current)) && stop && !texture_refs && allocations==frees);
  }

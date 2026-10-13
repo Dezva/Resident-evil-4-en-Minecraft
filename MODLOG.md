@@ -1,5 +1,27 @@
 # Registro de desarrollo
 
+## 0.4.42 — escenas nativas, R, altura de pie y colisiones de enemigos
+
+Usuario confirmó hambre/regeneración normales y muerte de ambos juegos al cambiar
+Pacífico. Preparar/F5 supervivencia convierte solo Pacífico a Normal, conservando
+otros niveles e inventario/vida/comida. Daño transferido añade extenuación vanilla.
+updatePose mantiene STANDING solo bajo lease exacto de seguidor; ojos de pie en
+sincronización y mapeado. No cambia la geometría ni elimina techos.
+
+IPC Runtime64bytes build442 con reporte seqlock/capacidades y petición separada
+de acción por token/generación. Flags de película/evento/muerte y rutina global
+ceden cámara/modelo/HUD/cubos a RE4 sin desarmar. Cliente mantiene Steve quieto,
+suprime construcción y retoma sin discontinuidad de seguidor. R presta solamente
+KEY_CK/KEY_ACT_A a key_on/key_trg y los restaura antes del próximo pad nativo;
+press único, TTL/F8/menu/generación y snapshot validado. E inventario intacta.
+
+Colisión horizontal en pad para enemigos humanoides vivos Move/Damage. Manager
+descubierto con firma única, memoria/identidad/relecturas validadas, máximo256
+slots y64 actores por tick. Spawn/teleport renuevan referencia sin parar Leon.
+No se escriben Y, AI, HP, velocidad, rutinas ni animaciones. No navegación,
+bloqueo de ataques, colisión vertical, bosses ni armas Minecraft implementados.
+Pruebas sintéticas y builds pasan; juego/GPU Windows de estos cambios pendiente.
+
 ## 0.4.41 — vida compartida, pausa en movimiento y F5
 
 Esc publica botones0 en setScreen antes de inicializar GUI, gracia máxima1s

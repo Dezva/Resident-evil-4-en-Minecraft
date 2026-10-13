@@ -15,7 +15,7 @@ static void health_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     HealthShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453448;p->version=1;p->build=441;p->pid=GetCurrentProcessId();p->reason=1;
+    memset(p,0,sizeof(*p));p->magic=0x52453448;p->version=1;p->build=442;p->pid=GetCurrentProcessId();p->reason=1;
     health_mapping=mapping;health_shared=p;
 }
 /* Existing game-thread pad callback only. No external process memory writes,
@@ -39,7 +39,7 @@ static void health_tick(const ControlFrame *control,int complete,uint32_t now){
         if(observed<=0 && !health_ledger.dead){health_ledger.damage+=(uint32_t)lroundf((float)health_ledger.hp/health_ledger.max*RE4_HEALTH_UNIT);health_ledger.hp=0;health_ledger.dead=1;}
     }
     if(!stable){reason=2;goto publish;}
-    if(!complete || !control->armed || !state->armed || state->stop || !request.enabled
+    if(runtime_scripted() || !complete || !control->armed || !state->armed || state->stop || !request.enabled
         || request.generation!=control->generation || (uint32_t)(now-request.stamp)>=500
         || (uint32_t)(now-control->stamp)>=500 || (GetAsyncKeyState(VK_F8)&0x8000))goto publish;
     uint32_t player=current_player(),global=global_slot?*global_slot:0;

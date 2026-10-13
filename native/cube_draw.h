@@ -4,6 +4,7 @@
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
  * Texture pixels persist per facade; state backups never retain game resources between draws. */
 static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) {
+    if(runtime_scripted()){cube_record(CUBE_PASS_SKIP,0);return;}
     CubeCommand command;
     int complete=cube_command_read(&command);
     int reason=cube_gate(&f->gate,complete?&command:NULL,GetTickCount(),GetAsyncKeyState(VK_F8)&0x8000);

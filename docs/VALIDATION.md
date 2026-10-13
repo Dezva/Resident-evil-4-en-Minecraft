@@ -916,3 +916,18 @@ SHA256 f707036409bad6f7044baf49fdc29f790af8f654ff11617730aa350055968a11.
 - Instalación/desinstalación/backups y diagnóstico PowerShell comprobados.
 - No se ejecutó RE4, el driver D3D9 ni WinForms real en Windows. La oclusión,
   rendimiento y preparación en los juegos reales siguen pendientes del usuario.
+
+## 0.4.36: regresión de visibilidad
+
+Build Fabric/JDK21: core32 y Minecraft43 pruebas. Python138 pruebas.
+15 fixtures C de renderer/captura con ASan+UBSan, incluyendo rechazo de
+proyección con atlas Minecraft, Z/ZWRITE desactivados, restauración y
+referencias liberadas, espera hasta pase final, F8/TTL/generación, escena
+vacía y fallo de setter. DLL PE32 build436 compilada con políticas nativas.
+Installer/diagnóstico verificados con DLL nueva. CAPTURE comprueba matrices
+435/436 sin OpenProcess y sin escrituras en el mapping. Hit de construcción: reproducción del límite de distancia vanilla, punto
+corregido y roundtrip real PacketByteBuf, caras y celdas negativas. Sin
+ejecución del juego ni
+prueba de GPU Windows; proyección observada del usuario validada en fixture, oclusión real pendiente.
+Matriz GX4:3/viewport1366×768: superficies y contorno con focalX real,
+near100/far≈1e6 y clipping de pantalla comprobados.

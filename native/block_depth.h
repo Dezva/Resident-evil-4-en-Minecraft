@@ -8,7 +8,9 @@ static inline int block_projection(const float *m,float fov,float width,float he
     if(fov<5 || fov>170 || width<1 || height<1 || fabsf(m[11])<.99f || fabsf(m[11])>1.01f || fabsf(m[15])>.001f)return 0;
     const unsigned zeros[]={1,2,3,4,6,7,8,9,12,13};for(unsigned i=0;i<10;i++)if(fabsf(m[zeros[i]])>.001f)return 0;
     float focal=1.f/tanf(fov*.00872664625997165f);
-    if(fabsf(m[5]-focal)>focal*.02f || fabsf(m[0]-focal*height/width)>focal*.04f)return 0;
+    /* CAMERA may retain a virtual 4:3 frustum in a widescreen viewport.
+     * Validate its own aspect, and use its actual X focal for projection. */
+    if(fabsf(m[5]-focal)>focal*.02f || m[0]<=0 || m[5]/m[0]<.5f || m[5]/m[0]>4.f)return 0;
     float a=m[10]*(m[11]>0?1.f:-1.f),b=m[14];
     if(fabsf(a)<1e-7f || fabsf(a-1.f)<1e-7f)return 0;
     float zero=-b/a,one=-b/(a-1.f);if(zero<=0 || one<=0 || !isfinite(zero+one))return 0;
@@ -24,6 +26,11 @@ static inline int block_gx_projection(const float *gx,float fov,float width,floa
     unsigned reverse=compare==5 || compare==7;
     d3d[10]=reverse?-gx[10]:gx[10]-1.f;d3d[14]=reverse?-gx[11]:gx[11];
     return block_projection(d3d,fov,width,height,out);
+}
+/* Clear accepts either no rectangles or one absolute rectangle covering the viewport. */
+static inline int block_depth_full_clear(unsigned count,const int32_t *rect,uint32_t x,uint32_t y,uint32_t width,uint32_t height){
+    if(!count)return 1;
+    return count==1 && rect && width && height && rect[0]<=(int64_t)x && rect[1]<=(int64_t)y && rect[2]>=(int64_t)x+width && rect[3]>=(int64_t)y+height;
 }
 static inline float block_depth(const BlockProjection *p,float reciprocal){return p->a+p->b*reciprocal;}
 #endif

@@ -1,5 +1,25 @@
 # Registro de desarrollo
 
+## 0.4.36 — visibilidad con proyección rechazada
+
+El log real de35 muestra231 intentos y0 dibujos de profundidad con razón2.
+La validación de proyección retornaba antes de dibujar las caras: regresión de
+visibilidad. DLL436 usa compatibilidad al final de la escena para proyección
+no validada o buffer ausente, con texturas y sin Z/ZWRITE. La ruta de profundidad
+validada conserva su pase previo al clear y los rechazos de control siguen
+siendo estrictos. Contador separado de compatibilidad en la palabra reservada
+60 del IPC; no se presenta como oclusión real. La captura posterior aporta matrices GX4:3 para ajustar la proyección. El segundo informe contiene OpenProcess Windows5:
+CAPTURE lee directamente IPC readonly sin abrir memoria del proceso. El usuario
+reporta colocaciones que desaparecen y celda elevada: se reproduce el rechazo
+vanilla por punto original fuera de la celda desplazada, se corrige el hit y se
+comprueba su serialización real. Máximo una celda adyacente, solo reemplazables
+y dentro del alcance. Preparación y colisiones conservadas.
+El nuevo informe confirma frustum GX4:3 con viewport1366x768 y transform D3D
+identity. Se valida el aspecto propio de la matriz, conservando FOV/estructura/
+planos, y se proyectan bloques/selección con su focalX real. Near100/far≈1e6,
+profundidad normal LEQUAL. Fixture con los16valores observados y pruebas de
+alineación de superficies/contorno. Resultado del juego por comprobar.
+
 ## 0.4.35 — preparación automática, superficies y profundidad
 
 El log del usuario termina con `Estado de colision cambiando`: se distingue la

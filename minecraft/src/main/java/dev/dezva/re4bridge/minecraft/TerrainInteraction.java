@@ -42,12 +42,20 @@ public final class TerrainInteraction {
                 Direction side=normal(c,nativeHit.normal());BlockPos cell=BlockPos.ofFloored(impact.add(side.getOffsetX()*.0001,side.getOffsetY()*.0001,side.getOffsetZ()*.0001));
                 if(!cell.equals(cachedCell) || side!=cachedSide || c.mesh!=cachedMesh){
                     cachedCell=cell;cachedSide=side;cachedMesh=c.mesh;cachedCandidate=null;
-                    for(int step=0;step<3;step++){var candidate=cell.offset(side,step);try{if(box(c,new Box(candidate))){cachedCandidate=candidate;break;}}catch(IllegalArgumentException unknown){break;}}
+                    for(int step=0;step<2;step++){var candidate=cell.offset(side,step);try{if(client.world.getBlockState(candidate).isReplaceable() && box(c,new Box(candidate))){cachedCandidate=candidate;break;}}catch(IllegalArgumentException unknown){break;}}
                 }
-                best=cachedCandidate!=null?new BlockHitResult(impact,side,cachedCandidate,false):BlockHitResult.createMissed(impact,side,cell);
+                best=cachedCandidate!=null?candidateHit(impact,side,cachedCandidate):BlockHitResult.createMissed(impact,side,cell);
+                if(best.getType()==HitResult.Type.BLOCK && (start.squaredDistanceTo(best.getPos())>client.player.getBlockInteractionRange()*client.player.getBlockInteractionRange() || !client.world.getBlockState(best.getBlockPos()).isReplaceable()))best=BlockHitResult.createMissed(impact,side,cell);
             }
         }
         client.crosshairTarget=best==null?BlockHitResult.createMissed(end,Direction.UP,BlockPos.ofFloored(end)):best;
+    }
+    /** Native hit stays in the geometry query; the vanilla packet must name a
+     * point inside the selected Minecraft cell, including after slope adjustment. */
+    static BlockHitResult candidateHit(Vec3d impact,Direction side,BlockPos candidate){
+        if(!Double.isFinite(impact.x+impact.y+impact.z))throw new IllegalArgumentException("Invalid native hit");
+        var point=new Vec3d(MathHelper.clamp(impact.x,candidate.getX(),candidate.getX()+1.),MathHelper.clamp(impact.y,candidate.getY(),candidate.getY()+1.),MathHelper.clamp(impact.z,candidate.getZ(),candidate.getZ()+1.));
+        return new BlockHitResult(point,side,candidate,false);
     }
     public static boolean surfaceTarget(BlockHitResult hit){return active(context) && cachedCandidate!=null && cachedCandidate.equals(hit.getBlockPos());}
     public static boolean placement(ItemPlacementContext placement,BlockState state){

@@ -221,8 +221,13 @@ static HRESULT WINAPI cube_Clear(IDirect3DDevice9 *iface, DWORD rect_count, cons
 #endif
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
 #ifdef RE4_DEPTH_RUNTIME
-    if(f->scene && f->depth_seen && !f->depth_drawn && !rect_count && (flags&D3DCLEAR_ZBUFFER) && !(flags&D3DCLEAR_TARGET) && depth_requested(NULL)){
-        f->depth_stage=1;cube_render_device(f);f->depth_stage=0;
+    if(f->scene && f->depth_seen && !f->depth_drawn && (flags&D3DCLEAR_ZBUFFER) && !(flags&D3DCLEAR_TARGET) && depth_requested(NULL)){
+        int full=!rect_count;
+        if(rect_count==1 && rects && readable(rects,sizeof(D3DRECT))){
+            D3DVIEWPORT9 viewport;
+            if(SUCCEEDED(f->inner->lpVtbl->GetViewport(f->inner,&viewport)))full=block_depth_full_clear(rect_count,(const int32_t*)rects,viewport.X,viewport.Y,viewport.Width,viewport.Height);
+        }
+        if(full){f->depth_stage=1;cube_render_device(f);f->depth_stage=0;}
     }
 #endif
 #ifdef RE4_DEPTH_RUNTIME

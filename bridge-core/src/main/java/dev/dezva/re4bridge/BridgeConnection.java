@@ -18,8 +18,8 @@ public final class BridgeConnection implements AutoCloseable {
     private record ControlFrame(JsonObject frame, HudFrame hud, long createdNs) {}
     private volatile Supplier<HudFrame> overlaySource;
     private volatile boolean terrainRequested;private volatile TerrainSnapshot terrain;private volatile String terrainState="sin host de mapa";
-    private volatile boolean depthRequested,depthAvailable;private volatile String depthReason="sin canal de profundidad";private volatile long depthDraws;
-    public void depthRequested(boolean value){depthRequested=value;}public boolean depthAvailable(){return depthAvailable;}public String depthReason(){return depthReason;}public long depthDraws(){return depthDraws;}
+    private volatile boolean depthRequested,depthAvailable;private volatile String depthReason="sin canal de profundidad";private volatile long depthDraws,depthFallbackDraws;
+    public void depthRequested(boolean value){depthRequested=value;}public boolean depthAvailable(){return depthAvailable;}public String depthReason(){return depthReason;}public long depthDraws(){return depthDraws;}public long depthFallbackDraws(){return depthFallbackDraws;}
     public void terrainRequested(boolean requested){terrainRequested=requested;}
     public TerrainSnapshot terrain(){return terrain;}public String terrainState(){return terrainState;}
     /** Source reads only an immutable encoder result, never Minecraft or OpenGL state. */
@@ -250,6 +250,7 @@ public final class BridgeConnection implements AutoCloseable {
                             if(preview.has("depth_available")){var available=preview.getAsJsonPrimitive("depth_available");if(!available.isBoolean())throw new IOException("Invalid depth state");depthAvailable=available.getAsBoolean();}
                             if(preview.has("depth_reason")){var value=preview.getAsJsonPrimitive("depth_reason");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid depth reason");depthReason=value.getAsString();}
                             if(preview.has("depth_draws"))depthDraws=unsignedCounter(preview,"depth_draws");
+                            if(preview.has("depth_fallback_draws"))depthFallbackDraws=unsignedCounter(preview,"depth_fallback_draws");
                             previewFrames=unsignedCounter(preview,"frames");
                             previewDraws=unsignedCounter(preview,"draws");
                             previewFailures=unsignedCounter(preview,"failures");

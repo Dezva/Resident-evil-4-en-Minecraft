@@ -55,7 +55,14 @@ static void __attribute__((noinline)) overlay_render_device(CubeDevice *f){
   // The outline uses the same latched native view as world blocks, never the MC render camera.
   if(SUCCEEDED(hr)&&h.selection){
    float view[12],local[12],fov;uint32_t actor;BlockVertex lines[24];unsigned n=0;
-   if(cube_camera(view,&fov,&actor)&&block_scene_view(view,h.origin,local))n=block_lines(h.bounds,local,fov,(float)vp.Width,(float)vp.Height,lines);
+   if(cube_camera(view,&fov,&actor)&&block_scene_view(view,h.origin,local)){
+    float focal_x=0;
+#ifdef RE4_DEPTH_RUNTIME
+    float gx[16];BlockProjection projection;
+    if(cube_projection(gx) && block_gx_projection(gx,fov,(float)vp.Width,(float)vp.Height,4,&projection))focal_x=projection.matrix[0]*vp.Width*.5f;
+#endif
+    n=block_lines_projected(h.bounds,local,fov,(float)vp.Width,(float)vp.Height,lines,focal_x);
+   }
    if(n){
     BlockVertex thick[72];unsigned count=0;
     for(unsigned i=0;i<n;i+=2){

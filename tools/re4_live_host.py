@@ -38,7 +38,7 @@ def main():
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.35: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            print('Host 0.4.36: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

@@ -488,3 +488,11 @@ Status nativo0..207 bajo seqlock offset8; comando host208seq/212stamp/216enabled
 220generation. Timestamp500ms máximo. No hay parche de proyección ni lectura
 de buffers GPU para colisiones. El renderer usa el depth buffer real, estados
 D3D respaldados y matrices validadas; omite sólidos en modo depth si no valida.
+
+## Compatibilidad36
+
+Mismo ABI depth256bytes; build435/436 admitidos por el lector. La palabra
+reservada offset60 ahora cuenta dibujos sin profundidad. Build436 mantiene
+razón2/3 cuando usa compatibilidad por matriz rechazada/buffer ausente;
+`depth_draws` solo aumenta por dibujo con profundidad validada. Compatibilidad
+se ejecuta al final de la escena y no omite gates F8/TTL/epoch/generación.

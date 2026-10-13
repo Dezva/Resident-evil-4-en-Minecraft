@@ -230,7 +230,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; Ultimos ID HUD="+bridge.nativeHudHidden()+"; HUD RE4="+((bridge.nativeCapabilities()&16)!=0?"ocultacion disponible":"firma no disponible")+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
-                            ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()));
+                            ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())

@@ -111,9 +111,9 @@ class CubeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             process=Process();before=process.k.command.raw
             state={'build':'0.4.18','hook_description':'importacion interceptada','device_success':1}
-            with patch.object(capture,'find_pid',return_value=42),patch.object(capture,'WindowsProcess',return_value=process),patch.object(capture,'read_capture',return_value=state):
+            with patch.object(capture,'find_pid',return_value=42),patch.object(capture,'capture_kernel',return_value=process.k),patch.object(capture,'read_capture',return_value=state):
                 self.assertEqual(capture.main(['--output-dir',directory]),0)
-            self.assertTrue(process.closed);self.assertEqual(process.k.command.raw,before)
+            self.assertFalse(process.closed);self.assertEqual(process.k.command.raw,before)
             self.assertEqual(process.k.closed,[10]);self.assertEqual(process.k.released,0)
             report=json.loads(next(Path(directory).glob('graphics-capture-*.json')).read_text())
             self.assertEqual(report['capture']['cube']['live_devices'],1)

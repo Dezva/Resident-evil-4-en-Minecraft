@@ -54,8 +54,8 @@ static inline int block_valid_view(const float *view,float fovy,float width,floa
     }
     return 1;
 }
-static inline unsigned block_lines(const float *bounds,const float *view,float fovy,
-        float width,float height,BlockVertex *vertices) {
+static inline unsigned block_lines_projected(const float *bounds,const float *view,float fovy,
+        float width,float height,BlockVertex *vertices,float focal_x) {
     if (!block_valid_shape_bounds(bounds) || !block_valid_view(view,fovy,width,height)) return 0;
     float points[8][3];
     for (unsigned i=0;i<8;++i) for (unsigned r=0;r<3;++r) {
@@ -63,6 +63,8 @@ static inline unsigned block_lines(const float *bounds,const float *view,float f
         for (unsigned c=0;c<3;++c) points[i][r]+=view[4*r+c]*bounds[c+((i&(1u<<c))?3:0)];
     }
     float focal=height/(2*tanf(fovy*0.00872664625997165f));
+    if(!isfinite(focal_x) || focal_x<0 || focal_x>100000000.f)return 0;
+    if(focal_x==0)focal_x=focal;
     unsigned count=0;
     for (unsigned i=0;i<8;++i) for (unsigned axis=0;axis<3;++axis) {
         if (i&(1u<<axis)) continue;
@@ -73,12 +75,13 @@ static inline unsigned block_lines(const float *bounds,const float *view,float f
             float t=(-1-a[2])/(b[2]-a[2]); float *p=a[2]>-1?a:b;
             for (unsigned r=0;r<3;++r) p[r]=a[r]+t*(b[r]-a[r]);
         }
-        float sa[2]={width/2+focal*a[0]/-a[2],height/2-focal*a[1]/-a[2]};
-        float sb[2]={width/2+focal*b[0]/-b[2],height/2-focal*b[1]/-b[2]};
+        float sa[2]={width/2+focal_x*a[0]/-a[2],height/2-focal*a[1]/-a[2]};
+        float sb[2]={width/2+focal_x*b[0]/-b[2],height/2-focal*b[1]/-b[2]};
         if (!isfinite(sa[0]+sa[1]+sb[0]+sb[1]) || !block_clip_line(sa,sb,width,height)) continue;
         vertices[count++]=(BlockVertex){sa[0],sa[1],0,1,0xFF40FF40};
         vertices[count++]=(BlockVertex){sb[0],sb[1],0,1,0xFF40FF40};
     }
     return count;
 }
+static inline unsigned block_lines(const float *bounds,const float *view,float fovy,float width,float height,BlockVertex *vertices){return block_lines_projected(bounds,view,fovy,width,height,vertices,0);}
 #endif

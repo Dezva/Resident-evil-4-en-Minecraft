@@ -31,26 +31,36 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
     int atlas=solid && command.style==3;
 #ifdef RE4_DEPTH_RUNTIME
     BlockProjection depth={0};uint32_t depth_generation=0;
-    int use_depth=solid && depth_requested(&depth_generation);
+    int use_depth=solid && depth_requested(&depth_generation),depth_fallback=0;
     if(use_depth){
-        if(!isfinite(viewport.MinZ+viewport.MaxZ) || viewport.MinZ<0 || viewport.MaxZ>1 || viewport.MinZ>=viewport.MaxZ){depth_report(2,f->depth_stage,NULL,&viewport,0);return;}
+        // A stale generation is a control rejection, never a compatibility fallback.
         if(depth_generation!=command.arm_generation){depth_report(8,f->depth_stage,NULL,&viewport,0);return;}
-        IDirect3DSurface9 *depth_surface=NULL;
-        hr=device->lpVtbl->GetDepthStencilSurface(device,&depth_surface);
-        if(FAILED(hr) || !depth_surface){depth_report(3,f->depth_stage,NULL,&viewport,0);return;}
-        depth_surface->lpVtbl->Release(depth_surface);
-        float projection[16]={0};hr=device->lpVtbl->GetTransform(device,D3DTS_PROJECTION,(D3DMATRIX*)projection);
-        unsigned source=1;
-        if(FAILED(hr) || !block_projection(projection,fov,(float)viewport.Width,(float)viewport.Height,&depth)){
-            source=2;
-            if(!f->depth_seen || !block_gx_projection(f->depth_gx,fov,(float)viewport.Width,(float)viewport.Height,f->depth_world_compare,&depth)){
-                BlockProjection rejected={0};for(unsigned i=0;i<16;i++)if(isfinite(projection[i]))rejected.matrix[i]=projection[i];
-                depth_report(2,f->depth_stage,&rejected,&viewport,0);
-                depth_observe(0,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
-                return;
-            }
+        if(!isfinite(viewport.MinZ+viewport.MaxZ) || viewport.MinZ<0 || viewport.MaxZ>1 || viewport.MinZ>=viewport.MaxZ){
+            depth_report(2,f->depth_stage,NULL,&viewport,0);use_depth=0;depth_fallback=2;
         }
-        depth_observe(source,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
+        if(use_depth){
+            IDirect3DSurface9 *depth_surface=NULL;
+            hr=device->lpVtbl->GetDepthStencilSurface(device,&depth_surface);
+            if(FAILED(hr) || !depth_surface){depth_report(3,f->depth_stage,NULL,&viewport,0);use_depth=0;depth_fallback=3;}
+            if(depth_surface)depth_surface->lpVtbl->Release(depth_surface);
+        }
+        if(use_depth){
+            float projection[16]={0};hr=device->lpVtbl->GetTransform(device,D3DTS_PROJECTION,(D3DMATRIX*)projection);
+            unsigned source=1;
+            if(FAILED(hr) || !block_projection(projection,fov,(float)viewport.Width,(float)viewport.Height,&depth)){
+                source=2;
+                if(!f->depth_seen || !block_gx_projection(f->depth_gx,fov,(float)viewport.Width,(float)viewport.Height,f->depth_world_compare,&depth)){
+                    BlockProjection rejected={0};for(unsigned i=0;i<16;i++)if(isfinite(projection[i]))rejected.matrix[i]=projection[i];
+                    depth_report(2,f->depth_stage,&rejected,&viewport,0);
+                    depth_observe(0,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
+                    use_depth=0;depth_fallback=2;
+                }
+            }
+            if(use_depth)depth_observe(source,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
+        }
+        // Flat compatibility drawing belongs at the final pass, after world geometry.
+        // Leave the validated depth path at the earlier pre-HUD depth clear.
+        if(depth_fallback && f->depth_stage==1)return;
     }
 #endif
     if (command.mode==2) {
@@ -74,7 +84,7 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
             }
             vertices=surface->vertices;
             #ifdef RE4_DEPTH_RUNTIME
-            count=block_surfaces_materials_near(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL,use_depth?depth.near_plane:1.f);
+            count=block_surfaces_materials_projected(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL,use_depth?depth.near_plane:1.f,use_depth?depth.matrix[0]*viewport.Width*.5f:0);
 #else
             count=block_surfaces_materials(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL);
 #endif
@@ -130,6 +140,7 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         else if (SUCCEEDED(hr)) {cube_record(CUBE_DRAW,(uint32_t)hr);
 #ifdef RE4_DEPTH_RUNTIME
             if(use_depth){f->depth_drawn=1;depth_report(0,f->depth_stage,&depth,&viewport,1);}
+            else if(depth_fallback){f->depth_drawn=1;depth_fallback_draw();}
 #endif
         }
     }

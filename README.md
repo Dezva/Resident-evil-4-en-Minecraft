@@ -5,20 +5,19 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.35: Preparar Minecraft → F9](docs/RE4-BLOCK-0.4.35.md).
-VIEW conecta y arma primera persona, construcción y HUD con un botón; F8 vuelve
-a RE4 normal. Lecturas de telemetría ocupadas no cierran el host. Superficies
-SAT/EAT activas para rayos de construcción y colisiones de flechas; profundidad
-nativa para ocultar bloques detrás de objetos del escenario. Flechas visibles
-3D y daño a enemigos todavía pendientes. La integración visual requiere prueba
-con RE4 real en Windows; lógica, transporte, compilación y renderer sintético
-se verifican en cloud.
+**Estado actual:** [0.4.36: bloques visibles aunque se rechace la profundidad](docs/RE4-BLOCK-0.4.36.md).
+Preparar Minecraft → F9 mantiene la configuración automática de35. Si la matriz
+nativa no se valida, se recupera el dibujo con texturas sin profundidad; los
+contadores distinguen compatibilidad y profundidad real. Se corrige la proyección
+GX4:3 observada en una ventana1366×768 y la coherencia de los hits al colocar
+en superficies nativas. Oclusión detrás de árboles por comprobar en el juego.
+Se conservan geometría SAT/EAT, colocación y colisiones integradas en35.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.35 |
+| RE4 Bridge | paquete/mod 0.4.36 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

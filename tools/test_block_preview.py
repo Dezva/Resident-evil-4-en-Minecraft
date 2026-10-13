@@ -9,6 +9,31 @@ from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
+    def test_release436_connects_scene_collision_depth_and_stops_all_leases(self):
+        import struct
+        from test_cube_test import Kernel,Function
+        kernel=Kernel(version=6,build=436)
+        struct.pack_into('<I',kernel.collision,12,436)
+        depth=ctypes.create_string_buffer(256);struct.pack_into('<5I',depth,0,0x52453444,1,2,436,42)
+        original_open=kernel.OpenFileMappingW.callback;original_view=kernel.MapViewOfFile.callback
+        def open_mapping(access,inherit,name):
+            if name=='Local\\RE4Bridge-Depth-42':
+                self.assertEqual(access,6);return 14
+            return original_open(access,inherit,name)
+        def view(handle,access,high,low,size):
+            if handle==14:
+                self.assertEqual((access,high,low,size),(6,0,0,256));return ctypes.addressof(depth)
+            return original_view(handle,access,high,low,size)
+        kernel.OpenFileMappingW=Function(open_mapping);kernel.MapViewOfFile=Function(view)
+        preview=NativePreview(42,kernel,user=kernel);writer=Writer();writer.capabilities=31
+        policy=ControlPolicy(writer,preview)
+        scene={'origin':[0,0,-600,0],'boxes':[self.bounds],'style':1,'collisions':True}
+        state=policy.apply(dict(type='re4_control',armed=True,buttons=0,arm_id=7,preview=scene,depth=True),{'state':'player'})
+        self.assertTrue(state['armed']);self.assertTrue(state['scene_available']);self.assertTrue(state['collision_available']);self.assertTrue(state['preview_state']['depth_available'])
+        self.assertEqual(struct.unpack_from('<2I',depth,216),(1,7));self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],1)
+        policy.stop();self.assertEqual(struct.unpack_from('<2I',depth,216),(0,0));self.assertEqual(struct.unpack_from('<I',kernel.command,16)[0],0)
+        preview.close()
+
     def test_busy_collision_and_graphics_telemetry_never_close_active_control(self):
         from test_cube_test import Kernel
         from re4_cube_test import SnapshotBusy

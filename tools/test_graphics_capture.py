@@ -77,7 +77,7 @@ class GraphicsCaptureTests(unittest.TestCase):
         struct.pack_into('<I',data,12,424)
         newer=capture.decode_capture(bytes(data),42)
         self.assertEqual(newer['build'],'0.4.24');self.assertIsNone(newer['rendering_enabled'])
-        for build in (426,427,428,429,430,432,433,434,435):
+        for build in (426,427,428,429,430,432,433,434,435,436):
             struct.pack_into('<I',data,12,build)
             newer=capture.decode_capture(bytes(data),42)
             self.assertEqual(newer['build'],f'0.4.{build-400}');self.assertIsNone(newer['rendering_enabled'])
@@ -142,20 +142,31 @@ class GraphicsCaptureTests(unittest.TestCase):
         self.assertEqual(sequence_reads,4)
         self.assertEqual((kernel.closed,kernel.unmapped),(1,1))
 
-    def test_main_writes_success_or_error_report_and_closes_process(self):
-        class Process:
-            def __init__(self,k):self.k=k;self.closed=False
-            def close(self):self.closed=True
+    def test_main_writes_report_without_opening_process_memory(self):
         for failed in [False,True]:
             with tempfile.TemporaryDirectory() as directory:
-                process=Process(Kernel(snapshot(),absent=failed))
-                with patch.object(capture,'find_pid',return_value=42),patch.object(capture,'WindowsProcess',return_value=process):
+                kernel=Kernel(snapshot(),absent=failed)
+                self.assertFalse(hasattr(kernel,'OpenProcess'))
+                with patch.object(capture,'find_pid',return_value=42),patch.object(capture,'capture_kernel',return_value=kernel):
                     self.assertEqual(capture.main(['--output-dir',directory]),int(failed))
-                self.assertTrue(process.closed)
+                self.assertEqual(kernel.closed,0 if failed else 1)
                 files=list(Path(directory).glob('graphics-capture-*.json'));self.assertEqual(len(files),1)
                 report=json.loads(files[0].read_text())
                 self.assertEqual(report['mode'],'READ ONLY CAPTURE IPC')
                 self.assertEqual('error' in report,failed)
+
+    def test_main_keeps_depth_matrices_without_process_access_or_mapping_writes(self):
+        from test_depth import Kernel as DepthKernel
+        for build in ('0.4.35','0.4.36'):
+            kernel=DepthKernel();before=bytes(kernel.buffer)
+            state={'build':build,'hook_description':'importacion interceptada','device_success':1}
+            cube={'live_devices':1,'frames':2,'draws':1,'reason':'activo'}
+            with tempfile.TemporaryDirectory() as directory,patch.object(capture,'find_pid',return_value=42),patch.object(capture,'capture_kernel',return_value=kernel),patch.object(capture,'read_capture',return_value=state),patch('re4_cube_test.read_cube_status',return_value=cube):
+                self.assertEqual(capture.main(['--output-dir',directory]),0)
+                report=json.loads(next(Path(directory).glob('graphics-capture-*.json')).read_text())
+                self.assertEqual(len(report['capture']['depth']['depth_projection']),16)
+                self.assertEqual(len(report['capture']['depth']['depth_gx_projection']),16)
+                self.assertEqual(bytes(kernel.buffer),before);self.assertEqual(kernel.access,[4]);self.assertEqual(kernel.closed,1)
 
 
 if __name__=='__main__':unittest.main()

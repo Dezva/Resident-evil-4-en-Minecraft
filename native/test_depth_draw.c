@@ -72,7 +72,7 @@ static HRESULT texture_create(IDirect3DDevice9 *d,UINT width,UINT height,UINT le
     texture_creates++;if(texture_create_fail)return E_FAIL;if(texture_null){*out=NULL;return S_OK;}
     texture_refs++;*out=&stone_texture;memset(tile,0xBA,sizeof(tile));return S_OK;
 }
-static unsigned depth_on=1,depth_gen=9,depth_reason,depth_draws,no_depth;
+static unsigned depth_on=1,depth_gen=9,depth_reason,depth_draws,no_depth,depth_compat;
 static float projection[16];
 static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride) {
     (void)d;assert((type==D3DPT_LINELIST || type==D3DPT_TRIANGLELIST) && count>0);
@@ -91,10 +91,12 @@ static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const v
         if(command.style==2)for(unsigned y=0;y<16;++y)for(unsigned x=16;x<20;++x)assert(tile[y*20+x]==0xBABABABA);
         else {for(unsigned y=0;y<256;++y)for(unsigned x=256;x<260;++x)assert(tile[y*260+x]==0xBABABABA);assert(tile[8*260+8]==command.pixels[0][0] && tile[8*260+40]==command.pixels[command.tile_count>1?1:0][0]);assert(current.render[D3DRS_ALPHABLENDENABLE]==1 && current.stage[0][D3DTSS_ALPHAOP]==D3DTOP_MODULATE);} // Respect row pitch.
     }
-    if(depth_on){if(command.style==3){assert(current.render[D3DRS_ALPHATESTENABLE]==1 && current.render[D3DRS_ALPHAREF]==0 && current.render[D3DRS_ALPHAFUNC]==5);}
+    if(depth_on && depth_reason!=0){assert(current.render[D3DRS_ZENABLE]==0 && current.render[D3DRS_ZWRITEENABLE]==0);}
+    if(depth_on && depth_reason==0){if(command.style==3){assert(current.render[D3DRS_ALPHATESTENABLE]==1 && current.render[D3DRS_ALPHAREF]==0 && current.render[D3DRS_ALPHAFUNC]==5);}
         assert(current.render[D3DRS_ZENABLE]==1 && current.render[D3DRS_ZWRITEENABLE]==1);assert(current.render[D3DRS_ZFUNC]==(projection[10]<0?7:4));for(unsigned i=0;i<last_vertices;i++){const BlockSurfaceVertex *v=data;assert(isfinite(v[i].z) && v[i].z>=-.00001 && v[i].z<=1.00001);}}
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
+static void depth_fallback_draw(void){depth_compat++;}
 static int depth_requested(uint32_t *gen){*gen=depth_gen;return depth_on;}
 static void depth_report(unsigned reason,unsigned stage,const BlockProjection *p,const D3DVIEWPORT9 *v,int drawn){(void)stage;(void)p;(void)v;depth_reason=reason;depth_draws+=drawn;}
 static void depth_observe(unsigned source,const float *gx,float fov,unsigned compare,unsigned seen){(void)source;(void)gx;(void)fov;(void)compare;(void)seen;}
@@ -267,13 +269,21 @@ void old_unused_main(void) {
 
 static CubeDevice setup(void){CubeDevice f=reset();command.mode=2;command.style=1;command.count=1;command.arm_generation=9;
  float box[6]={-20,-20,-80,20,20,-40};memcpy(command.boxes[0],box,24);
- float m[16]={.75,0,0,0,0,1,0,0,0,0,10000.f/9990,1,0,0,-100000.f/9990,0};memcpy(projection,m,64);depth_on=1;depth_gen=9;depth_reason=depth_draws=no_depth=0;return f;}
+ float m[16]={.75,0,0,0,0,1,0,0,0,0,10000.f/9990,1,0,0,-100000.f/9990,0};memcpy(projection,m,64);depth_on=1;depth_gen=9;depth_reason=depth_draws=no_depth=depth_compat=0;return f;}
 int main(void){
  CubeDevice f=setup();cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1 && f.depth_drawn);assert(!memcmp(&current,&original,sizeof(current)) && !surface_refs && !backup_refs);
  f=setup();command.style=3;command.tile_count=1;command.pixels[0][0]=0xFF334455;cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1 && !memcmp(&current,&original,sizeof(current)) && !texture_refs);
  f=setup();projection[10]=-10.f/9990;projection[14]=100000.f/9990;cube_render_and_teardown(&f);assert(depth_draws==1 && !memcmp(&current,&original,sizeof(current)));
- f=setup();projection[5]=4;cube_render_and_teardown(&f);assert(!draws && depth_reason==2 && !surface_refs);
- f=setup();no_depth=1;cube_render_and_teardown(&f);assert(!draws && depth_reason==3 && !surface_refs);
+ f=setup();projection[5]=4;cube_render_and_teardown(&f);assert(draws==1 && depth_reason==2 && depth_compat==1 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();projection[5]=4;command.style=3;command.tile_count=1;command.pixels[0][0]=0xFF334455;cube_render_and_teardown(&f);assert(draws==1 && depth_compat==1 && !texture_refs && !surface_refs && !backup_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();no_depth=1;cube_render_and_teardown(&f);assert(draws==1 && depth_reason==3 && depth_compat==1 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();projection[5]=4;f.depth_stage=1;cube_render_and_teardown(&f);assert(!draws && depth_reason==2 && !f.depth_drawn);
+ f.depth_stage=0;cube_render_and_teardown(&f);assert(draws==1 && depth_compat==1 && f.depth_drawn);
+ f=setup();projection[5]=4;setter_fail=1;cube_render_and_teardown(&f);assert(!draws && !depth_compat && applies==1 && !memcmp(&current,&original,sizeof(current)));
+ f=setup();projection[5]=4;command.count=0;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
+ f=setup();projection[5]=4;f8=1;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
+ f=setup();projection[5]=4;now=1500;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
+ f=setup();projection[5]=4;command.enabled=0;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
  f=setup();depth_gen=10;cube_render_and_teardown(&f);assert(!draws && depth_reason==8);
  f=setup();f8=1;cube_render_and_teardown(&f);assert(!draws);
  f=setup();setter_fail=1;cube_render_and_teardown(&f);assert(!draws && applies==1 && !memcmp(&current,&original,sizeof(current)) && !surface_refs && !backup_refs);

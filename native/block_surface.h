@@ -74,10 +74,10 @@ static inline int block_face_covered(const float boxes[][6],unsigned count,unsig
     }
     return 0;
 }
-/* Painter ordering applies only to this grid. No game depth buffer or terrain
- * occlusion is assumed; face shading and clipped UVs are provisional. */
-static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsigned box_count,const float *view,
-        float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6],float near_plane) {
+/* Build clipped XY/RHW geometry. The caller supplies validated X projection
+ * and assigns native Z; legacy diagnostic drawing retains its original focal. */
+static inline unsigned block_surfaces_materials_projected(const float boxes[][6],unsigned box_count,const float *view,
+        float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6],float near_plane,float focal_x) {
     if (!box_count || box_count>BLOCK_SURFACE_MAX_BOXES || !block_valid_view(view,fovy,width,height)) return 0;
     for (unsigned i=0;i<box_count;++i) if (!block_valid_shape_bounds(boxes[i])) return 0;
     float eye[3]={0};
@@ -93,8 +93,10 @@ static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsi
         mesh->faces[face_count++]=(BlockFace){i,axis,side,-projected.v[2]};
     }
     qsort(mesh->faces,face_count,sizeof(BlockFace),block_face_far_first);
-    float vertical=tanf(fovy*0.00872664625997165f),horizontal=vertical*width/height;
-    float focal=height/(2*vertical);unsigned output=0;
+    float vertical=tanf(fovy*0.00872664625997165f),focal=height/(2*vertical);
+    if(!isfinite(focal_x) || focal_x<0 || focal_x>100000000.f)return 0;
+    if(focal_x==0)focal_x=focal;
+    float horizontal=width/(2*focal_x);unsigned output=0;
     static const uint32_t colors[3][2]={{0xFF858585,0xFF737373},{0xFF606060,0xFFB8B8B8},{0xFF969696,0xFF808080}};
     static const unsigned corners[4][2]={{0,0},{1,0},{1,1},{0,1}};
     for (unsigned i=0;i<face_count;++i) {
@@ -119,7 +121,7 @@ static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsi
         BlockSurfaceVertex projected[9];
         for (unsigned corner=0;corner<n;++corner) {
             float depth=fmaxf(near_plane,-polygon[corner].v[2]);
-            float x=width/2+focal*polygon[corner].v[0]/depth,y=height/2-focal*polygon[corner].v[1]/depth;
+            float x=width/2+focal_x*polygon[corner].v[0]/depth,y=height/2-focal*polygon[corner].v[1]/depth;
             if (!isfinite(x+y)) return 0;
             projected[corner]=(BlockSurfaceVertex){fminf(width,fmaxf(0,x)),fminf(height,fmaxf(0,y)),0,1.f/depth,colors[face.axis][face.side],polygon[corner].uv[0],polygon[corner].uv[1]};
         }
@@ -133,6 +135,7 @@ static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsi
     }
     return output;
 }
+static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6],float near_plane){return block_surfaces_materials_projected(boxes,count,view,fovy,width,height,mesh,materials,near_plane,0);}
 static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6]){return block_surfaces_materials_near(boxes,count,view,fovy,width,height,mesh,materials,1.f);}
 static inline unsigned block_surfaces(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh) {
     return block_surfaces_materials(boxes,count,view,fovy,width,height,mesh,NULL);

@@ -348,3 +348,15 @@ ProjMat_64 GX con FOV/aspect/planos antes de usar Z/ZWRITE/ZFUNC. Fuente SDK:
 no se ejecuta código externo. F8/TTL/generación/Reset y restauración de estado
 siguen siendo condiciones del renderer. La validación de drivers Windows
 queda pendiente; CAPTURE registra las matrices si se rechaza la proyección.
+
+## Build436: recuperación visual
+
+Si no se valida proyección o falta depth buffer, dibuja caras con textura
+al final de la escena usando estados sin profundidad. No cambia la cámara,
+las colisiones ni las validaciones de matrices. Mantiene reason2/3 y aumenta
+solo el contador de compatibilidad (offset60), nunca depth_draws. Rechazos
+de control/generación, F8, TTL y restauración siguen obligatorios.
+
+La matriz observada GX4:3 se admite en viewport widescreen. Bloques y contorno
+usan focalX de esa matriz para XY, y los planos reales para profundidad. FOV,
+estructura perspectiva, finitud y límites de aspecto/planos siguen validados.

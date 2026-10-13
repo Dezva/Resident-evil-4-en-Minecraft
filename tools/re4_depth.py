@@ -11,7 +11,7 @@ class NativeDepth:
         self.address=k.MapViewOfFile(self.handle,4 if readonly else 6,0,0,256)
         if not self.address:self.close();raise ReaderError('Canal de profundidad ausente')
         header=struct.unpack('<5I',ctypes.string_at(self.address,20))
-        if header[:2]!=(0x52453444,1) or header[3]!=435 or header[4]!=pid:self.close();raise ReaderError('Canal de profundidad incompatible')
+        if header[:2]!=(0x52453444,1) or header[3] not in (435,436) or header[4]!=pid:self.close();raise ReaderError('Canal de profundidad incompatible')
         self.available=True
     def publish(self,enabled,generation):
         if not self.available or self.readonly:return
@@ -26,8 +26,8 @@ class NativeDepth:
             data=ctypes.string_at(self.address,208)
             if seq!=ctypes.c_uint32.from_address(self.address+8).value:continue
             words=struct.unpack_from('<16I',data);floats=struct.unpack_from('<2f',data,44)
-            self.last={'depth_available':True,'depth_reason':REASONS.get(words[5],'sin muestra de profundidad'), 'depth_reason_code':words[5],'depth_attempts':words[6],'depth_draws':words[7],'depth_stage':words[8],'depth_width':words[9],'depth_height':words[10], 'depth_near':floats[0], 'depth_far':floats[1],'depth_reverse':bool(words[13]),'depth_source':words[14]}
-            self.last.update(depth_projection=list(struct.unpack_from('<16f',data,64)),depth_gx_projection=list(struct.unpack_from('<16f',data,128)),depth_fov=struct.unpack_from('<f',data,192)[0],depth_compare=struct.unpack_from('<I',data,196)[0])
+            self.last={'depth_available':True,'depth_reason':REASONS.get(words[5],'sin muestra de profundidad'), 'depth_reason_code':words[5],'depth_attempts':words[6],'depth_draws':words[7],'depth_stage':words[8],'depth_width':words[9],'depth_height':words[10], 'depth_near':floats[0], 'depth_far':floats[1],'depth_reverse':bool(words[13]),'depth_source':words[14],'depth_fallback_draws':words[15]}
+            self.last.update(depth_projection=list(struct.unpack_from('<16f',data,64)),depth_gx_projection=list(struct.unpack_from('<16f',data,128)),depth_fov=struct.unpack_from('<f',data,192)[0],depth_compare=struct.unpack_from('<I',data,196)[0],depth_world_draws=struct.unpack_from('<I',data,200)[0])
             if any(not math.isfinite(v) for key in ('depth_projection','depth_gx_projection') for v in self.last[key]) or not math.isfinite(self.last['depth_fov']) or not all(map(math.isfinite,floats)):raise ReaderError('Telemetria de profundidad no finita')
             return self.last
         return dict(self.last or {'depth_available':True,'depth_reason':'telemetria cambiando'})

@@ -44,7 +44,7 @@ static inline void re4_view_frame(const float *eye, float yaw, float pitch,
     view[11] = -(back[0]*eye[0]+back[1]*eye[1]+back[2]*eye[2]);
 }
 static inline int re4_valid_look(float total, float pitch, float eye, unsigned flags) {
-    return !(flags & ~7u) && (!(flags&4u) || ((flags&3u)==3u && fabsf(total)<=180.f)) && (!(flags & 2u) || (flags & 1u))
+    return !(flags & ~15u) && (!(flags&4u) || ((flags&3u)==3u && fabsf(total)<=180.f)) && (!(flags & 2u) || (flags & 1u))
         && isfinite(total) && fabsf(total) <= 10000000.f
         && isfinite(pitch) && fabsf(pitch) <= 85.f
         && isfinite(eye) && fabsf(eye) >= 40.f && fabsf(eye) <= 2500.f;

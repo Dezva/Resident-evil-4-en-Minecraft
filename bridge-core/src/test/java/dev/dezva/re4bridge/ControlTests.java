@@ -9,6 +9,23 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ControlTests {
+    @Test void movingToEscImmediatelyZeroesInputWhileKeepingGenerationThroughGuiInitialization() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("config.json");var log=temp.resolve("pause-peer.log");Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString()).redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
+            bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==65);
+            bridge.suspendForMenu();await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);
+            long seq=bridge.status().acknowledgedSequence();Thread.sleep(350);assertTrue(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());assertTrue(bridge.status().acknowledgedSequence()>seq);
+            bridge.healthRequest(new HealthRequest(7,1,.8f,200000,0,System.nanoTime()));
+            await(()->{try{return Files.readString(log).contains("damage_ack=200000 generation=7");}catch(Exception e){return false;}});
+            await(()->bridge.healthState()!=null && bridge.healthState().generation()==7);assertEquals(200000,bridge.healthState().damage());
+            bridge.menuRequested(false);bridge.publishControl(true,1,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==1);assertTrue(bridge.nativeArmed());
+            // Movement still expires at the ordinary 200 ms deadline.
+            await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
+        }finally{peer.destroyForcibly();}
+    }
     @TempDir Path temp;
     private static HudFrame overlay(int width,boolean menu) throws Exception {
         var out=new java.io.ByteArrayOutputStream();

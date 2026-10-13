@@ -12,6 +12,8 @@ int main(void) {
     assert(re4_take_view_yaw(120,&consumed)==0);
     assert(re4_take_view_yaw(NAN,&consumed)==0 && consumed==120);
     assert(re4_valid_look(100, 85, 160, 3));
+    assert(re4_valid_look(100,85,160,11)); // GUI hold keeps first-person camera valid
+    assert(!re4_valid_look(100,85,160,19));
     assert(!re4_valid_look(100, 86, 160, 3));
     assert(!re4_valid_look(100, 0, 160, 2));
     assert(!re4_valid_look(INFINITY, 0, 160, 1));

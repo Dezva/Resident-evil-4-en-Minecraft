@@ -470,6 +470,8 @@ static void __cdecl projection_hook(void) {
     }
 }
 
+#include "health_ipc.h"
+
 static void __cdecl pad_hook(void) {
     restore_rendered_camera();
     state->camera_active = 0;
@@ -527,6 +529,7 @@ static void __cdecl pad_hook(void) {
     }
     if(!fp_live)native_hud_restore();
     cube_collision_tick(&control,complete,now);
+    health_tick(&control,complete,now);
 }
 
 /* Literal bytes with -1 wildcards; these are interoperable signatures, not absolute addresses. */
@@ -620,6 +623,7 @@ static void install_hook(void) {
     shared_mapping = mapping;
     memset(state, 0, sizeof(*state)); state->magic = RE4_MAGIC; state->version = 2; state->status = 2;
     capture_ensure_mapping();
+    health_ipc_open();
     swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
     HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
     if (telemetry) {
@@ -631,7 +635,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=439; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=441; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

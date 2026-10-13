@@ -5,19 +5,18 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.40: Esc, supervivencia e interfaz de Minecraft](docs/RE4-BLOCK-0.4.40.md).
-VIEW permite elegir creativo/supervivencia o mantener el modo. Esc y E abren
-menús de Minecraft conservando el puente y suspendiendo sus inputs. Supervivencia
-consume objetos, conserva minería vanilla y muestra corazones, comida, armadura
-y experiencia reales de Minecraft. Se mantiene la DLL439 verificada en39.
-Combate con enemigos de RE4 y pausa del reloj nativo siguen pendientes.
-Pruebas automáticas pasan; interacción Windows pendiente.
+**Estado actual:** [0.4.41: vida compartida, Esc en movimiento y F5](docs/RE4-BLOCK-0.4.41.md).
+Vida de Leon/Minecraft vinculada por porcentaje, con hambre/regeneración Minecraft
+y muerte compartida. F5 alterna creativo/supervivencia durante el puente; Esc
+suspende movimiento antes de abrir el menú. DLL441 nueva y canal de vida separado.
+Combate de armas Minecraft contra enemigos y pausa del reloj RE4 siguen pendientes.
+Pruebas automáticas pasan; interacción y muerte nativa Windows pendientes de prueba.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.40 |
+| RE4 Bridge | paquete/mod 0.4.41 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

@@ -4,6 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static dev.dezva.re4bridge.ControlArming.Screen.*;
 
 class ControlArmingTests {
+    @Test void closingPauseBeforeMinecraftRecomputesItsPauseFlagDoesNotDropArming(){
+        var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);
+        gate.tick(1_100_000_000L,true,true,PAUSE,true,true,0);int generation=gate.generation();
+        gate.tick(1_150_000_000L,true,true,NONE,true,true,0);assertTrue(gate.active());assertEquals(generation,gate.generation());
+        gate.tick(1_200_000_000L,false,true,NONE,true,true,0);assertTrue(gate.active());
+        gate.tick(1_400_000_000L,true,true,NONE,true,true,0);assertFalse(gate.active()); // unrelated pause still stops
+    }
     @Test void escapePauseKeepsHeartbeatAndGenerationUntilExplicitStopOrLossOfFocus(){
         var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);int generation=gate.generation();
         for(long tick=2;tick<202;tick++)gate.tick(tick*50_000_000L,true,true,PAUSE,true,true,0);

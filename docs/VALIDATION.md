@@ -976,3 +976,26 @@ de penalización aérea en minería; HungerManager consume/come con valores real
 Capacidades prestadas y restauradas en supervivencia/cambio de modo; no se
 modifica creativeMode/invulnerable. DLL439 y hash mantienen verificación de39
 (16 fixtures ASan/UBSan). GPU/render real y gameplay Windows no ejecutados.
+
+## 0.4.41
+
+Core42/Minecraft59, build Fabric/JDK21. Fixture de TCP autenticado: movimiento65
+(sprint) -> suspendForMenu -> botones0 durante350ms sin otro tick, conserva
+generación/armado, request/ACK de vida, retoma movimiento con misma generación
+y sigue caducando input normal a200ms. Pausa/cierre con desfase isPaused probados.
+F5 press único, repeats/releases consumidos solo en puente sin menú; vanilla
+conservado fuera. VIEW fixtures de router/preparación/foco/F8 pasan.
+
+Python144, incluyendo callback health_tick real compilado con memoria sintética:
+HP/actor/rutina de muerte, generación/identidad/roles, snapshot parcial, lease,
+F8 y cambio tardío de puntero; evento letal retenido cuando desaparece actor.
+HealthLedger incluye ACK atrasado/repetido, curación, golpes acumulados, wrap,
+creativo/supervivencia y no resurrección. Lectores de gráficos/profundidad/escena
+aceptan441 y conservan versiones anteriores. DLL441 PE32 nueva, checksums fijados. HealthLedger/health_tick/collision_tick
+pasan ASan/UBSan; escalado a corazones/curación/creativo/muerte/reaparición probado.
+No se ejecutaron las ventanas/juegos reales ni su animación de muerte en cloud.
+
+Installer: backups verificados, no sobrescritura, retirada441 y retirada del
+hash439 publicado, DLL ajena conservada y carpeta de partidas vacía rechazada.
+Máximo HP nativo variable compara porcentajes sin atribuir una subida de
+capacidad como curación adicional. No se escribe el máximo.

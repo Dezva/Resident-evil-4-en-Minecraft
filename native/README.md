@@ -388,3 +388,22 @@ igual a focalY en píxeles del viewport. Se conservan coeficientes/planos de
 profundidad y se mantiene separado el GX original del resultado efectivo en
 telemetría. Fuente de la corrección: regresión visual reportada y proporción
 matemática33%; no se llama ni se modifica el shader del juego.
+
+## Build441: vida compartida y menú
+
+Nueva DLL. Health IPC v1,100bytes, seqlocks de petición y respuesta separados;
+normalización de daño/curación en contadores acumulados con ACK de Minecraft.
+Usa el callback pad existente y GLOBAL_WK.playerHpCur_4FB4/max4FB6 con el global
+slot ya validado por firma única. Copia HP actual a cEm.hp324; no cambia máximo.
+Para cero HP solicitado por Minecraft inicia Routine0::Die3 desde Move/Damage
+usando cModel.r_noFC..FF, conserva muertes ya iniciadas. Layout y enum se leen
+del SDK público fijado arriba. Leon/LeonAshley y MainLoop solamente; guardas
+completitud/generación/lease/F8/puntero/memoria y revalidación antes de mutar.
+Sin debug flags, hooks de daño, invulnerabilidad permanente ni resurrección.
+
+look_flags bit8 representa menú, requiere botones0 en host; validación de mirada
+admite ese bit manteniendo límites. Colisiones conservan callback/referencia
+sin pase gráfico mientras el menú está abierto y no confunden su pausa de
+inicialización con teleport. Guardia de movimiento normal/TTL/F8 intacta.
+Fixture real health_tick valida escrituras/retención de muerte y fallos;
+animación/ejecutable Windows necesita comprobación.

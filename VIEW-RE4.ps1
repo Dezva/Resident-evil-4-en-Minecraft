@@ -37,7 +37,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.StartPosition = 'Manual'; $form.Location = [System.Drawing.Point]::new($screen.Left+12,$screen.Top+12)
     $label = New-Object System.Windows.Forms.Label
     $label.Location=[System.Drawing.Point]::new(10,10); $label.Size=[System.Drawing.Size]::new(405,65)
-    $label.Text="Abre una partida RE4 y un mundo Minecraft local.`r`nElige el modo y pulsa Preparar Minecraft; F9 muestra RE4.`r`nE abre inventario; Esc abre el menu; F8 vuelve a RE4 normal."
+    $label.Text="Abre una partida RE4 y un mundo Minecraft local.`r`nElige el modo y pulsa Preparar Minecraft; F9 muestra RE4.`r`nE inventario; Esc menu; F5 creativo/supervivencia; F8 RE4 normal."
     $form.Controls.Add($label)
     $modeLabel=New-Object System.Windows.Forms.Label
     $modeLabel.Text='Modo:'; $modeLabel.Location=[System.Drawing.Point]::new(10,80); $modeLabel.Size=[System.Drawing.Size]::new(45,22)

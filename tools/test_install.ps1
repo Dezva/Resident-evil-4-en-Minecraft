@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
@@ -24,6 +24,12 @@ try {
     & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
     if (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')) { throw 'Own DLL remains' }
     if (-not (Test-Path -LiteralPath $copy)) { throw 'Uninstall removed backup' }
+    if($LegacyDll){
+        if((Get-FileHash -LiteralPath $LegacyDll).Hash.ToLowerInvariant() -ne '500f81beea5f537df72b2f979d241d3084bc82379614331508a47ae6cee11147'){throw 'Wrong published legacy fixture'}
+        Copy-Item -LiteralPath $LegacyDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build439 upgrade removal failed'}
+    }
     Set-Content -LiteralPath (Join-Path $game 'dinput8.dll') -Value 'FOREIGN DLL FIXTURE'
     $foreignHash = (Get-FileHash -LiteralPath (Join-Path $game 'dinput8.dll')).Hash
     $rejected = $false

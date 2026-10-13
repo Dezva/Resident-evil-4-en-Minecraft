@@ -59,7 +59,7 @@ class NativeCaptureTests(unittest.TestCase):
         camera=body[body.index("static int cube_camera"):body.index("/* Creation-owned facades")];
         body=helpers+body[body.index('#define RE4_COCKPIT_CLASSES'):body.index('/* Literal bytes')]
         fixture=(root/'native/test_camera_runtime.c').read_text()
-        self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body+camera))
+        self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',(body+camera).replace('#include "health_ipc.h"','')))
 
     def test_observed_virtual_four_three_projection_matches_block_and_outline(self):
         self.compile_run("test_block_projection.c")
@@ -75,6 +75,17 @@ class NativeCaptureTests(unittest.TestCase):
 
     def test_horizontal_collision_geometry(self):
         self.compile_run("test_block_collision.c")
+
+    def test_health_cumulative_damage_and_death(self):
+        self.compile_run('test_health.c')
+
+    def test_actual_health_callback_validates_writes_and_retains_death(self):
+        root=Path(__file__).resolve().parents[1]
+        source=(root/'native/health_ipc.h').read_text()
+        declarations=source[:source.index('static void health_ipc_open')].replace('static HANDLE health_mapping;','')
+        callback=source[source.index('static void health_tick'):]
+        fixture=(root/'native/test_health_tick.c').read_text().replace('/* ACTUAL_HEALTH_TYPES */',declarations).replace('/* ACTUAL_HEALTH_TICK */',callback)
+        self.compile_run('health_tick.c',fixture)
 
     def test_actual_collision_callback_guards_and_position_writes(self):
         self.compile_run("test_collision_tick.c")

@@ -526,3 +526,27 @@ con menú abierto. Pausa/inventario emiten controles con buttons0, look y leases
 vigentes. Foco, F8, muestras caducadas, timeout o parada nativa conservan sus
 checks y no se rearman solos. Supervivencia usa vida/comida de Minecraft;
 no se modifica HP ni el reloj de RE4. IPC/DLL build439 sin cambios.
+
+## Vida/menús0.4.41
+
+La restricción histórica de no modificar HP se sustituye para el enlace de vida
+autorizado. HP máximos/munición/inventario RE4 no se modifican. Control80bytes
+v2 mantiene tamaño; look_flags bit8 significa menú con botones0. validate_look
+admite bits0..3 y preserva validación FP/gaze. TTL nativo500ms intacto.
+Worker extiende edad únicamente del snapshot menu=true/buttons0 hasta1s;
+movimiento normal200ms. setScreen publica ese snapshot antes de efectos GUI.
+
+Wire health opcional tiene mode1(survival)/2(creative), ratio0..1, damage_ack
+y healing_ack uint32. ACK health_state incluye capacidad/frescura/generación,
+actor/HP/max, contadores normalizados (1e6=100%), muerte/modo/motivo.
+IPC Health100bytes v1/build441: header0..15; request seqlock16, stamp20,
+enabled24, generation28, mode32, float ratio36, ACKs40/44; report seqlock48,
+stamp52, reason56, active60, generation64, player68, hp72, max76, damage80,
+healing84, dead88, writes92, mode96. Dos escritores por regiones separadas.
+Las escrituras de HP/rutina se realizan en game thread con snapshot/revalidación.
+
+Servidor Minecraft aplica deltas una vez antes de publicar ratio/ACK. Un cambio
+creativo/supervivencia descarta daño observado en creativo; F8 anula tasks y
+petición. Cero vida fija ambos HP actuales y Die3 solo desde Move/Damage.
+HP nativo0 nunca se revive; nueva generación permite un actor recargado vivo.
+Muerte ya aplicada no mata al jugador que reaparece fuera del puente.

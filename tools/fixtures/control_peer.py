@@ -46,7 +46,14 @@ class Hud:
     def publish(self,enabled,generation=0,hud=None):
         print(f'HUD enabled={enabled} generation={generation} pixels={len(hud["image"]) if hud else 0}',flush=True)
         if hud and args.overlay:print(f'OVERLAY width={hud["width"]} menu={hud["menu"]}',flush=True)
-policy = ControlPolicy(Writer(),Preview(),Hud())
+class Health:
+    def __init__(self):self.enabled=False;self.generation=0;self.request=None
+    def publish(self,enabled,generation,request=None):
+        self.enabled=enabled and request is not None;self.generation=generation;self.request=request
+        if request:print(f"HEALTH mode={request['mode']} ratio={request['ratio']} damage_ack={request['damage_ack']} generation={generation}",flush=True)
+    def status(self):
+        return dict(available=True,active=self.enabled,fresh=True,reason=0,generation=self.generation,player=4096,hp=800,maximum=1000,damage=200000,healing=0,dead=False,mode=self.request['mode'] if self.request else 0)
+policy = ControlPolicy(Writer(),Preview(),Hud(),Health())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)

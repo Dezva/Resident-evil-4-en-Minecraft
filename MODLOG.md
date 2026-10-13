@@ -1,5 +1,20 @@
 # Registro de desarrollo
 
+## 0.4.41 — vida compartida, pausa en movimiento y F5
+
+Esc publica botones0 en setScreen antes de inicializar GUI, gracia máxima1s
+solo para instantánea de menú inmóvil, desfase de isPaused al cerrar tolerado.
+Colisión/cámara mantienen referencia con bit de menú; F8/foco/lease normales.
+F5 consume press/repeat/release solo en puente enfocado sin menú, cambia modo
+local y confirma al cliente; conserva referencias y vida/inventario.
+Vida vinculada por porcentaje con IPC100bytes separado. Daño y curación nativos
+son contadores acumulados normalizados con ACK después del servidor Minecraft,
+sin doble aplicación ni curación que borre golpes pendientes. Regeneración
+Minecraft actualiza Leon; cero corazones escribe HP0 y rutina Die desde Move/Damage.
+Muerte nativa retenida aunque desaparezca actor; F8 termina enlace y nueva sesión
+requiere actor recargado. Identidad/generación/rutina/lease/F8/races validados.
+DLL441 PE32 nueva; juegos/animación/hardware Windows pendientes de prueba.
+
 ## 0.4.40 — menús sin rearme y supervivencia Minecraft
 
 Esc/opciones/contenedores y pantalla de muerte se capturan en overlay conservando

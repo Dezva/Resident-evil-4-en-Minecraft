@@ -19,6 +19,17 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile Supplier<HudFrame> overlaySource;
     private volatile boolean terrainRequested;private volatile TerrainSnapshot terrain;private volatile String terrainState="sin host de mapa";
     private volatile boolean depthRequested,depthAvailable;private volatile String depthReason="sin canal de profundidad";private volatile long depthDraws,depthFallbackDraws;
+    private volatile boolean menuRequested;
+    private volatile HealthRequest healthRequest;
+    private volatile HealthState healthState;
+    public void healthRequest(HealthRequest request){healthRequest=request;}
+    public HealthState healthState(){return healthState;}
+    public void menuRequested(boolean value){menuRequested=value;}
+    /** Called before vanilla opens a GUI and clears keys/pauses its server. */
+    public void suspendForMenu(){
+        menuRequested=true;
+        control.updateAndGet(old->{if(old==null)return null;var frame=old.frame().deepCopy();frame.addProperty("buttons",0);frame.addProperty("menu",true);return new ControlFrame(frame,old.hud(),System.nanoTime());});
+    }
     public void depthRequested(boolean value){depthRequested=value;}public boolean depthAvailable(){return depthAvailable;}public String depthReason(){return depthReason;}public long depthDraws(){return depthDraws;}public long depthFallbackDraws(){return depthFallbackDraws;}
     public void terrainRequested(boolean requested){terrainRequested=requested;}
     public TerrainSnapshot terrain(){return terrain;}public String terrainState(){return terrainState;}
@@ -115,6 +126,7 @@ public final class BridgeConnection implements AutoCloseable {
         JsonObject frame = new JsonObject();
         frame.addProperty("type", "re4_control"); frame.addProperty("armed", armed);
         frame.addProperty("buttons", buttons); frame.addProperty("arm_id", generation);
+        frame.addProperty("menu",armed && menuRequested);
         if (armed && preview != null) frame.add("preview",preview);
         if (look != null && armed) {
             JsonObject data = new JsonObject();
@@ -174,8 +186,13 @@ public final class BridgeConnection implements AutoCloseable {
                     frame.addProperty("type", "re4_poll");
                     if (controllerMode()) {
                         var latest = control.get();
-                        if (latest != null && System.nanoTime() - latest.createdNs() < 200_000_000L) {
+                        // GUI initialization can stall a render tick. Only its zero-input
+                        // snapshot receives this bounded transition grace; movement never does.
+                        if (latest != null && System.nanoTime() - latest.createdNs() < (latest.frame().has("menu") && latest.frame().get("menu").getAsBoolean() && latest.frame().get("buttons").getAsInt()==0?1_000_000_000L:200_000_000L)) {
                             frame = latest.frame().deepCopy();
+                            var health=healthRequest;
+                            if(health!=null && frame.get("armed").getAsBoolean() && health.generation()==frame.get("arm_id").getAsInt()
+                                && (System.nanoTime()-health.createdNs()<500_000_000L || frame.get("menu").getAsBoolean()))frame.add("health",health.toJson());
                             var hud=latest.hud();var source=overlaySource;
                             if(hud!=null && source!=null){
                                 var visual=source.get();
@@ -221,6 +238,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 || !state.getAsJsonPrimitive("stop").isNumber() || !state.getAsJsonPrimitive("hook_ticks").isNumber())
                             throw new IOException("Invalid control acknowledgement");
                         nativeArmed = state.get("armed").getAsBoolean();
+                        if(state.has("health_state"))healthState=HealthState.parse(state.getAsJsonObject("health_state"));
                         if(state.has("terrain"))terrain=TerrainSnapshot.parse(state.getAsJsonObject("terrain"),System.nanoTime());
                         if(state.has("terrain_state")){var value=state.getAsJsonPrimitive("terrain_state");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid terrain state");terrainState=value.getAsString();}
                         nativeStop = state.get("stop").getAsInt();

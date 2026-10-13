@@ -8,7 +8,9 @@
     "TerrainCrosshairMixin",
     "TerrainPlacementMixin",
     "TerrainArrowMixin",
-    "EditorPhysicsMixin"
+    "EditorPhysicsMixin",
+    "BridgeMenuMixin",
+    "BridgeKeyboardMixin"
   ],
   "injectors": {
     "defaultRequire": 1

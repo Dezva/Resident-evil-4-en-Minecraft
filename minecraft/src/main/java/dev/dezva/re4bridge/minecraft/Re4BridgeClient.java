@@ -74,6 +74,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private ControllerMapping.Point lastEditorPoint;
     private String controllerDimension;
     private ControllerFollower controllerFollower=new ControllerFollower();
+    private final HealthLink healthLink=new HealthLink();
+    private boolean healthSessionOpen;
     private final MouseLook mouseLook = new MouseLook();
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
@@ -90,6 +92,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private final BlockMaterials blockMaterials=new BlockMaterials();
     private final PlacedBlockScene placedScene = new PlacedBlockScene();
     private long placementEvents, placementTicks, placementsConfirmed;
+    private net.minecraft.world.GameMode modeChange;
+    private long modeChangeAt;
 
     @Override public void onInitializeClient() {
         stopKey=net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(new net.minecraft.client.option.KeyBinding("key.re4bridge.stop",org.lwjgl.glfw.GLFW.GLFW_KEY_F8,"key.categories.misc"));
@@ -233,6 +237,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; Ultimos ID HUD="+bridge.nativeHudHidden()+"; HUD RE4="+((bridge.nativeCapabilities()&16)!=0?"ocultacion disponible":"firma no disponible")+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
+                            var life=bridge.healthState();ctx.getSource().sendFeedback(Text.literal("Vida compartida: "+(life!=null && life.available()?"Leon="+life.hp()+"/"+life.maximum()+"; activa="+life.active()+"; motivo="+life.reason():"requiere DLL/host0.4.41")));
                             ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
@@ -246,6 +251,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
         if(config!=null)try{prepareServer=new dev.dezva.re4bridge.PrepareServer(config,(mode,future) -> MinecraftClient.getInstance().execute(() -> prepare(MinecraftClient.getInstance(),future,mode)));}catch(IOException error){System.err.println("RE4 Bridge: endpoint VIEW no disponible: "+error.getClass().getSimpleName());}
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {if(prepareServer!=null)prepareServer.close();});
         OverlayCapture.renderer=ticks -> minecraftHud.render(MinecraftClient.getInstance(),ticks);
+        BridgeKeys.screen=this::screenChanging;
+        BridgeKeys.mode=()->bridge!=null && bridge.status().connected() && bridge.controllerMode() && controlArming.active() && firstPersonEnabled;
+        BridgeKeys.toggle=()->toggleMode(MinecraftClient.getInstance());
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> minecraftHud.close());
         ClientTickEvents.START_CLIENT_TICK.register(this::beforeTick);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
@@ -282,12 +290,26 @@ public final class Re4BridgeClient implements ClientModInitializer {
         say(client,enabled?"Movimiento independiente habilitado cuando sync esta off. Usa arm.":"Movimiento independiente desactivado cuando sync esta off. Usa arm.");return 1;
     }
 
+    private void screenChanging(net.minecraft.client.gui.screen.Screen next){
+        var current=bridge;
+        if(current==null || !controlArming.active() || !firstPersonEnabled || !hudEnabled || !current.overlayAvailable())return;
+        if(MinecraftHud.pause(next) || MinecraftHud.inventory(next))current.suspendForMenu();
+        else if(next==null)current.menuRequested(false);
+    }
+    private void toggleMode(MinecraftClient client){
+        if(modeChange!=null || client.currentScreen!=null || client.player==null || !client.player.isAlive() || !client.isInSingleplayer() || !client.isWindowFocused() || !BridgeKeys.mode.getAsBoolean())return;
+        var executor=client.getServer();var id=client.player.getUuid();var dimension=client.world.getRegistryKey();var current=bridge;int generation=controlArming.generation();
+        modeChange=client.player.isCreative()?net.minecraft.world.GameMode.SURVIVAL:net.minecraft.world.GameMode.CREATIVE;modeChangeAt=System.nanoTime();var target=modeChange;
+        executor.execute(()->{var player=executor.getPlayerManager().getPlayer(id);if(bridge==current && controlArming.active() && controlArming.generation()==generation && current.status().connected() && current.nativeStop()==0 && player!=null && player.isAlive() && player.getServerWorld().getRegistryKey().equals(dimension))player.changeGameMode(target);});
+    }
     private void beforeTick(MinecraftClient client) {
         while(stopKey.wasPressed()) {
             stopDriving();
             if(prepareFuture!=null){prepareFuture.completeExceptionally(new IllegalStateException("Preparacion cancelada con F8."));prepareFuture=null;}
         }
         preparing(client);
+        if(modeChange!=null && client.interactionManager!=null && client.interactionManager.getCurrentGameMode()==modeChange){say(client,"Modo: "+(modeChange==net.minecraft.world.GameMode.SURVIVAL?"supervivencia":"creativo")+". F5 alterna.");modeChange=null;}
+        if(modeChange!=null && System.nanoTime()-modeChangeAt>2_000_000_000L){modeChange=null;say(client,"No se pudo confirmar el cambio de modo.");}
         var current=bridge;
         var sample=current==null?null:current.re4Sample();
         boolean lock=(synchronizedMovement || !minecraftWalking) && (controlArming.active() || controlArming.pending())
@@ -345,6 +367,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         }
         following = false;
         controlArming.request(System.nanoTime());
+        healthSessionOpen=true;
         mouseLook.reset();
         current.publishControl(false, 0, controlArming.generation());
         say(client, "Cierra el chat para activar control. Steve sigue a Leon (sync on). F8 devuelve el movimiento normal de Minecraft.");
@@ -379,6 +402,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         if(!prepareArming){
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
+            if(current.healthState()==null || !current.healthState().available()){future.completeExceptionally(new IllegalStateException("Instala la DLL y host0.4.41 para vida compartida y pausa en movimiento."));prepareFuture=null;return;}
             synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
@@ -461,6 +485,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void stopDriving() {
+        healthSessionOpen=false;
+        healthLink.release(bridge);
         controllerInput.release();controllerFollower.release();
         controlArming.stop("desarmado");
         placementTracker.clear();
@@ -562,12 +588,15 @@ public final class Re4BridgeClient implements ClientModInitializer {
             long now = System.nanoTime();
             var screen = client.currentScreen == null ? ControlArming.Screen.NONE
                 : client.currentScreen instanceof ChatScreen ? ControlArming.Screen.CHAT : firstPersonEnabled && hudEnabled && current.overlayAvailable() && MinecraftHud.menu(client) ? (MinecraftHud.pause(client)?ControlArming.Screen.PAUSE:ControlArming.Screen.INVENTORY) : ControlArming.Screen.OTHER;
+            current.menuRequested(screen==ControlArming.Screen.PAUSE || screen==ControlArming.Screen.INVENTORY || client.isPaused());
+            if(healthSessionOpen && firstPersonEnabled)healthLink.update(client,current,controlArming.generation(),controlArming.active());
+            else healthLink.release(current);
             controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
                 sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
             if(controlArming.active() && synchronizedMovement && !BridgePlayMode.supported(client.player)){stopDriving();say(client,"Sincronizacion detenida: usa creativo o supervivencia.");}
             if(!controlArming.active()){controllerInput.release();controllerFollower.release();}
             int buttons = 0;
-            if (controlArming.active() && screen==ControlArming.Screen.NONE) {
+            if (controlArming.active() && screen==ControlArming.Screen.NONE && !client.isPaused()) {
                 if (client.options.forwardKey.isPressed()) buttons |= 1;
                 if (client.options.backKey.isPressed()) buttons |= 2;
                 if (client.options.rightKey.isPressed()) buttons |= 4;

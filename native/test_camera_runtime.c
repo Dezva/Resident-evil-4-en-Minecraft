@@ -59,6 +59,7 @@ static int cube_collision_graphics_ready(void){return 1;}
 #define cube_collision_tick cube_actual_collision_tick
 #include "collision_tick.h"
 #undef cube_collision_tick
+static void health_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static void cube_collision_tick(const ControlFrame *c,int complete,uint32_t stamp){collision_calls++;cube_actual_collision_tick(c,complete,stamp);}
 static void original_camera(void *a,void *b,void *c,void *d,CameraPoint *e){(void)a;(void)b;(void)c;(void)d;(void)e;native_camera_calls++;}
 static unsigned clobber_projection;

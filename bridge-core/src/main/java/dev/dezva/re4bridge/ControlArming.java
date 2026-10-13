@@ -9,8 +9,11 @@ public final class ControlArming {
     private long requestedNs;
     private long activatedNs;
     private String reason = "desarmado";
+    private Screen previousScreen=Screen.NONE;
+    private long pauseClosedAt=Long.MIN_VALUE;
 
     public void request(long now) {
+        previousScreen=Screen.NONE;pauseClosedAt=Long.MIN_VALUE;
         pending = true;
         active = false;
         ++generation;
@@ -27,7 +30,10 @@ public final class ControlArming {
             boolean freshSample, boolean nativeArmed, int nativeStop) {
         if (!pending && !active) return;
         if (!focused) { stop("Minecraft perdio el foco"); return; }
-        if (paused && !(active && screen==Screen.PAUSE)) { stop("Minecraft pausado"); return; }
+        if(active && previousScreen==Screen.PAUSE && screen==Screen.NONE)pauseClosedAt=now;
+        boolean closingPause=active && screen==Screen.NONE && pauseClosedAt!=Long.MIN_VALUE && now-pauseClosedAt<200_000_000L;
+        previousScreen=screen;
+        if (paused && !(active && screen==Screen.PAUSE) && !closingPause) { stop("Minecraft pausado"); return; }
         if (!freshSample) { stop("sin muestra reciente de RE4"); return; }
         if (pending) {
             if (now - requestedNs >= 2_000_000_000L) { stop("chat no cerrado; repite arm"); return; }

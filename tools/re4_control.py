@@ -8,11 +8,14 @@ from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
 from re4_block_preview import validate_preview
 from re4_hud import validate_hud
+from re4_health import validate_health
 
 MAGIC = 0x52453443
 
 
 def validate_control(frame):
+    validate_health(frame.get('health'))
+    if type(frame.get('menu',False)) is not bool or frame.get('menu',False) and frame.get('buttons')!=0:raise ProtocolError('Menu requires zero movement')
     if type(frame.get('depth',False)) is not bool:raise ProtocolError('Invalid depth mode')
     if type(frame.get('terrain',False)) is not bool or type(frame.get('terrain_revision',0)) is not int or not 0<=frame.get('terrain_revision',0)<=2147483647:raise ProtocolError('Invalid terrain request')
     validate_preview(frame.get('preview'))
@@ -46,10 +49,11 @@ def validate_control(frame):
 
 class ControlPolicy:
     """New explicit arm generation required after a stop. Tested with fake IPC."""
-    def __init__(self, writer, preview=None, hud=None):
+    def __init__(self, writer, preview=None, hud=None, health=None):
         self.writer = writer
         self.preview = preview
         self.hud = hud
+        self.health = health
         self.generation = 0
         self.armed = False
 
@@ -104,7 +108,7 @@ class ControlPolicy:
         if hud is not None and hud.get("menu") is True and frame["buttons"]!=0:
             self.armed=False;reason='inventario requiere movimiento detenido'
         self.writer.publish(self.armed, frame["buttons"] if self.armed else 0,
-                            look=look if self.armed else None, generation=frame["arm_id"])
+                            look=look if self.armed else None, generation=frame["arm_id"],menu=frame.get("menu",False))
         if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
         result = {"hud_available":self.hud is not None and self.hud.available,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
@@ -133,9 +137,13 @@ class ControlPolicy:
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
                 result['preview_state']=self.preview.status()
         if self.hud is not None and hasattr(self.hud,"status"):result.update(self.hud.status())
+        if self.health is not None:
+            self.health.publish(self.armed,frame['arm_id'],frame.get('health'))
+            result['health_state']=self.health.status()
         return result
 
     def stop(self):
+        if self.health is not None:self.health.publish(False,0)
         if self.preview is not None and getattr(self.preview,'depth',None) is not None:self.preview.depth.publish(False,0)
         if self.hud is not None:self.hud.publish(False)
         self.armed = False
@@ -205,7 +213,7 @@ class NativeControl:
     def reset_stop(self):
         self.words[6] = 0
 
-    def publish(self, armed, buttons, look=None, generation=0):
+    def publish(self, armed, buttons, look=None, generation=0, menu=False):
         seq = (self.words[2] + 1) | 1
         self.words[2] = seq & 0xFFFFFFFF
         self.words[3] = self.k.GetTickCount()
@@ -215,7 +223,7 @@ class NativeControl:
             for offset, value in [(40, look["total_yaw"] if look else 0),
                                   (44, look["pitch"] if look else 0), (48, look["eye_height"] if look else 1600)]:
                 ctypes.c_float.from_address(self.address + offset).value = value
-            self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1) | (int(look.get("absolute_yaw",False)) << 2)) if armed and look else 0
+            self.words[13] = (int(look["enabled"]) | (int(look["first_person"]) << 1) | (int(look.get("absolute_yaw",False)) << 2) | (int(menu) << 3)) if armed and look else 0
             self.words[14] = generation
         self.words[2] = (seq + 1) & 0xFFFFFFFF
 

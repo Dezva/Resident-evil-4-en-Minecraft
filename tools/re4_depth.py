@@ -11,7 +11,7 @@ class NativeDepth:
         self.address=k.MapViewOfFile(self.handle,4 if readonly else 6,0,0,256)
         if not self.address:self.close();raise ReaderError('Canal de profundidad ausente')
         header=struct.unpack('<5I',ctypes.string_at(self.address,20))
-        if header[:2]!=(0x52453444,1) or header[3] not in (435,436,437,438,439) or header[4]!=pid:self.close();raise ReaderError('Canal de profundidad incompatible')
+        if header[:2]!=(0x52453444,1) or header[3] not in (435,436,437,438,439,441) or header[4]!=pid:self.close();raise ReaderError('Canal de profundidad incompatible')
         self.available=True
     def publish(self,enabled,generation):
         if not self.available or self.readonly:return

@@ -11,7 +11,7 @@ static void InterlockedIncrement(LONG *p){++*p;}
 static LONG InterlockedCompareExchange(LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
 typedef struct {uint32_t armed;LONG stop;} Shared;
 static Shared control_state={1,0},*state=&control_state;
-typedef struct {uint32_t generation,armed,stamp;} ControlFrame;
+typedef struct {uint32_t generation,armed,stamp,flags,buttons;} ControlFrame;
 typedef struct {LONG sequence;uint32_t ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 static CollisionTelemetry report,*collision_shared=&report;
 static unsigned char player_data[0xB0];static uint32_t player_value,*player_slot=&player_value;

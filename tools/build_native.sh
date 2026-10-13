@@ -13,3 +13,6 @@ gcc -std=c11 -Wall -Wextra -Werror native/test_look.c -o native/build/test-look 
 native/build/test-look
 gcc -std=c11 -Wall -Wextra -Werror native/test_block_geometry.c -o native/build/test-block-geometry -lm
 native/build/test-block-geometry
+
+gcc -std=c11 -Wall -Wextra -Werror native/test_health.c -o native/build/test-health -lm
+native/build/test-health

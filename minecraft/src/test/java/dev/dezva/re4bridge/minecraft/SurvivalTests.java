@@ -5,6 +5,27 @@ import org.objectweb.asm.tree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SurvivalTests {
+    private static dev.dezva.re4bridge.HealthState health(long damage,long healing,boolean dead,int mode){return new dev.dezva.re4bridge.HealthState(true,true,true,0,7,4096,800,1000,damage,healing,dead,mode);}
+    @Test void nativeHitsAndHealsScaleToMinecraftHeartsAndCannotBeReplayedAfterDeath(){
+        var hit=health(200000,0,false,1);assertEquals(16,HealthLink.nextHealth(hit,20,20,0,0,false,false));
+        assertEquals(16,HealthLink.nextHealth(hit,16,20,200000,0,false,false));
+        assertEquals(32,HealthLink.nextHealth(hit,40,40,0,0,false,false));
+        assertEquals(19,HealthLink.nextHealth(health(200000,150000,false,1),16,20,200000,0,false,false));
+        assertEquals(20,HealthLink.nextHealth(health(200000,900000,false,1),16,20,200000,0,false,false));
+        assertEquals(0,HealthLink.nextHealth(health(1000000,0,true,1),20,20,0,0,false,false));
+        assertEquals(20,HealthLink.nextHealth(health(1000000,0,true,1),20,20,1000000,0,true,false)); // respawn outside old session
+        assertEquals(20,HealthLink.nextHealth(hit,20,20,0,0,false,true));
+        assertEquals(20,HealthLink.nextHealth(health(200000,0,false,2),20,20,0,0,false,false)); // late creative hit when F5 already changed mode
+    }
+    @Test void f5SwitchesOncePerPressOnlyInsideBridgeAndDoesNotCyclePerspective(){
+        var toggles=new java.util.concurrent.atomic.AtomicInteger();
+        assertFalse(BridgeKeys.consumeModeKey(false,false,294,1,toggles::incrementAndGet));
+        assertFalse(BridgeKeys.consumeModeKey(true,true,294,1,toggles::incrementAndGet));
+        assertFalse(BridgeKeys.consumeModeKey(true,false,256,1,toggles::incrementAndGet)); // Esc belongs to vanilla
+        assertTrue(BridgeKeys.consumeModeKey(true,false,294,1,toggles::incrementAndGet));
+        for(int i=0;i<100;i++)assertTrue(BridgeKeys.consumeModeKey(true,false,294,2,toggles::incrementAndGet));
+        assertTrue(BridgeKeys.consumeModeKey(true,false,294,0,toggles::incrementAndGet));assertEquals(1,toggles.get());
+    }
     @Test void escapeAndPauseOptionsAreMenusButChatDoesNotKeepControl(){
         assertTrue(MinecraftHud.pause(new net.minecraft.client.gui.screen.GameMenuScreen(true)));
         assertTrue(MinecraftHud.pause(new net.minecraft.client.gui.screen.Screen(net.minecraft.text.Text.literal("Options")){}));

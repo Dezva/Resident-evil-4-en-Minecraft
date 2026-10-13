@@ -144,3 +144,13 @@ que no confirme el modo solicitado produce un mensaje de actualización y corte.
 F9 continúa presentando RE4; Esc/E reciben las interfaces de Minecraft en el
 overlay con botones de movimiento0 y el mismo armado. F8 conserva retorno normal.
 El menú pausa Minecraft, pero esta versión no congela la simulación de RE4.
+
+## 0.4.41 — Esc en movimiento y F5
+
+Preparar exige host/DLL441 por el nuevo canal de vida. F9 sigue siendo presentación.
+Esc publica movimiento0 antes de abrir la GUI y conserva armado al cerrar.
+F5 alterna creativo/supervivencia durante control activo sin repetir Preparar;
+funciona también con ambos juegos en ventana, sin VIEW. Fuera del puente no
+intercepta F5. F8 conserva retorno normal. La vida se vincula por porcentaje
+mientras se controla RE4; hambre/regeneración son Minecraft. Menú Minecraft
+no congela RE4. Guía y prueba: RE4-BLOCK-0.4.41.md.

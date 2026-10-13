@@ -8,6 +8,7 @@ import struct
 from fake_re4_host import ProtocolError, load_config, serve_peer
 from re4_reader import DEFAULT_EXE, ReaderError, WindowsProcess, find_pid, locate_player_slot, sample_player
 from re4_control import NativeControl, ControlPolicy
+from re4_health import NativeHealth
 from re4_graphics_capture import read_capture
 from re4_block_preview import NativePreview
 from re4_hud import NativeHud
@@ -26,6 +27,7 @@ def main():
     native = None
     preview = None
     hud = None
+    health = None
     try:
         config = load_config(args.game_dir / "config" / "re4bridge.json")
         pid = find_pid()
@@ -35,10 +37,11 @@ def main():
         if args.control:
             terrain=TerrainFeed(process.read,process.base,process.size)
             native = NativeControl(pid)
+            health = NativeHealth(pid,native.k)
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.40: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            print('Host 0.4.41: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -65,7 +68,7 @@ def main():
             while True:
                 peer, _ = server.accept()
                 with peer:
-                    policy = ControlPolicy(native,preview,hud) if native is not None else None
+                    policy = ControlPolicy(native,preview,hud,health) if native is not None else None
                     try:
                         def apply(frame,sample):
                             result=policy.apply(frame,sample)
@@ -85,6 +88,7 @@ def main():
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     finally:
+        if health is not None:health.close()
         if terrain is not None:terrain.close()
         if hud is not None:hud.close()
         if preview is not None:

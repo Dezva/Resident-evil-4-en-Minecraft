@@ -13,7 +13,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     // Torn publication / a skipped graphics pass must never replace the last safe feet.
     if(!cube_collision_command_read(command))goto transient;
     if(!command->enabled || !command->collisions || !command->epoch || (uint32_t)(now-command->stamp)>=500 || command->arm_generation!=control->generation)goto disabled;
-    if(!cube_collision_graphics_ready())goto transient;
+    if(!cube_collision_graphics_ready() && !(control->flags&8u))goto transient;
     if(!block_collision_scene_valid(command)){reason=3;goto disabled;}
     player=current_player();
     if(!player || !writable((void*)(uintptr_t)(player+0x94),12)){reason=3;goto disabled;}
@@ -23,6 +23,9 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     if(collision_player!=player || collision_generation!=control->generation || memcmp(collision_origin,command->origin,16)){
         reason=2;goto reference;
     }
+    // Opening a menu intentionally drops movement before its render/server pause.
+    // A menu/GUI initialization gap must not be interpreted as a player teleport.
+    if((uint32_t)(now-collision_stamp)>=500 && (control->flags&8u) && !control->buttons){reason=2;goto reference;}
     if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
     float distance=0;for(unsigned i=0;i<3;++i){float d=observed[i]-collision_previous[i];distance+=d*d;}
     /* A valid graphics/input snapshot can be skipped while turning/building.

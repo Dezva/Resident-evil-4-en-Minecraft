@@ -14,7 +14,7 @@ static void InterlockedIncrement(LONG *p){++*p;}
 static LONG InterlockedCompareExchange(LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
 typedef struct {uint32_t armed,stop;} Shared;
 static Shared control_state={1,0},*state=&control_state;
-typedef struct {uint32_t generation,armed,stamp;} ControlFrame;
+typedef struct {uint32_t generation,armed,stamp,flags,buttons;} ControlFrame;
 typedef struct {uint32_t sequence,ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 static CollisionTelemetry report,*collision_shared=&report;
 static unsigned char player_data[0xB0];static uint32_t player_value,*player_slot=&player_value;
@@ -40,6 +40,11 @@ static ControlFrame reset(void){
     return(ControlFrame){.generation=1,.armed=1,.stamp=1000};
 }
 int main(void) {
+    ControlFrame paused=reset();cube_collision_tick(&paused,1,now);
+    graphics_ready=0;paused.flags=11;paused.buttons=0;now+=1000;paused.stamp=published.stamp=now;
+    cube_collision_tick(&paused,1,now);assert(!state->stop && collision_stamp==now);
+    graphics_ready=1;paused.flags=3;pose(-240,0,0);now+=16;paused.stamp=published.stamp=now;
+    cube_collision_tick(&paused,1,now);assert(!state->stop && report.corrections==1 && coordinate(0)<-250);
     ControlFrame c=reset();cube_collision_tick(&c,1,now);assert(report.active && report.reason==2 && !report.corrections);
     pose(100,8,80);cube_collision_tick(&c,1,now);assert(report.corrections==1 && coordinate(0)<-250 && coordinate(1)==8 && fabsf(coordinate(2)-80)<.001f && !collision_tick_lock.held);
     for(unsigned fail=0;fail<10;++fail){

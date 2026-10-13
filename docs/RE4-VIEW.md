@@ -165,3 +165,12 @@ Minecraft pueden seguir usándose, pero no se superponen a la muerte nativa.
 No se añade atajo de salto de cinemáticas. Pacífico pasa a Normal al preparar o
 entrar en supervivencia, otras dificultades se conservan. Estas funciones también
 sirven en ventana sin VIEW. Instrucciones: RE4-BLOCK-0.4.42.md.
+
+## 0.4.43 — Preparar no termina en 0.4.42
+
+El fallo provenía de la clasificación nativa de escenas: CINESCO estaba activo
+en una partida normal y anulaba cámara/control, impidiendo confirmar preparación.
+DLL443 corrige la máscara y refresca escena aun desarmado. Actualizar paquete
+completo y reinstalar DLL; el host rechaza442 con mensaje claro. VIEW conserva
+su preparación autenticada y no omite sus checks de foco ni recupera un armado
+tras parada. Guía: RE4-BLOCK-0.4.43.md.

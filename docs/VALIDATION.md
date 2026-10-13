@@ -1027,3 +1027,21 @@ retirada442, retirada de DLL publicadas439/441, partidas intactas y DLL ajena
 conservada. No se ejecutan Win32 interactivo ni GPU/RE4 real en cloud.
 El usuario sí confirmó en Windows hambre/vida normales fuera de Pacífico y
 que la muerte de Minecraft lleva a la pantalla de muerte de RE4 en 0.4.41.
+
+## 0.4.43
+
+Core43/Minecraft61, Fabric/JDK21 y DLL443 PE32; Python151. Regresión nativa con
+los flags reales50331920: MainLoop normal mantiene cámara FP y botones65, aun con
+STA_CINESCO activo; MOVIE cede cámara/modelo y volver a esos mismos flags retoma.
+Cada bit restante de máscara sigue clasificando una escena. Reporte Runtime se
+renueva estando desarmado/parado; consulta de cache10000veces conserva el límite
+de lecturas de memoria. Runtime/camera callbacks reales pasan ASan/UBSan.
+
+Host/lector IPC: cien mensajes normales conservan W/sprint y armado, apertura/
+cierre de menú conserva generación; una DLL442 se rechaza con aviso de443.
+Lectores de gráficos/escena/profundidad agregan443 y conservan versiones previas.
+VIEW pasa preparación/foco/router/F8; installer verifica copia/retirada443 y
+retirada de hashes publicados442/441/439, conserva partidas y DLL ajenas.
+No se ejecutó RE4/driver D3D9/Win32 interactivo en cloud: prueba final Windows
+pendiente. No se atribuye un crash al host: registro muestra una consola que
+sigue produciendo telemetría, falsa clasificación y posterior stop1.

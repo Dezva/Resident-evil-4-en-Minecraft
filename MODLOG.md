@@ -1,5 +1,20 @@
 # Registro de desarrollo
 
+## 0.4.43 — Preparar y movimiento bloqueados por falso estado de cinemática
+
+Registro del usuario: runtime.scene1/flags50331920 (0x03000110), armado verdadero,
+look_packets0, camera_activefalse, sin movimiento/dibujos; luego stop1. La máscara
+42 incluía STA_CINESCO, presente en partida normal widescreen. Se excluye ese bit,
+manteniendo movie/event/death/cut-change y rutina global. Runtime se refresca en
+pad también desarmado/parado, evitando publicar una escena antigua antes de
+nueva preparación. No se alteran F8/foco/TTL/device-loss ni rearme explícito.
+
+Fixture de callbacks reales reproduce el valor exacto, permite primera persona
+y W/sprint, cede a MOVIE y retoma. IPC/host comprueba cien mensajes, pausa y retorno;
+lector Runtime exige DLL443 para evitar volver a usar la build defectuosa.
+ABI sin cambios; otros lectores conservan versiones previas y agregan443.
+DLL443/mod43/host43; instalador reconoce hash442 publicado. Prueba Windows pendiente.
+
 ## 0.4.42 — escenas nativas, R, altura de pie y colisiones de enemigos
 
 Usuario confirmó hambre/regeneración normales y muerte de ambos juegos al cambiar

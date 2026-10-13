@@ -5,16 +5,31 @@ from re4_control import ControlPolicy,validate_control
 from test_re4_control import Writer
 from test_cube_test import Function
 from fake_re4_host import ProtocolError
+from re4_reader import ReaderError
 
 class Kernel:
     def __init__(self):
         self.buffer=ctypes.create_string_buffer(64);self.words=(ctypes.c_uint32*16).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,1,442,42);self.closed=[]
+        self.words[:4]=(MAGIC,1,443,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
         self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==64 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
+    def test_corrected_gameplay_report_keeps_w_sprint_and_survives_menu(self):
+        k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,0,50331920,3,0,0,0]
+        writer=Writer();status=writer.status;writer.status=lambda:dict(status(),capabilities=31)
+        policy=ControlPolicy(writer,runtime=native)
+        frame=dict(type='re4_control',armed=True,buttons=65,arm_id=7)
+        for _ in range(100):
+            reply=policy.apply(frame,{'state':'player'})
+            self.assertTrue(reply['armed']);self.assertEqual(writer.writes[-1],(True,65));self.assertEqual(reply['runtime_state']['scene'],0)
+        self.assertTrue(policy.apply(dict(frame,menu=True,buttons=0),{'state':'player'})['armed'])
+        self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);self.assertEqual(writer.writes[-1],(True,65));native.close()
+    def test_old_broken_dll_rejected_with_update_message(self):
+        k=Kernel();k.words[2]=442
+        with self.assertRaisesRegex(ReaderError,'DLL0.4.43'):NativeRuntime(42,k)
+        self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])
         native.publish(7,8);self.assertEqual(before,list(k.words[4:12]));self.assertEqual(tuple(k.words[12:]),(4,1000,8,7))

@@ -24,15 +24,16 @@ static int GetAsyncKeyState(int key){(void)key;return f8?0x8000:0;}
 /* ACTUAL_RUNTIME */
 int main(void){
     RuntimeShared report={0};runtime_shared=&report;global=(uint32_t)(uintptr_t)globals;assert((uintptr_t)globals<=UINT32_MAX);
-    globals[0x20]=3;
+    globals[0x20]=3;uint32_t flags=50331920;memcpy(globals+0x501C,&flags,4); // user's normal widescreen gameplay: 0x03000110
     assert(!runtime_scripted() && !report.scene);unsigned prior=queries;
     LONG report_sequence=report.sequence;runtime_report_lock=1;runtime_publish(1,0);
     assert(report.sequence==report_sequence && report.scene==0);runtime_report_lock=0;
     for(int i=0;i<10000;i++){assert(!runtime_scripted());}assert(queries==prior); // no per-draw VirtualQuery scans
-    uint32_t flags=0x10000000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
+    flags=0x10000000|50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     assert(runtime_scripted() && report.scene==1 && report.flags==flags);
     assert(re4_scene_code(3,0x4000)==0); // action prompt alone is not a cinematic
     assert(re4_scene_code(4,0)==1); // native door/loading routine
+    for(unsigned bit=0;bit<32;bit++)if(RE4_SCRIPTED_MASK&(1u<<bit))assert(re4_scene_code(3,50331920|(1u<<bit))==1);
     flags=0x100000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     assert(runtime_death());
     ControlFrame control={.armed=1,.generation=7,.stamp=1000};
@@ -54,5 +55,9 @@ int main(void){
     state->arm_id=7;state->stop=0;f8=0;control.flags=0;now=1000;report.request_sequence=2;report.generation=7;
     runtime_action_apply(&control,1,now);assert(runtime_actions==2);runtime_action_restore();
     state->armed=0;queries=0;assert(!runtime_scripted() && !queries);
+    flags=50331920;memcpy(globals+0x501C,&flags,4);now+=16;
+    assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8
+    state->stop=1;globals[0x20]=4;now+=16;assert(runtime_refresh()==1 && report.scene==1);
+    globals[0x20]=3;now+=16;assert(runtime_refresh()==0 && report.scene==0); // fresh preparation sees the real scene
     puts("Runtime: native movie/event/death/door gates, bounded cache, one-shot actions and F8/TTL/menu/generation/torn guards passed");
 }

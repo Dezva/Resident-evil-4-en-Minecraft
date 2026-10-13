@@ -485,6 +485,7 @@ static void __cdecl pad_hook(void) {
     restore_rendered_camera();
     state->camera_active = 0;
     original_pad();
+    runtime_refresh(); // report the current scene even while waiting for a new arm
     int scripted=runtime_scripted();
     int fp_live=0;
     InterlockedIncrement(&state->hook_ticks);
@@ -654,7 +655,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=442; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=443; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

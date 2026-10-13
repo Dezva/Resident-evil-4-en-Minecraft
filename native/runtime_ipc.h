@@ -30,14 +30,15 @@ static void runtime_publish(unsigned scene,uint32_t flags){
     MemoryBarrier();InterlockedIncrement(&runtime_shared->sequence);
     ReleaseSRWLockExclusive(&runtime_report_lock);
 }
-static int runtime_scripted(void){
-    if(!state || !state->armed || state->stop)return 0;
+static unsigned runtime_refresh(void){
+    if(!state)return 2;
     uint32_t now=GetTickCount();
-    if(runtime_cache_valid && now-runtime_cache_stamp<8 && runtime_cache_epoch==block_camera_epoch && runtime_cache_generation==state->arm_id)return runtime_last_scene!=0;
+    if(runtime_cache_valid && now-runtime_cache_stamp<8 && runtime_cache_epoch==block_camera_epoch && runtime_cache_generation==state->arm_id)return runtime_last_scene;
     uint32_t flags;unsigned scene=runtime_scene_code(&flags);runtime_last_scene=scene;
     runtime_cache_valid=1;runtime_cache_stamp=now;runtime_cache_epoch=block_camera_epoch;runtime_cache_generation=state->arm_id;runtime_cache_flags=flags;
-    runtime_publish(scene,flags);return scene!=0;
+    runtime_publish(scene,flags);return scene;
 }
+static int runtime_scripted(void){return state && state->armed && !state->stop && runtime_refresh()!=0;}
 static int runtime_death(void){return runtime_scripted() && (runtime_cache_flags&0x00100000u);}
 static void runtime_ipc_open(void){
     wchar_t name[80];swprintf(name,80,L"Local\\RE4Bridge-Runtime-%lu",(unsigned long)GetCurrentProcessId());
@@ -46,7 +47,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=1;p->build=442;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=1;p->build=443;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){

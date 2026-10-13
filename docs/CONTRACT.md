@@ -577,3 +577,14 @@ slots y64 actores, relectura antes de X/Z. Actor/array/generación/origen cambia
 o salto real rebaselinean el actor, sin cortar Leon. No se escriben Y/AI/HP/
 velocidad/rutinas ni se garantiza navegación/bloqueo de ataques/bosses.
 Health100bytes mantiene ABI; lector acepta441/442. R requiere host/DLL442.
+
+## Clasificación0.4.43
+
+STA_CINESCO0x01000000 describe formato/letterbox y aparece en gameplay normal;
+se excluye de RE4_SCRIPTED_MASK. Estado real observado0x03000110 con MainLoop3
+se clasifica0; movie/event/death/cut-change y rutinas globales no MainLoop
+mantienen1. pad refresca clasificación/reporte aun desarmado o parado, sin
+activar controles ni escritura gameplay. runtime_scripted sigue condicionado
+al armado y stop0; no se cambian leases ni recuperación automática.
+Runtime64bytes y otros ABI conservan tamaño, build443. Host exige443 en Runtime
+para rechazar la clasificación defectuosa442; otros lectores conservan historial.

@@ -1,9 +1,10 @@
 #ifndef RE4_RUNTIME_POLICY_H
 #define RE4_RUNTIME_POLICY_H
 #include <stdint.h>
-/* Pinned GLOBAL_WK::Routine0 and Flags_STATUS: FMV, letterbox/event/action,
-   death and camera transitions. Never write these engine-owned flags. */
-#define RE4_SCRIPTED_MASK (0x10000000u|0x08000000u|0x04000000u|0x01000000u|0x00100000u|0x00001000u)
+/* Pinned GLOBAL_WK::Routine0 and Flags_STATUS: FMV, events, death and
+   camera transitions. CINESCO is also present during normal widescreen play;
+   neither it nor a contextual action prompt proves an active cutscene. */
+#define RE4_SCRIPTED_MASK (0x10000000u|0x08000000u|0x04000000u|0x00100000u|0x00001000u)
 static inline unsigned re4_scene_code(unsigned routine,uint32_t flags){return routine==3 && !(flags&RE4_SCRIPTED_MASK)?0u:1u;}
 /* KEY_CK (check) + KEY_ACT_A (primary contextual action), SDK/pad.h.
    No fire, aim, menu confirmation, event skip or desktop keystroke. */

@@ -111,6 +111,7 @@ final class PlacedBlockScene {
         if(height!=value){height=value;changed();}
     }
     int size() {return blocks.size();}
+    java.util.Set<BlockPos> positions(){return java.util.Set.copyOf(blocks.keySet());}
     void style(int value) {if (value<0 || value>3) throw new IllegalArgumentException("Invalid scene style");if(style!=value){style=value;changed();}}
     int style() {return style;}
     boolean anchored() {return anchor!=null;}

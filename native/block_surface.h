@@ -34,13 +34,13 @@ static inline float block_plane_distance(BlockPoint point,unsigned plane,float h
     default:return -point.v[1]-point.v[2]*vertical;
     }
 }
-static inline unsigned block_clip_face(BlockPoint *points,unsigned count,float horizontal,float vertical) {
+static inline unsigned block_clip_face_near(BlockPoint *points,unsigned count,float horizontal,float vertical,float near_plane) {
     BlockPoint temporary[12];
     for (unsigned plane=0;plane<5 && count;++plane) {
         unsigned output=0;BlockPoint previous=points[count-1];
-        float prior=block_plane_distance(previous,plane,horizontal,vertical);
+        float prior=plane?block_plane_distance(previous,plane,horizontal,vertical):-previous.v[2]-near_plane;
         for (unsigned i=0;i<count;++i) {
-            float current=block_plane_distance(points[i],plane,horizontal,vertical);
+            float current=plane?block_plane_distance(points[i],plane,horizontal,vertical):-points[i].v[2]-near_plane;
             if ((prior>=0)!=(current>=0)) {
                 if (output==12) return 0;
                 float ratio=prior/(prior-current);
@@ -56,6 +56,7 @@ static inline unsigned block_clip_face(BlockPoint *points,unsigned count,float h
     }
     return count<=9?count:0;
 }
+static inline unsigned block_clip_face(BlockPoint *points,unsigned count,float horizontal,float vertical){return block_clip_face_near(points,count,horizontal,vertical,1.f);}
 static int block_face_far_first(const void *a,const void *b) {
     const BlockFace *left=a,*right=b;
     if (left->depth!=right->depth) return left->depth>right->depth?-1:1;
@@ -75,8 +76,8 @@ static inline int block_face_covered(const float boxes[][6],unsigned count,unsig
 }
 /* Painter ordering applies only to this grid. No game depth buffer or terrain
  * occlusion is assumed; face shading and clipped UVs are provisional. */
-static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned box_count,const float *view,
-        float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6]) {
+static inline unsigned block_surfaces_materials_near(const float boxes[][6],unsigned box_count,const float *view,
+        float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6],float near_plane) {
     if (!box_count || box_count>BLOCK_SURFACE_MAX_BOXES || !block_valid_view(view,fovy,width,height)) return 0;
     for (unsigned i=0;i<box_count;++i) if (!block_valid_shape_bounds(boxes[i])) return 0;
     float eye[3]={0};
@@ -113,11 +114,11 @@ static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned 
                 polygon[corner].uv[1]=((material.tile/8)*32+8.5f+15*material.uv[corner*2+1])/256.f;
             }
         }
-        unsigned n=block_clip_face(polygon,4,horizontal,vertical);
+        unsigned n=block_clip_face_near(polygon,4,horizontal,vertical,near_plane);
         if (n<3) continue;
         BlockSurfaceVertex projected[9];
         for (unsigned corner=0;corner<n;++corner) {
-            float depth=fmaxf(1.f,-polygon[corner].v[2]);
+            float depth=fmaxf(near_plane,-polygon[corner].v[2]);
             float x=width/2+focal*polygon[corner].v[0]/depth,y=height/2-focal*polygon[corner].v[1]/depth;
             if (!isfinite(x+y)) return 0;
             projected[corner]=(BlockSurfaceVertex){fminf(width,fmaxf(0,x)),fminf(height,fmaxf(0,y)),0,1.f/depth,colors[face.axis][face.side],polygon[corner].uv[0],polygon[corner].uv[1]};
@@ -132,6 +133,7 @@ static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned 
     }
     return output;
 }
+static inline unsigned block_surfaces_materials(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh,const BlockFaceMaterial materials[][6]){return block_surfaces_materials_near(boxes,count,view,fovy,width,height,mesh,materials,1.f);}
 static inline unsigned block_surfaces(const float boxes[][6],unsigned count,const float *view,float fovy,float width,float height,BlockSurfaceMesh *mesh) {
     return block_surfaces_materials(boxes,count,view,fovy,width,height,mesh,NULL);
 }

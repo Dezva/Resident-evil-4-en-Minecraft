@@ -594,6 +594,13 @@ static int cube_camera(float *view,float *fov,uint32_t *player) {
     memcpy(view,camera+0x30,48);memcpy(fov,camera+0xC0,4);return 1;
 }
 /* Creation-owned facades; withdrawn block_render.h remains excluded. */
+static int cube_projection(float *projection){
+    if(!global_slot || !readable((void*)global_slot,4))return 0;
+    uint32_t global=*global_slot;if(global<0x10000 || global>0xFFFFFE00 || (global&3u) || !readable((void*)(uintptr_t)(global+0x74+0x64),64))return 0;
+    memcpy(projection,(void*)(uintptr_t)(global+0x74+0x64),64);
+    for(unsigned i=0;i<16;i++)if(!isfinite(projection[i]) || fabsf(projection[i])>100000000.f)return 0;
+    return 1;
+}
 #include "d3d9_capture.h"
 static int cube_collision_graphics_ready(void) {
     AcquireSRWLockShared(&cube_metrics_lock);
@@ -624,7 +631,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=434; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=435; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

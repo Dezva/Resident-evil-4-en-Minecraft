@@ -9,6 +9,20 @@ from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
+    def test_busy_collision_and_graphics_telemetry_never_close_active_control(self):
+        from test_cube_test import Kernel
+        from re4_cube_test import SnapshotBusy
+        kernel=Kernel(version=6,build=434);preview=NativePreview(42,kernel,user=kernel)
+        writer=Writer();writer.capabilities=31;policy=ControlPolicy(writer,preview)
+        frame=dict(type='re4_control',armed=True,buttons=1,arm_id=1,preview={'bounds':self.bounds})
+        sample={'state':'player'};policy.apply(frame,sample)
+        with patch('re4_cube_test.read_collision_status',side_effect=SnapshotBusy('busy')),patch('re4_cube_test.read_cube_status',side_effect=SnapshotBusy('busy')):
+            for _ in range(1000):
+                status=policy.apply(frame,sample);self.assertTrue(status['armed']);self.assertTrue(status['preview_state']['telemetry_stale'])
+        self.assertFalse(policy.apply(frame,sample)['preview_state']['telemetry_stale'])
+        with patch('re4_cube_test.read_collision_status',side_effect=ReaderError('bad ABI')):
+            with self.assertRaises(ReaderError):policy.apply(frame,sample)
+        preview.close()
     def test_performance_build_429_keeps_scene_and_collision_channels_compatible(self):
         import struct
         from test_cube_test import Kernel

@@ -12,9 +12,11 @@ from re4_graphics_capture import read_capture
 from re4_block_preview import NativePreview
 from re4_hud import NativeHud
 from re4_overlay import NativeOverlay
+from re4_terrain_feed import TerrainFeed
 
 
 def main():
+    terrain=None
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
@@ -31,11 +33,12 @@ def main():
         slot = locate_player_slot(process.read, process.base, process.size)
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
+            terrain=TerrainFeed(process.read,process.base,process.size)
             native = NativeControl(pid)
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.34: cuadricula visual; blocks on usa 1000 unidades. Arm habilita; F8 detiene.',flush=True)
+            print('Host 0.4.35: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -58,18 +61,23 @@ def main():
             server.bind(("127.0.0.1", config["port"]))
             server.listen(1)
             command = "controller" if args.control else "re4"
-            print(f"READY 127.0.0.1:{config['port']} — RE4 REAL; usa /re4bridge {command}", flush=True)
+            print(f"READY 127.0.0.1:{config['port']} — RE4 REAL; "+("pulsa Preparar Minecraft en VIEW" if args.control else f"usa /re4bridge {command}"), flush=True)
             while True:
                 peer, _ = server.accept()
                 with peer:
                     policy = ControlPolicy(native,preview,hud) if native is not None else None
                     try:
-                        serve_peer(peer, config["token"], {}, provider, policy.apply if policy else None)
-                    except (ProtocolError, OSError) as error:
+                        def apply(frame,sample):
+                            result=policy.apply(frame,sample)
+                            result.update(terrain.observe(frame,sample,result))
+                            return result
+                        serve_peer(peer, config["token"], {}, provider, apply if policy else None)
+                    except (ProtocolError, OSError,ReaderError) as error:
                         print("Sesion cerrada:", error, flush=True)
                     finally:
                         if policy:
                             policy.stop()
+                            terrain.observe({'armed':False}, {'state':'unavailable'}, {'armed':False})
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError, ProtocolError, ReaderError) as error:
@@ -77,6 +85,7 @@ def main():
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     finally:
+        if terrain is not None:terrain.close()
         if hud is not None:hud.close()
         if preview is not None:
             preview.close()

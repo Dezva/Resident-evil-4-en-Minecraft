@@ -13,6 +13,8 @@ MAGIC = 0x52453443
 
 
 def validate_control(frame):
+    if type(frame.get('depth',False)) is not bool:raise ProtocolError('Invalid depth mode')
+    if type(frame.get('terrain',False)) is not bool or type(frame.get('terrain_revision',0)) is not int or not 0<=frame.get('terrain_revision',0)<=2147483647:raise ProtocolError('Invalid terrain request')
     validate_preview(frame.get('preview'))
     validate_hud(frame.get('hud'))
     if frame.get("type") != "re4_control" or type(frame.get("armed")) is not bool:
@@ -118,11 +120,14 @@ class ControlPolicy:
             result['collision_available']=getattr(self.preview,'collision_available',False)
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
+            depth=getattr(self.preview,'depth',None)
+            if depth is not None:depth.publish(self.armed and bool(frame.get('depth')) and box is not None and box.get('style',0)>0,frame['arm_id'])
             result['preview_state']=self.preview.status()
             if box is not None and self.armed and result['preview_state'].get('blocked',False):
                 self.armed=False
                 self.writer.publish(False,0)
                 self.preview.publish(False,frame['arm_id'])
+                if depth is not None:depth.publish(False,0)
                 if self.hud is not None:self.hud.publish(False)
                 result['armed']=False
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
@@ -131,6 +136,7 @@ class ControlPolicy:
         return result
 
     def stop(self):
+        if self.preview is not None and getattr(self.preview,'depth',None) is not None:self.preview.depth.publish(False,0)
         if self.hud is not None:self.hud.publish(False)
         self.armed = False
         self.writer.publish(False, 0)

@@ -11,6 +11,7 @@ typedef struct {
     void *overlay;
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
+    float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage;DWORD depth_z,depth_write,depth_compare,depth_world_compare;
 } CubeDevice;
 static const GUID cube_iunknown={0,0,0,{0xc0,0,0,0,0,0,0,0x46}};
 static const GUID cube_iid_device={0xd0223b96,0xbf7a,0x43fd,{0x92,0xbd,0xa4,0x3b,0x0d,0x82,0xb9,0xeb}};
@@ -68,12 +69,27 @@ static HRESULT WINAPI cube_QueryInterface(IDirect3DDevice9 *iface,REFIID iid,voi
 static HRESULT WINAPI cube_BeginScene(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT hr=f->inner->lpVtbl->BeginScene(f->inner);DWORD error=GetLastError();
-    if (SUCCEEDED(hr)) {f->scene=1;block_camera_begin();}
+    if (SUCCEEDED(hr)) {f->scene=1;block_camera_begin();
+#ifdef RE4_DEPTH_RUNTIME
+        f->depth_seen=f->depth_drawn=f->depth_stage=0;
+        if(depth_requested(NULL)){
+            f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZENABLE,&f->depth_z);
+            f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZWRITEENABLE,&f->depth_write);
+            f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZFUNC,&f->depth_compare);
+        }
+#endif
+    }
     cube_record(CUBE_BEGIN,0);cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_EndScene(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
-    cube_record(CUBE_FRAME,0);cube_render_device(f);hud_render_device(f);f->scene=0;block_camera_end();
+    cube_record(CUBE_FRAME,0);
+#ifdef RE4_DEPTH_RUNTIME
+    f->depth_stage=0;if(!f->depth_drawn)cube_render_device(f);
+#else
+    cube_render_device(f);
+#endif
+    hud_render_device(f);f->scene=0;block_camera_end();
     HRESULT hr=f->inner->lpVtbl->EndScene(f->inner);DWORD error=GetLastError();
     if (FAILED(hr)) {hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_ACTIVE,0);}
     cube_method_leave(f,error);return hr;

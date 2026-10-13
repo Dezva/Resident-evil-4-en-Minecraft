@@ -46,7 +46,8 @@ def validate_preview(preview):
 class NativePreview:
     """Single-writer cube lease using the creation-owned renderer, never the retired IPC."""
     def __init__(self,pid,k=None,user=None):
-        from re4_cube_test import CubeSession,read_cube_status
+        self.depth=None
+        from re4_cube_test import CubeSession,read_cube_status,initial_snapshot
         self.session=None;self.key=None;self.baseline=None;self.generation=0;self.epoch_started=0
         self.requested=False;self.bounds=None;self.origin=None;self.box_count=0;self.style=0;self.scene_collisions=False;self.tile_count=0;self._collision_available=False
         kernel=k if k is not None else ctypes.WinDLL('kernel32',use_last_error=True)
@@ -54,14 +55,18 @@ class NativePreview:
             self.session=CubeSession(kernel,pid,user=user)
             if self.session.version not in (2,3,4,5,6):
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23; conserva los controles desactivados.')
-            self.baseline=read_cube_status(kernel,pid)
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434)) or not self.baseline['live_devices']:
+            self.baseline=initial_snapshot(read_cube_status,kernel,pid)
+            self.last_snapshot=self.baseline
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434),(6,435)) or not self.baseline['live_devices']:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23 y dispositivo grafico activo.')
             if self.session.version==6:
                 from re4_cube_test import read_collision_status
-                self._collision_available=read_collision_status(kernel,pid) is not None
+                self.last_collision=initial_snapshot(read_collision_status,kernel,pid)
+                self._collision_available=self.last_collision is not None
             if self.baseline['restore_failures'] or self.baseline['escaped_interfaces']:
                 raise ReaderError('Dibujo bloqueado; reinicia RE4 y envia CAPTURE-RE4-GRAPHICS.')
+            from re4_depth import NativeDepth
+            if self.baseline['build']>=435:self.depth=NativeDepth(kernel,pid)
         except Exception:
             self.close();raise
 
@@ -92,8 +97,9 @@ class NativePreview:
             if type(generation) is not int or not 1<=generation<=2147483647:
                 raise ProtocolError('Bloque requiere arm explicito')
             if generation!=self.generation:
-                from re4_cube_test import read_cube_status
-                self.baseline=read_cube_status(self.session.k,self.session.pid)
+                from re4_cube_test import read_cube_status,SnapshotBusy
+                try:self.baseline=read_cube_status(self.session.k,self.session.pid);self.last_snapshot=self.baseline
+                except SnapshotBusy:self.baseline=self.last_snapshot
                 self.generation=generation
             key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes']),scene.get('style',0),scene.get('collisions',False),tuple(scene.get('tiles',[])),tuple(tuple(tuple(f) for f in group) for group in scene.get('faces',[]))) if scene is not None else (generation,tuple(bounds))
             if key!=self.key:
@@ -113,8 +119,10 @@ class NativePreview:
         self.tile_count=len(scene.get('tiles',[])) if enabled and scene is not None else 0
 
     def status(self):
-        from re4_cube_test import read_cube_status
-        snapshot=read_cube_status(self.session.k,self.session.pid)
+        from re4_cube_test import read_cube_status,SnapshotBusy
+        stale=False
+        try:snapshot=read_cube_status(self.session.k,self.session.pid);self.last_snapshot=snapshot
+        except SnapshotBusy:snapshot=getattr(self,'last_snapshot',self.baseline);stale=True
         # Reset/Present may occur between attempts. An armed frame must not silently
         # reactivate after a new device loss; require another explicit arm.
         import time
@@ -125,8 +133,9 @@ class NativePreview:
         collision=None
         if self.collision_available:
             from re4_cube_test import read_collision_status
-            collision=read_collision_status(self.session.k,self.session.pid)
-            if self.requested and self.scene_collisions and (collision is None or (collision['generation']==self.generation and collision['reason'] in (3,5))):blocked=True
+            try:collision=read_collision_status(self.session.k,self.session.pid);self.last_collision=collision
+            except SnapshotBusy:collision=getattr(self,'last_collision',None);stale=True
+            if self.requested and self.scene_collisions and ((collision is None and not stale) or (collision is not None and collision['generation']==self.generation and collision['reason'] in (3,5))):blocked=True
         reply={'status':3 if not snapshot['live_devices'] else 2 if blocked else 1,
                 'frames':snapshot['frames'],'draws':snapshot['draws'],
                 'failures':snapshot['failures']+snapshot['restore_failures'],
@@ -136,11 +145,14 @@ class NativePreview:
                 'origin':self.origin,'box_count':self.box_count,'style':self.style,
                 'collisions_requested':self.requested and self.scene_collisions,'tile_count':self.tile_count,
                 'skipped_passes':snapshot['skipped_passes'],
-                'camera_rejections':snapshot['camera_rejections'],'lease_rejections':snapshot['lease_rejections']}
+                'camera_rejections':snapshot['camera_rejections'],'lease_rejections':snapshot['lease_rejections'],'telemetry_stale':stale}
+        if collision is None and self.collision_available:collision=dict(ticks=0,contacts=0,corrections=0,rejections=0,reason=1,active=False,generation=0)
         if collision is not None:reply['collision_state']=collision
+        if self.depth is not None:reply.update({key:value for key,value in self.depth.status().items() if key not in ('depth_projection','depth_gx_projection')})
         return reply
 
     def close(self):
+        if self.depth is not None:self.depth.close();self.depth=None
         if self.session is not None:
             self.session.close();self.session=None
         self.requested=False;self.bounds=None;self.origin=None;self.box_count=0;self.style=0;self.scene_collisions=False;self.tile_count=0

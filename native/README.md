@@ -334,3 +334,17 @@ Independent control freshness, native stop, F8, actor, Reset/escape and graphics
 gates still apply before cached drawing. Expiry/generation change release cache.
 IPC sizes/versions unchanged. Simulated renderer tests cover1,000 busy reads,
 torn writes, image expiry with fresh controls and stop/F8/disarm/new generation.
+
+## Build435: profundidad
+
+Canal `Local\RE4Bridge-Depth-{pid}` de256bytes: status nativo0..207 y
+comando host208..223 separados por seqlock, TTL500ms/generación. La fachada
+creada por Direct3D mantiene el flujo de COM original. Registra proyección GX
+en un pase opaco y dibuja bloques antes de Clear(Z) sin Clear(TARGET), o en
+EndScene si no se detectó ese punto. Se valida la proyección D3D o la CAMERA
+ProjMat_64 GX con FOV/aspect/planos antes de usar Z/ZWRITE/ZFUNC. Fuente SDK:
+`nipkownix/re4_tweaks@92c0208bd09c29c9640e13a2493b8e6bd6edd700`,
+`camera.h`, `GX.h`, `GXStruct.h`, `D3D9hook.cpp`. Solo lectura del SDK/cámara;
+no se ejecuta código externo. F8/TTL/generación/Reset y restauración de estado
+siguen siendo condiciones del renderer. La validación de drivers Windows
+queda pendiente; CAPTURE registra las matrices si se rechaza la proyección.

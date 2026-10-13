@@ -19,7 +19,7 @@ typedef struct {
     CapturePaths initial_paths,latest_paths;
 } CaptureShared;
 _Static_assert(sizeof(CaptureShared)==3296,"Capture diagnostic IPC v3");
-static CaptureShared capture_metrics={.magic=0x52453447,.version=3,.build=434};
+static CaptureShared capture_metrics={.magic=0x52453447,.version=3,.build=435};
 static CaptureShared *capture_shared;
 static HANDLE capture_mapping;
 static SRWLOCK capture_lock=SRWLOCK_INIT;

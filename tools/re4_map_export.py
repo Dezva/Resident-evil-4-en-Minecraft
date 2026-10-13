@@ -14,7 +14,7 @@ SIGNATURES={'SAT':('8D 8E B4 02 00 00 E8 ? ? ? ? 6A 00 56 B9',15),
 MAX_BYTES=32*1024*1024
 
 
-def extract(read,base,size,position,radius=20000):
+def extract(read,base,size,position,radius=20000,manager_cache=None):
     if len(position)!=3 or not all(math.isfinite(v) and abs(v)<=20_000_000 for v in position) or not 1000<=radius<=60000:
         raise ReaderError('Rango de geometria no valido')
     report=dict(mode='READ ONLY COLLISION GEOMETRY',reference=REFERENCE,position=position,radius_native=radius,
@@ -27,19 +27,21 @@ def extract(read,base,size,position,radius=20000):
         budget+=length;data=read(address,length)
         if len(data)!=length:raise ReaderError('Lectura de geometria incompleta')
         return data
-    blobs=[(address,bounded(address,length)) for address,length in code_sections(read,base,size)]
+    blobs=[] if manager_cache and all(name in manager_cache for name in SIGNATURES) else [(address,bounded(address,length)) for address,length in code_sections(read,base,size)]
     for name,(signature,offset) in SIGNATURES.items():
         row=dict(name=name,objects=0,enabled=0,nearby_triangles=0,errors=[]);report['managers'].append(row)
-        hits=[address+i for address,data in blobs for i in matches(data,signature)]
+        cached=manager_cache.get(name) if manager_cache is not None else None
+        hits=cached[0] if cached else [address+i for address,data in blobs for i in matches(data,signature)]
         row['signature_matches']=len(hits)
         if not 1<=len(hits)<=64:
             report['complete']=False;row['errors'].append(f'Firma {name} ausente/ambigua: {len(hits)}');continue
         try:
-            pointers=[u32(bounded(hit+offset,4,False)) for hit in hits]
+            pointers=cached[1] if cached else [u32(bounded(hit+offset,4,False)) for hit in hits]
             row['references']=[dict(site_rva=hex(hit-base),manager_rva=hex(pointer-base),in_module=base<=pointer<=base+size-32 and pointer%4==0) for hit,pointer in zip(hits,pointers)]
             if len(set(pointers))!=1:raise ReaderError('Referencias de manager distintas; no se elige la primera ni por mayoria')
             manager=pointers[0]
             if not base<=manager<=base+size-32 or manager%4:raise ReaderError('Manager fuera del modulo')
+            if manager_cache is not None:manager_cache[name]=(tuple(hits),tuple(pointers))
             header=bounded(manager,32);vtable,array,count,stride=struct.unpack_from('<4I',header)
             row.update(manager_rva=hex(manager-base),array_address=hex(array),stride=stride,vtable_rva=hex(vtable-base),header_hex=header.hex(' '))
             if not base<=vtable<base+size or count>2048 or stride!=0xC0:raise ReaderError('Layout de manager incompatible')

@@ -77,7 +77,7 @@ class GraphicsCaptureTests(unittest.TestCase):
         struct.pack_into('<I',data,12,424)
         newer=capture.decode_capture(bytes(data),42)
         self.assertEqual(newer['build'],'0.4.24');self.assertIsNone(newer['rendering_enabled'])
-        for build in (426,427,428,429,430,432,433,434):
+        for build in (426,427,428,429,430,432,433,434,435):
             struct.pack_into('<I',data,12,build)
             newer=capture.decode_capture(bytes(data),42)
             self.assertEqual(newer['build'],f'0.4.{build-400}');self.assertIsNone(newer['rendering_enabled'])

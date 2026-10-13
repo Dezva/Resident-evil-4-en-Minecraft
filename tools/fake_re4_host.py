@@ -156,9 +156,13 @@ def serve_peer(peer, token, report, sample_provider=None, control_handler=None):
             if time.monotonic() - last_print > 1:
                 last_print = time.monotonic()
                 if sample_provider is not None:
+                    state=ack.get('control_state','read-only')
+                    if isinstance(state,dict):
+                        state={k:v for k,v in state.items() if k!='terrain'}
+                        if 'terrain' in ack['control_state']:state['terrain_triangles']=len(ack['control_state']['terrain']['triangles'])
                     print(f"seq={sequence} RE4={ack['re4_sample'].get('state')} "
                           f"position={ack['re4_sample'].get('position_raw')} "
-                          f"control={ack.get('control_state', 'read-only')}", flush=True)
+                          f"control={state}", flush=True)
                     continue
                 collision = report.get("last_collision", {})
                 print(f"seq={sequence} poses={report['poses']} snapshots={report['snapshots']} "

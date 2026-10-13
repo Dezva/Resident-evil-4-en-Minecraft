@@ -1,5 +1,18 @@
 # Registro de desarrollo
 
+## 0.4.35 — preparación automática, superficies y profundidad
+
+El log del usuario termina con `Estado de colision cambiando`: se distingue la
+lectura seqlock ocupada de los fallos reales y se conserva telemetría previa,
+sin prolongar controles. VIEW pide preparación autenticada por localhost al mod;
+se conecta/arma sin comandos, permite F8 durante la espera y conserva las
+construcciones en una sesión. Worker SAT/EAT acotado a2Hz, sin rescan de código,
+rayos y SAT de volumen en Minecraft, flechas con impacto nativo estático.
+DLL435 añade lease separado de profundidad, proyección D3D/GX validada y dibujo
+previo al clear para HUD cuando procede; restaura estados y omite bloques si
+la proyección no se valida. Sin render 3D de flechas ni combate RE4 todavía.
+Pruebas de lógica/protocolo/renderer en cloud; resultado visual Windows pendiente.
+
 ## 0.4.34 — capa visual hasta60Hz y diagnóstico de interrupciones
 
 La prueba del usuario confirma HUD oculto y mano/inventario correctos en33;

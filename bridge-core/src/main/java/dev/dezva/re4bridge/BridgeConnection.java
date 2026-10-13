@@ -17,6 +17,11 @@ public final class BridgeConnection implements AutoCloseable {
     private final Mode mode;
     private record ControlFrame(JsonObject frame, HudFrame hud, long createdNs) {}
     private volatile Supplier<HudFrame> overlaySource;
+    private volatile boolean terrainRequested;private volatile TerrainSnapshot terrain;private volatile String terrainState="sin host de mapa";
+    private volatile boolean depthRequested,depthAvailable;private volatile String depthReason="sin canal de profundidad";private volatile long depthDraws;
+    public void depthRequested(boolean value){depthRequested=value;}public boolean depthAvailable(){return depthAvailable;}public String depthReason(){return depthReason;}public long depthDraws(){return depthDraws;}
+    public void terrainRequested(boolean requested){terrainRequested=requested;}
+    public TerrainSnapshot terrain(){return terrain;}public String terrainState(){return terrainState;}
     /** Source reads only an immutable encoder result, never Minecraft or OpenGL state. */
     public void overlaySource(Supplier<HudFrame> source) { overlaySource=source; }
     private final AtomicReference<ControlFrame> control = new AtomicReference<>();
@@ -177,6 +182,8 @@ public final class BridgeConnection implements AutoCloseable {
                                 hud=visual!=null && visual.menu()==hud.menu()?hud.visual(visual):null;
                             }
                             if(hud!=null)frame.add("hud",hud.toJson());
+                            frame.addProperty("terrain",terrainRequested && frame.get("armed").getAsBoolean());frame.addProperty("terrain_revision",terrain==null?0:terrain.revision());
+                            frame.addProperty("depth",depthRequested && frame.get("armed").getAsBoolean());
                         }
                         else {
                             frame.addProperty("type", "re4_control"); frame.addProperty("armed", false);
@@ -214,6 +221,8 @@ public final class BridgeConnection implements AutoCloseable {
                                 || !state.getAsJsonPrimitive("stop").isNumber() || !state.getAsJsonPrimitive("hook_ticks").isNumber())
                             throw new IOException("Invalid control acknowledgement");
                         nativeArmed = state.get("armed").getAsBoolean();
+                        if(state.has("terrain"))terrain=TerrainSnapshot.parse(state.getAsJsonObject("terrain"),System.nanoTime());
+                        if(state.has("terrain_state")){var value=state.getAsJsonPrimitive("terrain_state");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid terrain state");terrainState=value.getAsString();}
                         nativeStop = state.get("stop").getAsInt();
                         nativeTicks = state.get("hook_ticks").getAsLong();
                         if (nativeStop < 0 || nativeStop > 2 || nativeTicks < 0 || nativeTicks > 0xFFFFFFFFL)
@@ -238,6 +247,9 @@ public final class BridgeConnection implements AutoCloseable {
                         if (state.has("preview_state")) {
                             var preview=state.getAsJsonObject("preview_state");
                             previewStatus=boundedInteger(preview,"status",4);
+                            if(preview.has("depth_available")){var available=preview.getAsJsonPrimitive("depth_available");if(!available.isBoolean())throw new IOException("Invalid depth state");depthAvailable=available.getAsBoolean();}
+                            if(preview.has("depth_reason")){var value=preview.getAsJsonPrimitive("depth_reason");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid depth reason");depthReason=value.getAsString();}
+                            if(preview.has("depth_draws"))depthDraws=unsignedCounter(preview,"depth_draws");
                             previewFrames=unsignedCounter(preview,"frames");
                             previewDraws=unsignedCounter(preview,"draws");
                             previewFailures=unsignedCounter(preview,"failures");

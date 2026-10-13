@@ -44,6 +44,9 @@ import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.arg
 /** Local editor bridge; temporary support is restricted to empty creative-world cells. */
 public final class Re4BridgeClient implements ClientModInitializer {
     private BridgeConfig config;
+    private net.minecraft.client.option.KeyBinding stopKey;
+    private dev.dezva.re4bridge.PrepareServer prepareServer;
+    private java.util.concurrent.CompletableFuture<String> prepareFuture;private long prepareStarted;private boolean prepareArming;
     private volatile BridgeConnection bridge;
     private Perspective previousPerspective;
     private int ticks;
@@ -64,6 +67,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean editorSupport;
     private boolean mapEditing;
     private boolean hudEnabled=true;
+    private boolean blockDepth=true;
     private final MinecraftHud minecraftHud=new MinecraftHud();
     private ControllerMapping controllerMapping;
     private ControllerMapping.Point lastEditorPoint;
@@ -85,6 +89,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private long placementEvents, placementTicks, placementsConfirmed;
 
     @Override public void onInitializeClient() {
+        stopKey=net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(new net.minecraft.client.option.KeyBinding("key.re4bridge.stop",org.lwjgl.glfw.GLFW.GLFW_KEY_F8,"key.categories.misc"));
         try {
             config = BridgeConfig.loadOrCreate(FabricLoader.getInstance().getConfigDir().resolve("re4bridge.json"));
         } catch (IOException e) {
@@ -134,40 +139,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     stopDriving(); eyeHeight = height;
                     say(ctx.getSource().getClient(), "Altura de camara: " + height + ". Usa arm."); return 1;
                 })))
-                .then(literal("arm").executes(ctx -> {
-                    if(mapEditing){say(ctx.getSource().getClient(),"Primero map off: el mapa auxiliar no se transfiere a RE4.");return 0;}
-                    var current = bridge;
-                    var sample = current == null ? null : current.re4Sample();
-                    if (current == null || !current.controllerMode() || !current.status().connected()
-                            || sample == null || !sample.fresh(System.nanoTime()) || current.nativeTicks() == 0) {
-                        say(ctx.getSource().getClient(), "Conecta /re4bridge controller con RE4 cargado y el modulo nativo activo.");
-                        return 0;
-                    }
-                    var client=ctx.getSource().getClient();
-                    if(synchronizedMovement && !client.player.isCreative()){say(client,"Sincronizacion de construccion requiere creativo. Usa gamemode creative o sync off.");return 0;}
-                    if(synchronizedMovement){
-                        if(controllerMapping==null){
-                            var pos=client.player.getPos();
-                            double baseY=pos.y;
-                            if(blocksEnabled){
-                                try{baseY=EditorFloor.anchorHeight(pos.y,client.world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING,client.player.getBlockX(),client.player.getBlockZ()),client.world.getTopY());}
-                                catch(IllegalArgumentException error){say(client,error.getMessage());return 0;}
-                            }
-                            controllerMapping=ControllerMapping.anchor(sample,pos.x,baseY,pos.z,client.player.getYaw(),blockSize);
-                            editorSupport=blocksEnabled;
-                            if(editorSupport)say(client,"Suelo temporal de cristal en Minecraft; no se envia a RE4 ni mueve construcciones.");
-                            controllerDimension=client.world.getRegistryKey().getValue().toString();
-                        }
-                        client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));
-                        lastEditorPoint=editorPoint(client,sample);
-                    }
-                    following = false;
-                    controlArming.request(System.nanoTime());
-                    mouseLook.reset();
-                    current.publishControl(false, 0, controlArming.generation());
-                    say(ctx.getSource().getClient(), "Cierra el chat para activar control. Steve sigue a Leon (sync on). F8 devuelve el movimiento normal de Minecraft.");
-                    return 1;
-                }))
+                .then(literal("arm").executes(ctx -> arm(ctx.getSource().getClient())))
                 .then(literal("stop").executes(ctx -> {
                     stopDriving();
                     say(ctx.getSource().getClient(), "Control RE4 desarmado.");
@@ -175,6 +147,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }))
                 .then(literal("calibrate").executes(ctx -> calibrate(ctx.getSource().getClient())))
                 .then(literal("blocks")
+                    .then(literal("depth")
+                        .then(literal("on").executes(ctx -> {blockDepth=true;say(ctx.getSource().getClient(),"Profundidad RE4 activada; proyeccion y buffer deben validarse.");return 1;}))
+                        .then(literal("off").executes(ctx -> {blockDepth=false;say(ctx.getSource().getClient(),"Profundidad desactivada: modo de diagnostico superpuesto.");return 1;})))
                     .then(literal("collisions")
                         .then(literal("on").executes(ctx -> blockCollisions(ctx.getSource().getClient(),true)))
                         .then(literal("off").executes(ctx -> blockCollisions(ctx.getSource().getClient(),false))))
@@ -253,7 +228,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if (bridge.controllerMode()) ctx.getSource().sendFeedback(Text.literal(
                             "Deteccion: eventos="+placementEvents+"; sondeos="+placementTicks+"; confirmados="+placementsConfirmed
                             +"; pendientes="+placementTracker.size()+"; seleccionado="+(blockPreview!=null || placedScene.size()>0)+"; bloques="+placedScene.size()+"; cajas enviadas="+bridge.previewBoxCount()+"; modo="+blockStyleName(bridge.previewStyle())+"; colision nativa="+bridge.collisionActive()+"; contactos="+bridge.collisionContacts()+"; correcciones="+bridge.collisionCorrections()+"; tamano="+(int)blockSize+"; HUD="+(hudEnabled && bridge.hudAvailable())+"; Ultimos ID HUD="+bridge.nativeHudHidden()+"; HUD RE4="+((bridge.nativeCapabilities()&16)!=0?"ocultacion disponible":"firma no disponible")+"; referencia="+(controllerMapping!=null)+"; mapa auxiliar="+mapEditing+"; sync="+synchronizedMovement+"; movimiento independiente="+minecraftWalking+"; caras sin textura="+blockMaterials.missing()+"; error material="+blockMaterials.lastError()));
-                        if(bridge.controllerMode())ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
+                        if(bridge.controllerMode()) {
+                            ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
+                            ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()));
+                        }
                         var sample = bridge.re4Sample();
                         ctx.getSource().sendFeedback(Text.literal(sample != null && sample.fresh(System.nanoTime())
                             ? String.format(java.util.Locale.ROOT, "RE4 raw: %.2f %.2f %.2f; angulo: %.3f; escala: %.1f; follow: %s",
@@ -262,6 +240,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     }
                     return 1;
                 }))));
+        if(config!=null)try{prepareServer=new dev.dezva.re4bridge.PrepareServer(config,future -> MinecraftClient.getInstance().execute(() -> prepare(MinecraftClient.getInstance(),future)));}catch(IOException error){System.err.println("RE4 Bridge: endpoint VIEW no disponible: "+error.getClass().getSimpleName());}
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {if(prepareServer!=null)prepareServer.close();});
         OverlayCapture.renderer=ticks -> minecraftHud.render(MinecraftClient.getInstance(),ticks);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> minecraftHud.close());
         ClientTickEvents.START_CLIENT_TICK.register(this::beforeTick);
@@ -296,6 +276,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void beforeTick(MinecraftClient client) {
+        while(stopKey.wasPressed()) {
+            stopDriving();
+            if(prepareFuture!=null){prepareFuture.completeExceptionally(new IllegalStateException("Preparacion cancelada con F8."));prepareFuture=null;}
+        }
+        preparing(client);
         var current=bridge;
         var sample=current==null?null:current.re4Sample();
         boolean lock=(synchronizedMovement || !minecraftWalking) && (controlArming.active() || controlArming.pending())
@@ -317,6 +302,65 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 && hit.getType()==HitResult.Type.BLOCK) {
             capturePlacement(client,Hand.MAIN_HAND,hit,false);
             capturePlacement(client,Hand.OFF_HAND,hit,false);
+        }
+    }
+    private int arm(MinecraftClient client){
+        if(mapEditing){say(client,"Primero map off: el mapa auxiliar no se transfiere a RE4.");return 0;}
+        var current = bridge;
+        var sample = current == null ? null : current.re4Sample();
+        if (current == null || !current.controllerMode() || !current.status().connected()
+                || sample == null || !sample.fresh(System.nanoTime()) || current.nativeTicks() == 0) {
+            say(client, "Conecta /re4bridge controller con RE4 cargado y el modulo nativo activo.");
+            return 0;
+        }
+        if(synchronizedMovement && !client.player.isCreative()){say(client,"Sincronizacion de construccion requiere creativo. Usa gamemode creative o sync off.");return 0;}
+        if(synchronizedMovement){
+            if(controllerMapping==null){
+                var pos=client.player.getPos();
+                double baseY=pos.y;
+                if(blocksEnabled){
+                    try{baseY=EditorFloor.anchorHeight(pos.y,client.world.getTopY(net.minecraft.world.Heightmap.Type.MOTION_BLOCKING,client.player.getBlockX(),client.player.getBlockZ()),client.world.getTopY());}
+                    catch(IllegalArgumentException error){say(client,error.getMessage());return 0;}
+                }
+                controllerMapping=ControllerMapping.anchor(sample,pos.x,baseY,pos.z,client.player.getYaw(),blockSize);
+                editorSupport=blocksEnabled;
+                if(editorSupport)say(client,"Suelo temporal de cristal en Minecraft; no se envia a RE4 ni mueve construcciones.");
+                controllerDimension=client.world.getRegistryKey().getValue().toString();
+            }
+            client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));
+            lastEditorPoint=editorPoint(client,sample);
+        }
+        following = false;
+        controlArming.request(System.nanoTime());
+        mouseLook.reset();
+        current.publishControl(false, 0, controlArming.generation());
+        say(client, "Cierra el chat para activar control. Steve sigue a Leon (sync on). F8 devuelve el movimiento normal de Minecraft.");
+        return 1;
+        }
+    private void prepare(MinecraftClient client,java.util.concurrent.CompletableFuture<String> future){
+        if(future.isCancelled())return;
+        if(prepareFuture!=null){future.completeExceptionally(new IllegalStateException("Preparacion ya en curso."));return;}
+        if(client.player==null || client.world==null || !client.isInSingleplayer() || !client.player.isCreative() || client.currentScreen!=null || !client.isWindowFocused()){
+            future.completeExceptionally(new IllegalStateException("Abre un mundo local en creativo, cierra chat/inventario y pulsa Preparar Minecraft."));return;
+        }
+        if(bridge==null || !bridge.controllerMode() || !bridge.status().connected())connect(client,BridgeConnection.Mode.CONTROL);else stopDriving();prepareFuture=future;prepareStarted=System.nanoTime();prepareArming=false;
+    }
+    private void preparing(MinecraftClient client){
+        var future=prepareFuture;if(future==null)return;
+        if(future.isCancelled() || System.nanoTime()-prepareStarted>10_000_000_000L || client.player==null || client.world==null || !client.isWindowFocused() || client.currentScreen!=null){
+            stopDriving();future.completeExceptionally(new IllegalStateException("Preparacion detenida: revisa partida RE4, host y foco de Minecraft."));prepareFuture=null;return;
+        }
+        var current=bridge;if(current==null)return;
+        if(!current.status().connected()){if(current.status().message().startsWith("connection failed")){future.completeExceptionally(new IllegalStateException("Abre START-RE4-CONTROLS y una partida de RE4."));prepareFuture=null;}return;}
+        if(!prepareArming){
+            if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
+            if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
+            synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;
+            if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
+            placedScene.style(3);placedScene.collisions(true);
+            if(arm(client)==0){future.completeExceptionally(new IllegalStateException("No se pudo armar el editor."));prepareFuture=null;return;}prepareArming=true;
+        }else if(controlArming.active() && current.nativeArmed() && current.cameraActive()){
+            future.complete("Minecraft preparado. Pulsa F9 para jugar; F8 vuelve a RE4 normal.");prepareFuture=null;
         }
     }
 
@@ -373,7 +417,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void disconnect(MinecraftClient client) {
-        stopDriving();controllerFollower=new ControllerFollower();
+        stopDriving();TerrainInteraction.clear();controllerFollower=new ControllerFollower();
         mouseEnabled = false; firstPersonEnabled = false;
         blocksEnabled=false;clearBlock();
         if (bridge != null) bridge.close();
@@ -541,12 +585,17 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 try{hud=minecraftHud.snapshot(client,current.overlayWidth(),current.overlayHeight());
                     if(hud!=null && controllerMapping!=null && !MinecraftHud.inventory(client) && client.crosshairTarget instanceof BlockHitResult hit && hit.getType()==HitResult.Type.BLOCK){
                         var shape=client.world.getBlockState(hit.getBlockPos()).getOutlineShape(client.world,hit.getBlockPos(),ShapeContext.of(client.player));
+                        if(shape.isEmpty() && TerrainInteraction.surfaceTarget(hit))shape=net.minecraft.util.shape.VoxelShapes.fullCube();
                         if(!shape.isEmpty()){
                             var p=hit.getBlockPos();var bounds=shape.getBoundingBox();var origin=controllerMapping.toNative(p.getX(),p.getY(),p.getZ());double scale=controllerMapping.scale();
                             hud=hud.selection(new double[]{origin.x(),origin.y(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
                         }
                     }}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
             }
+            boolean terrain=controlArming.active() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null;
+            current.terrainRequested(terrain);
+            current.depthRequested(controlArming.active() && blockDepth);
+            if(terrain)TerrainInteraction.bind(current,controllerMapping,controlArming.generation(),client.player.getUuid(),dimension,placedScene.positions());else TerrainInteraction.clear();
             if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(

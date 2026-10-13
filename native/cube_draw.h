@@ -29,6 +29,30 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
     int solid=command.mode==2 && command.style!=0;
     int textured=solid && command.style>=2;
     int atlas=solid && command.style==3;
+#ifdef RE4_DEPTH_RUNTIME
+    BlockProjection depth={0};uint32_t depth_generation=0;
+    int use_depth=solid && depth_requested(&depth_generation);
+    if(use_depth){
+        if(!isfinite(viewport.MinZ+viewport.MaxZ) || viewport.MinZ<0 || viewport.MaxZ>1 || viewport.MinZ>=viewport.MaxZ){depth_report(2,f->depth_stage,NULL,&viewport,0);return;}
+        if(depth_generation!=command.arm_generation){depth_report(8,f->depth_stage,NULL,&viewport,0);return;}
+        IDirect3DSurface9 *depth_surface=NULL;
+        hr=device->lpVtbl->GetDepthStencilSurface(device,&depth_surface);
+        if(FAILED(hr) || !depth_surface){depth_report(3,f->depth_stage,NULL,&viewport,0);return;}
+        depth_surface->lpVtbl->Release(depth_surface);
+        float projection[16]={0};hr=device->lpVtbl->GetTransform(device,D3DTS_PROJECTION,(D3DMATRIX*)projection);
+        unsigned source=1;
+        if(FAILED(hr) || !block_projection(projection,fov,(float)viewport.Width,(float)viewport.Height,&depth)){
+            source=2;
+            if(!f->depth_seen || !block_gx_projection(f->depth_gx,fov,(float)viewport.Width,(float)viewport.Height,f->depth_world_compare,&depth)){
+                BlockProjection rejected={0};for(unsigned i=0;i<16;i++)if(isfinite(projection[i]))rejected.matrix[i]=projection[i];
+                depth_report(2,f->depth_stage,&rejected,&viewport,0);
+                depth_observe(0,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
+                return;
+            }
+        }
+        depth_observe(source,f->depth_gx,fov,f->depth_world_compare,f->depth_seen);
+    }
+#endif
     if (command.mode==2) {
         float scene_view[12];
         if (!command.count || command.count>CUBE_MAX_BOXES || command.style>3 || !block_scene_view(view,command.origin,scene_view)) {
@@ -49,7 +73,11 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
                 }
             }
             vertices=surface->vertices;
+            #ifdef RE4_DEPTH_RUNTIME
+            count=block_surfaces_materials_near(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL,use_depth?depth.near_plane:1.f);
+#else
             count=block_surfaces_materials(command.boxes,command.count,scene_view,fov,(float)viewport.Width,(float)viewport.Height,surface,atlas?command.materials:NULL);
+#endif
         } else for (unsigned i=0;i<command.count;++i)
             count+=block_lines(command.boxes[i],scene_view,fov,(float)viewport.Width,(float)viewport.Height,lines+count);
     } else if (command.mode==1) {
@@ -75,6 +103,9 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         if (solid) {
             surface->vertices[i].x+=viewport.X;surface->vertices[i].y+=viewport.Y;
             if (textured) {unsigned shade=(surface->vertices[i].color&255)*255/184;surface->vertices[i].color=0xFF000000|(shade*0x010101);}
+#ifdef RE4_DEPTH_RUNTIME
+            if(use_depth)surface->vertices[i].z=viewport.MinZ+(viewport.MaxZ-viewport.MinZ)*block_depth(&depth,surface->vertices[i].rhw);
+#endif
         } else {lines[i].x+=viewport.X;lines[i].y+=viewport.Y;}
     }
     IDirect3DStateBlock9 *backup=NULL;
@@ -85,10 +116,22 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         if (textured) hr=block_texture_cached(device,&f->block_texture,atlas?&command:NULL);
         else block_texture_cache_release(&f->block_texture);
         if(SUCCEEDED(hr))hr=overlay_prepare_state(device,textured?(IDirect3DBaseTexture9*)f->block_texture.texture:NULL,textured,atlas);
+#ifdef RE4_DEPTH_RUNTIME
+        if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZENABLE,D3DZB_TRUE);
+        if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZWRITEENABLE,TRUE);
+        if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZFUNC,depth.reverse?D3DCMP_GREATEREQUAL:D3DCMP_LESSEQUAL);
+        if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHATESTENABLE,TRUE);
+        if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHAFUNC,D3DCMP_GREATER);
+        if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHAREF,0);
+#endif
         if (SUCCEEDED(hr)) hr=device->lpVtbl->DrawPrimitiveUP(device,solid?D3DPT_TRIANGLELIST:D3DPT_LINELIST,count/(solid?3:2),vertices,solid?sizeof(BlockSurfaceVertex):sizeof(BlockVertex));
         HRESULT restored=backup->lpVtbl->Apply(backup);
         if (FAILED(restored)) {f->gate.fatal=1;cube_record(CUBE_RESTORE_FAILURE,(uint32_t)restored);}
-        else if (SUCCEEDED(hr)) cube_record(CUBE_DRAW,(uint32_t)hr);
+        else if (SUCCEEDED(hr)) {cube_record(CUBE_DRAW,(uint32_t)hr);
+#ifdef RE4_DEPTH_RUNTIME
+            if(use_depth){f->depth_drawn=1;depth_report(0,f->depth_stage,&depth,&viewport,1);}
+#endif
+        }
     }
     backup->lpVtbl->Release(backup);
     if (surface) HeapFree(GetProcessHeap(),0,surface);

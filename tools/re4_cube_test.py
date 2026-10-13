@@ -17,6 +17,14 @@ FIELDS=['build','pid','live_devices','wrap_failures','escaped_interfaces','begin
         'reset_failures','present_failures','lease_rejections','camera_rejections','skipped_passes']
 REASONS={0:'activo',1:'desactivado',2:'permiso caducado',3:'F8',4:'dispositivo perdido o requiere nueva prueba',
          5:'fallo al restaurar estados; reinicia RE4',6:'interfaz nativa externa; dibujo rechazado',7:'camara no disponible',8:'otro destino de dibujo',9:'fallo grafico'}
+class SnapshotBusy(ReaderError):
+    """Writer overlapped all read attempts; not an invalid ABI or device failure."""
+def initial_snapshot(reader,*args):
+    for attempt in range(8):
+        try:return reader(*args)
+        except SnapshotBusy:
+            if attempt==7:raise
+            time.sleep(.001)
 
 def configure(k):
     for name,args,result in [
@@ -42,7 +50,7 @@ def read_cube_status(k,pid):
             data=ctypes.string_at(view,92);words=struct.unpack('<23I',data)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432,433,434) or words[4]!=pid:
+            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432,433,434,435) or words[4]!=pid:
                 raise ReaderError('Version/build/PID de cubo incompatible.')
             report=dict(zip(FIELDS,words[3:]))
             if report['stop_reason'] not in REASONS or report['last_scene_active'] not in (0,1):
@@ -52,7 +60,7 @@ def read_cube_status(k,pid):
             report['last_scene_active']=bool(report['last_scene_active'])
             report['semantics']='Snapshot of last observed scene; active flag is not a live command lease.'
             return report
-        raise ReaderError('Estado de cubo cambiando; repite el diagnostico.')
+        raise SnapshotBusy('Estado de cubo cambiando; repite el diagnostico.')
     finally:
         if view:k.UnmapViewOfFile(view)
         k.CloseHandle(handle)
@@ -70,9 +78,9 @@ def read_collision_status(k,pid):
             words=struct.unpack('<12I',ctypes.string_at(view,48))
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432,433,434) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
+            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432,433,434,435) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
             result=dict(zip(('ticks','contacts','corrections','rejections','reason','active','generation'),words[5:]));result['active']=bool(result['active']);return result
-        raise ReaderError('Estado de colision cambiando.')
+        raise SnapshotBusy('Estado de colision cambiando.')
     finally:
         if view:k.UnmapViewOfFile(view)
         k.CloseHandle(handle)

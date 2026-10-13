@@ -61,6 +61,12 @@ class NativeCaptureTests(unittest.TestCase):
         fixture=(root/'native/test_camera_runtime.c').read_text()
         self.compile_run('camera_runtime.c',fixture.replace('/* ACTUAL_CAMERA_RUNTIME */',body+camera))
 
+    def test_actual_native_depth_draw_and_restore(self):
+        self.compile_run("test_depth_draw.c")
+
+    def test_native_depth_projection_and_reverse_z(self):
+        self.compile_run("test_block_depth.c")
+
     def test_filled_surface_clipping_ordering_and_bounds(self):
         self.compile_run("test_block_surface.c")
 

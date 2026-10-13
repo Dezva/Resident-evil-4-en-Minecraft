@@ -4,7 +4,10 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "OverlayBlurMixin",
-    "OverlayFramebufferMixin"
+    "OverlayFramebufferMixin",
+    "TerrainCrosshairMixin",
+    "TerrainPlacementMixin",
+    "TerrainArrowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

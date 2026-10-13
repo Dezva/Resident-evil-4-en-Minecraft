@@ -900,3 +900,19 @@ SHA256 f707036409bad6f7044baf49fdc29f790af8f654ff11617730aa350055968a11.
  nuevas creaciones; un snapshot roto reutiliza solo el último validado. TTL de
  la imagen, cambio de generación, F8, stop y desarmado impiden dibujar caché
  y liberan recursos. Se mantienen las45 pruebas de fallo de setters/restauración.
+
+## 0.4.35 (cloud, 2026-10-13 UTC)
+
+- JDK21/Fabric1.21.1: core32 y Minecraft40 pruebas, compilación/remap completos.
+- Python134 pruebas: incluye snapshots seqlock ocupados1000 veces, feed inactivo
+  sin lecturas, presupuesto/incompletitud/edad y caché de firmas con validación
+  de objetos. IPC profundidad: host escribe solo208..223, lector readonly sin
+  escritura, ABI y finitud estrictos.
+-14 fixtures C del capture/render, también ASan+UBSan: profundidad LH/RH,
+  GX→D3D normal/inversa, FOV inválido, depth buffer/generación/F8/clipping
+  y restauración. Build DLL PE32 con mingw y4 políticas nativas.
+- VIEW sintético y loopback real: preparación asíncrona autenticada, respuesta
+  acotada y desconexión al cancelar F8. Java prueba cancelación del future.
+- Instalación/desinstalación/backups y diagnóstico PowerShell comprobados.
+- No se ejecutó RE4, el driver D3D9 ni WinForms real en Windows. La oclusión,
+  rendimiento y preparación en los juegos reales siguen pendientes del usuario.

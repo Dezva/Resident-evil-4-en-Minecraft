@@ -469,3 +469,22 @@ Cursor motion is forwarded only with fresh enabled menu IPC and original windows
 foreground verified, and is never consumed so Windows cursor can move. Raw game
 motion remains unforwarded. Outline is mapped MC shape, not native terrain raycast;
 helper floor top is thin outline. Native collision/support/map/combat unchanged.
+
+## Extensiones35: preparación, superficies y profundidad
+
+VIEW→mod: localhost puerto config.port+1 (65535→65534), JSONL máximo4096bytes,
+`{protocol:1,type:"prepare",token:...}`. Solo esta acción; no comandos arbitrarios.
+Respuesta `{protocol:1,ok:boolean,message:string}` tras confirmar cámara/control.
+Cerrar conexión cancela el future; el cliente detiene autorización pendiente.
+
+Control añade `terrain:boolean`, `terrain_revision:int`, `depth:boolean`.
+ACK terrain incluye revision/generation/age_ms/complete/position/radius y filas
+[ax,ay,az,bx,by,bz,cx,cy,cz], máximo1024. Snapshot incompleto no incluye filas.
+Cada extremo valida finitud, región completa y generación; nunca se considera
+libre una región desconocida. Importación de bloques del mapa no implementada.
+
+Profundidad separada: mapping256bytes, magic0x52453444 versión1 build435.
+Status nativo0..207 bajo seqlock offset8; comando host208seq/212stamp/216enabled/
+220generation. Timestamp500ms máximo. No hay parche de proyección ni lectura
+de buffers GPU para colisiones. El renderer usa el depth buffer real, estados
+D3D respaldados y matrices validadas; omite sólidos en modo depth si no valida.

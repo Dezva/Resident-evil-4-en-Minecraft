@@ -75,6 +75,17 @@ class MapExportTests(unittest.TestCase):
             self.assertTrue(report['complete']);self.assertGreater(report['bytes_read'],7_400_000)
         memory[0x202a]=0;memory[0x212a]=0;report=self.run_extract(read,base,size)
         self.assertTrue(report['complete']);self.assertEqual(report['triangles'],[])
+    def test_live_cache_skips_rescan_but_revalidates_objects(self):
+        base,size,memory,read=self.world();cache={}
+        with patch('re4_map_export.code_sections',return_value=[(base+0x100,0x300)]) as scan:
+            first=extract(read,base,size,[100,-400,1700],manager_cache=cache)
+            second=extract(read,base,size,[100,-400,1700],manager_cache=cache)
+            self.assertEqual(scan.call_count,1);self.assertEqual(first['triangles'],second['triangles'])
+            self.assertLess(second['bytes_read'],first['bytes_read'])
+            struct.pack_into('<I',memory,0x2000,4)
+            bad=extract(read,base,size,[100,-400,1700],manager_cache=cache)
+            self.assertFalse(bad['complete']);self.assertTrue(bad['managers'][0]['errors'])
+
     def test_cli_uses_real_reader_version_gate_and_writes_local_artifacts(self):
         import re4_map_export as module
         base,size,memory,read=self.world()

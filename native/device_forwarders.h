@@ -216,8 +216,23 @@ static HRESULT WINAPI cube_GetDepthStencilSurface(IDirect3DDevice9 *iface, IDire
     return result;
 }
 static HRESULT WINAPI cube_Clear(IDirect3DDevice9 *iface, DWORD rect_count, const D3DRECT * rects, DWORD flags, D3DCOLOR color, float z, DWORD stencil) {
+#ifdef RE4_DEPTH_RUNTIME
+    DWORD incoming_error=GetLastError();
+#endif
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
+#ifdef RE4_DEPTH_RUNTIME
+    if(f->scene && f->depth_seen && !f->depth_drawn && !rect_count && (flags&D3DCLEAR_ZBUFFER) && !(flags&D3DCLEAR_TARGET) && depth_requested(NULL)){
+        f->depth_stage=1;cube_render_device(f);f->depth_stage=0;
+    }
+#endif
+#ifdef RE4_DEPTH_RUNTIME
+    SetLastError(incoming_error);
+#endif
     HRESULT result=f->inner->lpVtbl->Clear(f->inner, rect_count, rects, flags, color, z, stencil);
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && (flags&D3DCLEAR_ZBUFFER))f->depth_seen=0;
+    if(SUCCEEDED(result) && (flags&D3DCLEAR_TARGET))f->depth_drawn=0;
+#endif
     DWORD error=GetLastError();cube_method_leave(f,error);
     return result;
 }
@@ -302,6 +317,13 @@ static HRESULT WINAPI cube_GetClipPlane(IDirect3DDevice9 *iface, DWORD Index, fl
 static HRESULT WINAPI cube_SetRenderState(IDirect3DDevice9 *iface, D3DRENDERSTATETYPE State, DWORD Value) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT result=f->inner->lpVtbl->SetRenderState(f->inner, State, Value);
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && depth_requested(NULL)){
+        if(State==D3DRS_ZENABLE)f->depth_z=Value;
+        if(State==D3DRS_ZWRITEENABLE)f->depth_write=Value;
+        if(State==D3DRS_ZFUNC)f->depth_compare=Value;
+    }
+#endif
     DWORD error=GetLastError();cube_method_leave(f,error);
     return result;
 }
@@ -446,25 +468,49 @@ static float WINAPI cube_GetNPatchMode(IDirect3DDevice9 *iface) {
 static HRESULT WINAPI cube_DrawPrimitive(IDirect3DDevice9 *iface, D3DPRIMITIVETYPE PrimitiveType, UINT StartVertex, UINT PrimitiveCount) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT result=f->inner->lpVtbl->DrawPrimitive(f->inner, PrimitiveType, StartVertex, PrimitiveCount);
-    DWORD error=GetLastError();cube_method_leave(f,error);
+    DWORD error=GetLastError();
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
+        if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
+    }
+#endif
+    cube_method_leave(f,error);
     return result;
 }
 static HRESULT WINAPI cube_DrawIndexedPrimitive(IDirect3DDevice9 *iface, D3DPRIMITIVETYPE arg0, INT BaseVertexIndex, UINT MinVertexIndex, UINT NumVertices, UINT startIndex, UINT primCount) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT result=f->inner->lpVtbl->DrawIndexedPrimitive(f->inner, arg0, BaseVertexIndex, MinVertexIndex, NumVertices, startIndex, primCount);
-    DWORD error=GetLastError();cube_method_leave(f,error);
+    DWORD error=GetLastError();
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
+        if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
+    }
+#endif
+    cube_method_leave(f,error);
     return result;
 }
 static HRESULT WINAPI cube_DrawPrimitiveUP(IDirect3DDevice9 *iface, D3DPRIMITIVETYPE primitive_type, UINT primitive_count, const void * data, UINT stride) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT result=f->inner->lpVtbl->DrawPrimitiveUP(f->inner, primitive_type, primitive_count, data, stride);
-    DWORD error=GetLastError();cube_method_leave(f,error);
+    DWORD error=GetLastError();
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
+        if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
+    }
+#endif
+    cube_method_leave(f,error);
     return result;
 }
 static HRESULT WINAPI cube_DrawIndexedPrimitiveUP(IDirect3DDevice9 *iface, D3DPRIMITIVETYPE primitive_type, UINT min_vertex_idx, UINT vertex_count, UINT primitive_count, const void * index_data, D3DFORMAT index_format, const void * data, UINT stride) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT result=f->inner->lpVtbl->DrawIndexedPrimitiveUP(f->inner, primitive_type, min_vertex_idx, vertex_count, primitive_count, index_data, index_format, data, stride);
-    DWORD error=GetLastError();cube_method_leave(f,error);
+    DWORD error=GetLastError();
+#ifdef RE4_DEPTH_RUNTIME
+    if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
+        if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
+    }
+#endif
+    cube_method_leave(f,error);
     return result;
 }
 static HRESULT WINAPI cube_ProcessVertices(IDirect3DDevice9 *iface, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9* pDestBuffer, IDirect3DVertexDeclaration9* pVertexDecl, DWORD Flags) {

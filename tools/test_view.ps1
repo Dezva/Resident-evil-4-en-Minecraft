@@ -172,3 +172,29 @@ if ($session.Active -or !$session.StopConfirmed -or $label.Text -notlike '*pulsa
     throw 'Denied focus must report manual activation after restoring and stopping.'
 }
 Write-Host 'View fixtures passed: focus preserved, native stop before return, partial failure cleanup, closed/reused window protection, restoration retry, IPC v1/v2 stop-only write and invalid-header rejection. GUI script parsed. Button/wheel routing, simultaneous held buttons, capture releases, modifiers, injected/foreign event rejection and send failures passed. Real Windows presentation not executed.'
+. (Join-Path $PSScriptRoot 'Prepare-Minecraft.ps1')
+$listener=[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback,0)
+$listener.Start()
+$temporary=Join-Path ([System.IO.Path]::GetTempPath()) ('re4-prepare-'+[Guid]::NewGuid())
+try {
+    $port=$listener.LocalEndpoint.Port
+    New-Item -ItemType Directory -Path (Join-Path $temporary 'config') | Out-Null
+    @{protocol=1;port=$port-1;token=('a'*64)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $temporary 'config/re4bridge.json')
+    $call=Invoke-MinecraftPreparation $temporary
+    $peer=$listener.AcceptTcpClient();$peer.ReceiveTimeout=2000
+    $reader=[System.IO.StreamReader]::new($peer.GetStream())
+    $request=$reader.ReadLine() | ConvertFrom-Json
+    if ($request.type -ne 'prepare' -or $request.token -ne ('a'*64) -or $request.protocol -ne 1 -or $call.Completed) {throw 'Preparation must authenticate without blocking the UI.'}
+    $bytes=[System.Text.Encoding]::UTF8.GetBytes('{"protocol":1,"ok":true,"message":"Listo F9"}'+"`n")
+    $peer.GetStream().Write($bytes,0,$bytes.Length)
+    $deadline=[DateTime]::UtcNow.AddSeconds(2)
+    while (!$call.Completed -and [DateTime]::UtcNow -lt $deadline) {Start-Sleep -Milliseconds 5}
+    if (!$call.Completed -or (Complete-MinecraftPreparation $call) -ne 'Listo F9') {throw 'Preparation reply missing.'}
+    $call.Dispose();$reader.Dispose();$peer.Close()
+    $call=Invoke-MinecraftPreparation $temporary;$peer=$listener.AcceptTcpClient();$peer.ReceiveTimeout=2000
+    $reader=[System.IO.StreamReader]::new($peer.GetStream());[void]$reader.ReadLine()
+    $script:prepareCall=$call;Return-ToNormal
+    if ($null -ne $script:prepareCall -or $peer.GetStream().ReadByte() -ne -1) {throw 'F8 must close pending preparation without waiting for Minecraft.'}
+    $reader.Dispose();$peer.Close()
+    Write-Host 'Automatic preparation: authenticated loopback request, asynchronous reply and F8 cancellation passed.'
+} finally {$listener.Stop();Remove-Item -LiteralPath $temporary -Recurse -Force}

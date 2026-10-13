@@ -3,6 +3,30 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace RE4BridgeView {
+    // The UI never waits for network IO; closing the peer cancels pending preparation.
+    public sealed class PreparationCall : IDisposable {
+        private readonly System.Net.Sockets.TcpClient peer = new System.Net.Sockets.TcpClient();
+        private readonly System.Threading.Tasks.Task<string> task;
+        public PreparationCall(int port, string request) {
+            if(port<1024 || port>65535 || request==null || request.Length>4096) throw new ArgumentException("Invalid preparation request");
+            task=System.Threading.Tasks.Task.Run(() => {
+                try {
+                    var pending=peer.BeginConnect("127.0.0.1",port,null,null);
+                    try {if(!pending.AsyncWaitHandle.WaitOne(2000)) throw new TimeoutException("Minecraft no responde; revisa el mod y GameDir.");peer.EndConnect(pending);}
+                    finally {pending.AsyncWaitHandle.Close();}
+                    peer.ReceiveTimeout=15000;peer.SendTimeout=2000;
+                    var stream=peer.GetStream();var bytes=System.Text.Encoding.UTF8.GetBytes(request+"\n");stream.Write(bytes,0,bytes.Length);
+                    var buffer=new System.Collections.Generic.List<byte>();
+                    for(;;) {int value=stream.ReadByte();if(value==10)break;if(value<0 || buffer.Count>=4096)throw new System.IO.IOException("Respuesta de preparacion incompleta.");buffer.Add((byte)value);}
+                    return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+                } finally {peer.Close();}
+            });
+        }
+        public bool Completed {get {return task.IsCompleted;}}
+        public string Result() {return task.GetAwaiter().GetResult();}
+        public void Dispose() {peer.Close();}
+    }
+
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)] public struct Point { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] public struct Placement {

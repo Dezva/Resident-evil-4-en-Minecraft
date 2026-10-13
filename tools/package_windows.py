@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.34"
-    mod_version = "0.4.34"
+    version = "0.4.35"
+    mod_version = "0.4.35"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "c9581bc78dd4364187d0e33b2ca7adca4eeb5e7cd83d777b2bc064eda8702c91":
-        raise SystemExit("0.4.34 requires verified build434 overlay-cache native DLL")
+    if native_hash != "1a52f6750f42752ad5dbfdd25319f68da61a96e92f8ec2851145715020432658":
+        raise SystemExit("0.4.35 requires verified build435 depth native DLL")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -45,6 +45,7 @@ def main():
                            (root / "VIEW-RE4.bat", "VIEW-RE4.bat"),
                            (root / "VIEW-RE4.ps1", "VIEW-RE4.ps1"),
                            (root / "tools/RE4View.cs", "tools/RE4View.cs"),
+                           (root / "tools/Prepare-Minecraft.ps1", "tools/Prepare-Minecraft.ps1"),
                            (root / "docs/RE4-VIEW.md", "docs/RE4-VIEW.md"),
                            (root / "DIAGNOSE-RE4-CONTROLS.bat", "DIAGNOSE-RE4-CONTROLS.bat"),
                            (root / "DIAGNOSE-RE4-CONTROLS.ps1", "DIAGNOSE-RE4-CONTROLS.ps1"),
@@ -66,6 +67,8 @@ def main():
                            (root / "UNINSTALL-RE4-CONTROLS.bat", "UNINSTALL-RE4-CONTROLS.bat"),
                            (root / "native/build/dinput8.dll", "native/dinput8.dll"),
                            (root / "tools/re4_live_host.py", "tools/re4_live_host.py"),
+                           (root / "tools/re4_depth.py", "tools/re4_depth.py"),
+                           (root / "tools/re4_terrain_feed.py", "tools/re4_terrain_feed.py"),
                            (root / "tools/re4_control.py", "tools/re4_control.py"),
                            (root / "tools/re4_hud.py", "tools/re4_hud.py"),
                            (root / "tools/re4_overlay.py", "tools/re4_overlay.py"),
@@ -81,7 +84,7 @@ def main():
                            (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.34.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.35.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),

@@ -1,9 +1,11 @@
-param()
+param([string]$GameDir=(Join-Path $env:APPDATA '.minecraft'))
 $ErrorActionPreference = 'Stop'
 $session = $null
 $viewLock = $null
 $ownsLock = $false
+$script:prepareCall=$null
 try {
+    . (Join-Path $PSScriptRoot 'tools\Prepare-Minecraft.ps1')
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     Add-Type -Path (Join-Path $PSScriptRoot 'tools\RE4View.cs')
@@ -33,19 +35,26 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.StartPosition = 'Manual'; $form.Location = [System.Drawing.Point]::new($screen.Left+12,$screen.Top+12)
     $label = New-Object System.Windows.Forms.Label
     $label.Location=[System.Drawing.Point]::new(10,10); $label.Size=[System.Drawing.Size]::new(405,65)
-    $label.Text="RE4 en ventana, Minecraft abierto sin minimizar.`r`nPulsa Preparar Minecraft; luego controller/arm. F9 muestra RE4.`r`nE abre el inventario; F8 devuelve RE4 normal con su HUD."
+    $label.Text="Abre una partida RE4 y un mundo Minecraft en creativo.`r`nPreparar Minecraft conecta y activa el puente. F9 muestra RE4.`r`nE abre inventario; F8 devuelve RE4 normal con su HUD."
     $form.Controls.Add($label)
     $prepare = New-Object System.Windows.Forms.Button
     $prepare.Text='Preparar Minecraft'; $prepare.Location=[System.Drawing.Point]::new(10,83); $prepare.Size=[System.Drawing.Size]::new(160,45)
-    $prepare.Add_Click({ try { $session.Prepare($bounds) } catch { $label.Text=$_.Exception.Message } })
+    function Prepare-All {
+        if ($null -ne $script:prepareCall) {return}
+        $session.Prepare($bounds)
+        try {$script:prepareCall=Invoke-MinecraftPreparation $GameDir;$label.Text='Preparando Minecraft... F8 cancela.'}
+        catch {$session.Normal($false);$label.Text=$_.Exception.Message}
+    }
+    $prepare.Add_Click({ try { Prepare-All } catch { $label.Text=$_.Exception.Message } })
     $normal = New-Object System.Windows.Forms.Button
     $normal.Text='Volver a RE4 normal (F8)'; $normal.Location=[System.Drawing.Point]::new(180,83); $normal.Size=[System.Drawing.Size]::new(235,45)
     function Return-ToNormal {
+        if ($null -ne $script:prepareCall) {$script:prepareCall.Dispose();$script:prepareCall=$null}
         try {
             Set-ViewPanel $false
             $session.Normal($true)
-            $label.Text='RE4 normal. Para volver al puente: Preparar Minecraft, arm y F9.'
-            if (!$session.FocusConfirmed) { $label.Text='Vista restaurada. Windows no permitio dar foco: pulsa la ventana de RE4. Para volver: Preparar Minecraft, arm y F9.' }
+            $label.Text='RE4 normal. Para volver al puente: Preparar Minecraft y F9.'
+            if (!$session.FocusConfirmed) { $label.Text='Vista restaurada. Windows no permitio dar foco: pulsa la ventana de RE4. Para volver: Preparar Minecraft y F9.' }
             if (!$session.StopConfirmed) { $label.Text+=' IPC no disponible: el corte depende de perder foco/TTL.' }
         } catch { $label.Text='Error de retorno: '+$_.Exception.Message }
     }
@@ -69,14 +78,20 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
         $f8=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x77) -band 0x8000) -ne 0
         $f9=([RE4BridgeView.WindowsDesktop]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0
         try {
+            if ($null -ne $script:prepareCall -and $script:prepareCall.Completed) {
+                try {$label.Text=Complete-MinecraftPreparation $script:prepareCall}
+                catch {$session.Normal($false);$label.Text=$_.Exception.Message}
+                finally {$script:prepareCall.Dispose();$script:prepareCall=$null}
+            }
             if ($session.Active) { $session.PumpMouse() }
             if ($f8 -and !$keys.F8) { Return-ToNormal }
             elseif ($f9 -and !$keys.F9) {
-                if ($session.Active) { Set-ViewPanel $false; $session.Prepare($bounds); $label.Text='Minecraft visible. Requiere otro arm; F9 vuelve a mostrar RE4.' }
+                if ($null -ne $script:prepareCall) {$label.Text='Espera a que termine Preparar Minecraft; F8 cancela.'}
+                elseif ($session.Active) { Set-ViewPanel $false; Prepare-All }
                 else { $session.Enter($bounds); Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
             } elseif ($session.Active -and !$session.StillFocused()) {
                 $reason=$session.Interruption()
-                $session.Normal($false); Set-ViewPanel $false; $label.Text=$reason+' Preparar Minecraft, arm y F9 para volver.'
+                $session.Normal($false); Set-ViewPanel $false; $label.Text=$reason+' Preparar Minecraft y F9 para volver.'
                 try { Add-Content -LiteralPath (Join-Path $PSScriptRoot 'view-events.log') -Value ((Get-Date -Format o)+' '+$reason) } catch {}
             }
         } catch { $label.Text=$_.Exception.Message }
@@ -88,6 +103,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $timer.Stop(); $timer.Dispose(); $form.Dispose()
 } catch { Write-Host ('ERROR: '+$_.Exception.Message); exit 1 }
 finally {
+    if ($null -ne $script:prepareCall) {$script:prepareCall.Dispose();$script:prepareCall=$null}
     if ($null -ne $session) {
         try { $session.Normal($false) } catch { Write-Host ('No se pudo restaurar la ventana: '+$_.Exception.Message) }
     }

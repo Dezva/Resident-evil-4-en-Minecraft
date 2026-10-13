@@ -1,9 +1,8 @@
 # Ver RE4 mientras Minecraft controla: complemento de vista 0.1.2
 
-Actualizado con0.4.34: movimiento de cursor agrupado, orden de clics y registro de interrupciones.
-Compatible con los paquetes de controles ya publicados (IPC v1/v2). No necesita
-cambiar mod, host ni DLL. Windows PowerShell 5.1 y WinForms vienen con Windows;
-no requiere instalar otra biblioteca. Usa los mismos permisos que RE4/host.
+Actualizado con 0.4.35: el botón prepara el mod completo sin comandos.
+Requiere mod, host y DLL del paquete nuevo. Windows PowerShell 5.1 y WinForms
+vienen con Windows. Usa los mismos permisos que RE4/host.
 
 ## Primera prueba
 
@@ -13,11 +12,10 @@ no requiere instalar otra biblioteca. Usa los mismos permisos que RE4/host.
 2. Extrae el complemento y ejecuta `VIEW-RE4.bat`, como administrador si RE4
    tambien lo esta. Aparece un panel con **Preparar Minecraft** y
    **Volver a RE4 normal (F8)**. Solo admite una ventana de cada juego.
-3. Pulsa **Preparar Minecraft** primero: detiene el puente y ajusta RE4 sin bordes
-   en el fondo, antes de activar controles/HUD. En Minecraft ejecuta `/re4bridge controller`, espera conexion, configura
-   las opciones que quieras probar y despues `/re4bridge arm`. Si quieres raton,
-   usa `/re4bridge mouse` antes de arm. Si quieres camara experimental,
-   `/re4bridge firstperson` antes de arm. Cierra el chat.
+3. Pulsa **Preparar Minecraft**: ajusta las ventanas antes de armar y pide al
+   mod que conecte controller, active primera persona/ratón/HUD/construcción y
+   arme el puente. Mundo local creativo, chat/inventario cerrados. Espera el
+   mensaje de preparación completada. F8 cancela también durante la espera.
 4. Pulsa **F9 desde Minecraft**. RE4 se muestra sin bordes a pantalla completa
    en el monitor donde estaba, pero Minecraft conserva el foco y recibe W/S,
    A/D y raton. Los clics reales izquierdo/derecho/medio y la rueda que caen sobre
@@ -29,7 +27,7 @@ no requiere instalar otra biblioteca. Usa los mismos permisos que RE4/host.
    capturado, usa F8; para pulsar el boton, Esc libera el cursor y ya desarma.
 
 F9 de nuevo muestra el panel, devuelve la vista a Minecraft y desarma, para ver comandos e
-indicadores. Usa otro `/re4bridge arm`, cierra chat y F9 para volver a RE4.
+indicadores. El panel vuelve a preparar el mod; espera confirmación y pulsa F9 para volver a RE4.
 Alt-tab/perder foco desarma y restaura la ventana; no se rearma solo. Cerrar
 el panel normalmente tambien detiene y restaura. Si Windows rechaza dar el
 foco, pulsa la ventana de RE4; el panel informa el fallo.

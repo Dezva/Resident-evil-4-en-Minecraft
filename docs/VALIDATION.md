@@ -931,3 +931,13 @@ ejecución del juego ni
 prueba de GPU Windows; proyección observada del usuario validada en fixture, oclusión real pendiente.
 Matriz GX4:3/viewport1366×768: superficies y contorno con focalX real,
 near100/far≈1e6 y clipping de pantalla comprobados.
+
+## 0.4.37
+
+Build/tests Fabric: core33 y Minecraft47. Python138.15 fixtures C con ASan/
+UBSan. Verificación de cubo frontal cuadrado en1366×768 desde GX4:3, Z y
+clipping sin alterar planos; rayo desde ojos a cara superior para apilar;
+poses/escalas/altura de cuadrícula y todos los vértices de dos bloques con
+rotaciones frente al contorno. Contacto pequeño de suelo admitido y muro
+rechazado. Instalación/desinstalación y checksum del paquete comprobados.
+No hay driver D3D9/RE4 ejecutado en cloud; apariencia final Windows pendiente.

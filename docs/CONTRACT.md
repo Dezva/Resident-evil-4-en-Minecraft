@@ -496,3 +496,12 @@ reservada offset60 ahora cuenta dibujos sin profundidad. Build436 mantiene
 razón2/3 cuando usa compatibilidad por matriz rechazada/buffer ausente;
 `depth_draws` solo aumenta por dibujo con profundidad validada. Compatibilidad
 se ejecuta al final de la escena y no omite gates F8/TTL/epoch/generación.
+
+## Coherencia37
+
+GX conserva matriz virtual en el diagnóstico; la matriz efectiva normaliza
+focalX para el viewport sin cambiar Z. ControllerMapping.gridHeight alinea
+la consulta nativa y la selección con la escena. Preparación usa ojos reales
+de Steve, limitados por el rango nativo existente. Rayos de construcción
+usando pose/orientación del tick, no interpolación de otro renderer. Contacto
+de apoyo0.02bloques, máximo20% de altura de una forma; laterales/techo intactos.

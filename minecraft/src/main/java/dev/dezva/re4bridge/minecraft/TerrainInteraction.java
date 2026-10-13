@@ -11,10 +11,10 @@ import net.minecraft.world.World;
 
 /** Native surfaces for the one local bridge player. Normal Minecraft is untouched. */
 public final class TerrainInteraction {
-    private record Context(BridgeConnection bridge,ControllerMapping mapping,TerrainSnapshot mesh,int generation,UUID player,String dimension,Set<BlockPos> placed,long tick){}
+    private record Context(BridgeConnection bridge,ControllerMapping mapping,TerrainSnapshot mesh,int generation,UUID player,String dimension,Set<BlockPos> placed,double eye,Vec3d direction,long tick){}
     private static volatile Context context;
     private static BlockPos cachedCell,cachedCandidate;private static Direction cachedSide;private static TerrainSnapshot cachedMesh;
-    public static void bind(BridgeConnection bridge,ControllerMapping mapping,int generation,UUID player,String dimension,Set<BlockPos> placed){context=mapping==null?null:new Context(bridge,mapping,bridge.terrain(),generation,player,dimension,placed,System.nanoTime());}
+    public static void bind(BridgeConnection bridge,ControllerMapping mapping,int generation,UUID player,String dimension,Set<BlockPos> placed,double eye,Vec3d direction){context=mapping==null?null:new Context(bridge,mapping,bridge.terrain(),generation,player,dimension,placed,eye,direction,System.nanoTime());}
     public static void clear(){context=null;cachedCell=cachedCandidate=null;cachedMesh=null;}
     private static boolean active(Context c){return c!=null && System.nanoTime()-c.tick<200_000_000L && c.bridge.status().connected() && c.bridge.nativeArmed() && c.bridge.nativeStop()==0;}
     private static boolean ready(Context c){return active(c) && c.mesh!=null && c.mesh.generation()==c.generation && c.mesh.fresh(System.nanoTime());}
@@ -23,16 +23,25 @@ public final class TerrainInteraction {
     private static TerrainSnapshot.Hit ray(Context c,Vec3d a,Vec3d b){return c.mesh.raycast(TerrainSnapshot.nativePoint(c.mapping,point(a)),TerrainSnapshot.nativePoint(c.mapping,point(b)));}
     private static Direction normal(Context c,TerrainSnapshot.Point n){double co=Math.cos(c.mapping.rotation()),si=Math.sin(c.mapping.rotation());return Direction.getFacing((float)(co*n.x()+si*n.z()),(float)n.y(),(float)(-si*n.x()+co*n.z()));}
     private static boolean covered(Context c,Vec3d p){return ready(c) && c.mesh.covered(TerrainSnapshot.nativePoint(c.mapping,point(p)));}
-    private static boolean box(Context c,Box box){return !c.mesh.intersects(c.mapping,new double[]{box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ},.0005);}
-    private static BlockHitResult placed(Context c,World world,Vec3d start,Vec3d end,boolean outline){
+    private static boolean box(Context c,Box box){return !c.mesh.intersects(c.mapping,placementBounds(box),.0005);}
+    // Two centimeters of support contact, not one whole voxel of vertical displacement.
+    static double[] placementBounds(Box box){return new double[]{box.minX,box.minY+Math.min(.02,(box.maxY-box.minY)*.2),box.minZ,box.maxX,box.maxY,box.maxZ};}
+    static BlockHitResult nearestPlaced(Vec3d start,Vec3d end,Set<BlockPos> positions,java.util.function.Function<BlockPos,net.minecraft.util.shape.VoxelShape> shapes){
         BlockHitResult best=null;double distance=Double.POSITIVE_INFINITY;
-        for(var pos:c.placed)if(world.isChunkLoaded(pos)){var state=world.getBlockState(pos);var shape=outline?state.getOutlineShape(world,pos):state.getCollisionShape(world,pos);var hit=shape.raycast(start,end,pos);
-            if(hit!=null && start.squaredDistanceTo(hit.getPos())<distance){best=hit;distance=start.squaredDistanceTo(hit.getPos());}}
+        for(var pos:positions){var hit=shapes.apply(pos).raycast(start,end,pos);if(hit!=null && start.squaredDistanceTo(hit.getPos())<distance){best=hit;distance=start.squaredDistanceTo(hit.getPos());}}
         return best;
+    }
+    private static BlockHitResult placed(Context c,World world,Vec3d start,Vec3d end,boolean outline){
+        return nearestPlaced(start,end,c.placed,pos->{
+            if(!world.isChunkLoaded(pos))return net.minecraft.util.shape.VoxelShapes.empty();
+            var state=world.getBlockState(pos);return outline?state.getOutlineShape(world,pos):state.getCollisionShape(world,pos);
+        });
     }
     public static void crosshair(MinecraftClient client,float delta){
         Context c=context;if(!active(c) || client.player==null || client.world==null || !client.player.getUuid().equals(c.player))return;
-        Vec3d start=client.player.getCameraPosVec(delta),end=start.add(client.player.getRotationVec(delta).multiply(client.player.getBlockInteractionRange()));
+        var sample=c.bridge.re4Sample();if(sample==null || !sample.fresh(System.nanoTime()))return;
+        var head=c.mapping.eye(sample,c.eye,0);
+        Vec3d start=new Vec3d(head.x(),head.y(),head.z()),end=start.add(c.direction.multiply(client.player.getBlockInteractionRange()));
         client.targetedEntity=null;
         if(!ready(c) || !covered(c,start) || !covered(c,end)){client.crosshairTarget=BlockHitResult.createMissed(end,Direction.UP,BlockPos.ofFloored(end));return;}
         BlockHitResult best=placed(c,client.world,start,end,true);double distance=best==null?Double.POSITIVE_INFINITY:start.squaredDistanceTo(best.getPos());

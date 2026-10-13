@@ -25,7 +25,11 @@ static inline int block_gx_projection(const float *gx,float fov,float width,floa
     if(fabsf(gx[14]+1.f)>.001f || gx[10]>=0 || gx[11]>=0)return 0;
     unsigned reverse=compare==5 || compare==7;
     d3d[10]=reverse?-gx[10]:gx[10]-1.f;d3d[14]=reverse?-gx[11]:gx[11];
-    return block_projection(d3d,fov,width,height,out);
+    if(!block_projection(d3d,fov,width,height,out))return 0;
+    /* UHD's shader corrects the virtual GX aspect for the output viewport.
+     * Native Z planes stay unchanged; equal pixel focal lengths avoid anamorphic cubes. */
+    out->matrix[0]=out->matrix[5]*height/width;
+    return 1;
 }
 /* Clear accepts either no rectangles or one absolute rectangle covering the viewport. */
 static inline int block_depth_full_clear(unsigned count,const int32_t *rect,uint32_t x,uint32_t y,uint32_t width,uint32_t height){

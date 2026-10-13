@@ -21,6 +21,15 @@ public record ControllerMapping(Re4Sample origin,double x,double y,double z,doub
         if(!Double.isFinite(point.x()+point.y()+point.z()) || Math.abs(point.x())>29_000_000 || Math.abs(point.z())>29_000_000 || Math.abs(point.y())>10000)throw new IllegalArgumentException("Editor position outside world bounds");
         return point;
     }
+    public ControllerMapping gridHeight(double height){
+        if(!Double.isFinite(height) || Math.abs(height)>2500)throw new IllegalArgumentException("Invalid grid height");
+        return new ControllerMapping(new Re4Sample(origin.x(),origin.y()+height,origin.z(),origin.yawRadians(),origin.receivedNs()),x,y,z,rotation,scale);
+    }
+    public double minecraftEyeHeight(double eye){
+        double nativeEye=eye*scale;
+        if(!Double.isFinite(nativeEye) || nativeEye<40 || nativeEye>2500)throw new IllegalArgumentException("Eye height outside native range");
+        return nativeEye;
+    }
     public Point eye(Re4Sample sample,double nativeEye,double gridHeight){
         if(!Double.isFinite(nativeEye+gridHeight) || Math.abs(nativeEye)>2500 || Math.abs(gridHeight)>2500)throw new IllegalArgumentException("Invalid editor eye");
         return toMinecraft(new Re4Sample(sample.x(),sample.y()+nativeEye-gridHeight,sample.z(),sample.yawRadians(),sample.receivedNs()));

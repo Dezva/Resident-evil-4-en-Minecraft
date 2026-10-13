@@ -1,5 +1,18 @@
 # Registro de desarrollo
 
+## 0.4.37 — proporción, altura y apilado
+
+La captura real36 muestra5068 dibujos con profundidad, pero el usuario reporta
+bloques anchos, contorno/colocación incómodos y sensación de altura incorrecta.
+Se corrige el uso directo de focalX GX4:3 en widescreen: focales efectivos
+iguales en píxeles, Z nativo conservado. Preparar usa ojos/pose/escala de Steve;
+el rayo toma cabeza mapeada y orientación del tick de control, y se recalcula
+antes del HUD. Desplazamiento de cuadrícula común en consultas y contorno.
+Tolerancia de apoyo0.02bloques (cap20% formas pequeñas) evita elevar un voxel
+por diferencias pequeñas de suelo sin retirar muros ni checks nativos.
+Pruebas de apilado, esquinas/contorno con rotaciones, ojos y contacto/muro.
+DLL437 y mod37; presentación Windows pendiente.
+
 ## 0.4.36 — visibilidad con proyección rechazada
 
 El log real de35 muestra231 intentos y0 dibujos de profundidad con razón2.

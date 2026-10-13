@@ -7,6 +7,7 @@ int main(void){
  float view[12]={1,0,0,0,0,1,0,0,0,0,1,0};
  float box[1][6]={{-100,-100,-2000,100,100,-1000}};BlockSurfaceMesh *mesh=malloc(sizeof(*mesh));assert(mesh);
  float fx=p.matrix[0]*1366/2,fy=p.matrix[5]*768/2;
+ assert(fabsf(fx-fy)<.001f); // A frontal unit square must stay square in widescreen.
  unsigned n=block_surfaces_materials_projected(box,1,view,50,1366,768,mesh,NULL,p.near_plane,fx);assert(n==6);
  for(unsigned i=0;i<n;i++){
   assert(fabsf(fabsf(mesh->vertices[i].x-683)-fx*.1f)<.001f);

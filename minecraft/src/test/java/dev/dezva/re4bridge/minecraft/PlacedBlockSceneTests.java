@@ -24,6 +24,24 @@ class PlacedBlockSceneTests {
         var nativeBox=new BlockPreview((pos.getX()%1000)*99+10,20,30,1000);
         return scene.put(new BlockPlacementProbe.Placed(pos,state,nativeBox,"overworld"),shapes(state),0);
     }
+    @Test void renderedCornersAndOutlineUseOneRigidMappingIncludingGridHeight(){
+        var raw=new dev.dezva.re4bridge.Re4Sample(-100000,-400,3000,.6,0);
+        for(double rotation:new double[]{0,.7,-2.1}){
+            var mapping=new dev.dezva.re4bridge.ControllerMapping(raw,12,80,3,rotation,1000);
+            var scene=new PlacedBlockScene();var root=new BlockPos(14,80,6);var state=Blocks.STONE.getDefaultState();
+            var center=mapping.toNative(root.getX()+.5,root.getY(),root.getZ()+.5);
+            assertTrue(scene.put(new BlockPlacementProbe.Placed(root,state,new BlockPreview(center.x(),center.y(),center.z(),1000),"overworld"),shapes(state),0));scene.rotation(rotation);scene.height(250);
+            var top=root.up();var topCenter=mapping.toNative(top.getX()+.5,top.getY(),top.getZ()+.5);
+            assertTrue(scene.put(new BlockPlacementProbe.Placed(top,state,new BlockPreview(topCenter.x(),topCenter.y(),topCenter.z(),1000),"overworld"),shapes(state),0));
+            var snapshot=scene.snapshot();var shifted=mapping.gridHeight(250);
+            for(int block=0;block<2;block++)for(int corner=0;corner<8;corner++){
+                var pos=block==0?root:top;var bounds=snapshot.boxes().get(block);
+                double x=(corner&1)==0?bounds.minX():bounds.maxX(),y=(corner&2)==0?bounds.minY():bounds.maxY(),z=(corner&4)==0?bounds.minZ():bounds.maxZ();
+                var expected=shifted.toNative(pos.getX()+((corner&1)==0?0:1),pos.getY()+((corner&2)==0?0:1),pos.getZ()+((corner&4)==0?0:1));
+                assertEquals(expected.x(),snapshot.x()+Math.cos(rotation)*x-Math.sin(rotation)*z,1e-8);assertEquals(expected.y(),snapshot.y()+y,1e-8);assertEquals(expected.z(),snapshot.z()+Math.sin(rotation)*x+Math.cos(rotation)*z,1e-8);
+            }
+        }
+    }
     @Test void wallPreservesSpacingAndHeightAndIndividualRemovalKeepsOriginalReference() {
         var scene=new PlacedBlockScene();var state=Blocks.STONE.getDefaultState();
         assertTrue(put(scene,BlockPos.ORIGIN,state));scene.align(0);

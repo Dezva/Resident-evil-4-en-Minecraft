@@ -36,6 +36,19 @@ class ControllerMappingTests {
             }
         }
     }
+    @Test void poseHeightAndGridShiftKeepFeetAndEyesConsistent(){
+        var origin=new Re4Sample(-103000,-400,1700,.7,0);
+        for(double scale:new double[]{500,1000})for(double eye:new double[]{1.62,1.27})for(double shift:new double[]{0,250,-150}){
+            var base=ControllerMapping.anchor(origin,12,80,3,20,scale);var grid=base.gridHeight(shift);
+            double nativeEye=base.minecraftEyeHeight(eye);
+            var head=base.eye(origin,nativeEye,shift);var direct=grid.eye(origin,nativeEye,0);
+            assertEquals(head.x(),direct.x(),1e-9);assertEquals(head.y(),direct.y(),1e-9);assertEquals(head.z(),direct.z(),1e-9);
+            var feet=grid.toNative(head.x(),head.y()-eye,head.z());
+            assertEquals(origin.y(),feet.y(),1e-8);
+            var nativeHead=grid.toNative(head.x(),head.y(),head.z());assertEquals(origin.y()+eye*scale,nativeHead.y(),1e-8);
+            var point=base.toNative(13,82,4);var raised=grid.toNative(13,82,4);assertEquals(shift,raised.y()-point.y(),1e-8);
+        }
+    }
     @Test void invalidTransformsAndExtremeMappedPositionsAreRejected(){
         var sample=new Re4Sample(0,0,0,0,0);
         assertThrows(IllegalArgumentException.class,()->ControllerMapping.anchor(sample,0,0,0,0,0));

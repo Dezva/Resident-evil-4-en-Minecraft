@@ -77,6 +77,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
     private double eyeHeight = 1620;
+    private boolean automaticEyeHeight=true;
+    private double lastNativeEyeHeight=1620;
     private BlockPreview blockPreview;
     private BlockPos previewBlock;
     private String previewDimension;
@@ -136,7 +138,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 .then(literal("eyeheight").then(argument("height", DoubleArgumentType.doubleArg(-2500, 2500)).executes(ctx -> {
                     double height = DoubleArgumentType.getDouble(ctx, "height");
                     if (Math.abs(height) < 40) { say(ctx.getSource().getClient(), "Altura absoluta entre 40 y 2500 unidades RE4."); return 0; }
-                    stopDriving(); eyeHeight = height;
+                    stopDriving(); eyeHeight = height;automaticEyeHeight=false;
                     say(ctx.getSource().getClient(), "Altura de camara: " + height + ". Usa arm."); return 1;
                 })))
                 .then(literal("arm").executes(ctx -> arm(ctx.getSource().getClient())))
@@ -260,8 +262,12 @@ public final class Re4BridgeClient implements ClientModInitializer {
         stopDriving();mapEditing=enabled;
         say(client,enabled?"Mapa auxiliar: camina y coloca cristal/suelo en Minecraft; estas nuevas colocaciones no se envian a RE4. map off termina.":"Mapa auxiliar terminado. Usa arm; se conserva la referencia y tu construccion.");return 1;
     }
+    private double nativeEyeHeight(MinecraftClient client){
+        double height=automaticEyeHeight && controllerMapping!=null?controllerMapping.minecraftEyeHeight(client.player.getEyeHeight(client.player.getPose())):eyeHeight;
+        lastNativeEyeHeight=height;return height;
+    }
     private ControllerMapping.Point editorPoint(MinecraftClient client,dev.dezva.re4bridge.Re4Sample sample){
-        var point=firstPersonEnabled?controllerMapping.eye(sample,eyeHeight,placedScene.height()):controllerMapping.toMinecraft(sample);
+        var point=firstPersonEnabled?controllerMapping.eye(sample,nativeEyeHeight(client),placedScene.height()):controllerMapping.toMinecraft(sample);
         double height=firstPersonEnabled?client.player.getEyeHeight(client.player.getPose()):placedScene.height()/controllerMapping.scale();
         return new ControllerMapping.Point(point.x(),point.y()-height,point.z());
     }
@@ -327,6 +333,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if(editorSupport)say(client,"Suelo temporal de cristal en Minecraft; no se envia a RE4 ni mueve construcciones.");
                 controllerDimension=client.world.getRegistryKey().getValue().toString();
             }
+            try{nativeEyeHeight(client);}catch(IllegalArgumentException error){say(client,"Escala/altura fuera del rango de camara nativa. Usa bloques de1000unidades.");return 0;}
             client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));
             lastEditorPoint=editorPoint(client,sample);
         }
@@ -355,7 +362,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         if(!prepareArming){
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
-            synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;
+            synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
             if(arm(client)==0){future.completeExceptionally(new IllegalStateException("No se pudo armar el editor."));prepareFuture=null;return;}prepareArming=true;
@@ -556,8 +563,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
                 try { look = firstPersonEnabled && synchronizedMovement && controllerMapping!=null && (current.nativeCapabilities()&8)!=0
-                    ? controllerMapping.look(client.player.getYaw(),client.player.getPitch(),eyeHeight)
-                    : mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, eyeHeight); }
+                    ? controllerMapping.look(client.player.getYaw(),client.player.getPitch(),nativeEyeHeight(client))
+                    : mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, nativeEyeHeight(client)); }
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
             String dimension=client.world.getRegistryKey().getValue().toString();
@@ -580,6 +587,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
             }
             if(placedScene.style()==3)blockMaterials.resources(client);
             var scene=placedScene.snapshot((pos,state) -> blockMaterials.faces(client,pos,state),blockMaterials);
+            boolean terrain=controlArming.active() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null;
+            current.terrainRequested(terrain);
+            current.depthRequested(controlArming.active() && blockDepth);
+            if(terrain){
+                TerrainInteraction.bind(current,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),client.player.getUuid(),dimension,placedScene.positions(),nativeEyeHeight(client),client.player.getRotationVec(1));
+                TerrainInteraction.crosshair(client,1);
+            }else TerrainInteraction.clear();
             dev.dezva.re4bridge.HudFrame hud=null;
             if(controlArming.active() && firstPersonEnabled && hudEnabled && current.hudAvailable()){
                 try{hud=minecraftHud.snapshot(client,current.overlayWidth(),current.overlayHeight());
@@ -588,14 +602,10 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if(shape.isEmpty() && TerrainInteraction.surfaceTarget(hit))shape=net.minecraft.util.shape.VoxelShapes.fullCube();
                         if(!shape.isEmpty()){
                             var p=hit.getBlockPos();var bounds=shape.getBoundingBox();var origin=controllerMapping.toNative(p.getX(),p.getY(),p.getZ());double scale=controllerMapping.scale();
-                            hud=hud.selection(new double[]{origin.x(),origin.y(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
+                            hud=hud.selection(new double[]{origin.x(),origin.y()+placedScene.height(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
                         }
                     }}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
             }
-            boolean terrain=controlArming.active() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null;
-            current.terrainRequested(terrain);
-            current.depthRequested(controlArming.active() && blockDepth);
-            if(terrain)TerrainInteraction.bind(current,controllerMapping,controlArming.generation(),client.player.getUuid(),dimension,placedScene.positions());else TerrainInteraction.clear();
             if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
@@ -603,7 +613,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 + " | teclas=" + buttons + "/" + current.nativeButtons()
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
-                + (firstPersonEnabled ? " | altura=" + (int)eyeHeight : "")
+                + (firstPersonEnabled ? " | altura=" + Math.round(lastNativeEyeHeight) : "")
                 + (blocksEnabled || blockPreview!=null ? " | bloques="+placedScene.size()+" | cajas="+current.previewBoxCount()+" | modo="+blockStyleName(placedScene.style())+" | col="+(current.collisionActive()?"si":"no")+" | choques="+current.collisionContacts()+" | sin tex="+blockMaterials.missing()
                     +" | enviado="+(current.previewRequested() ? "si" : "no")+" | dibujos="+current.previewDraws() : "")
                 + (current.nativeArmed() ? "" : " | " + current.nativeReason())), true);

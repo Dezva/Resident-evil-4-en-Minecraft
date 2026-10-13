@@ -57,7 +57,7 @@ int main(void){
  actor[0xFD]=7;health_tick(&c,1,now);assert(actor[0xFD]==7); // never restart native death animation
  // Native death already in progress is exported even if the actor disappears.
  c=reset();health_tick(&c,1,now);pose_hp(0);slot=0;globals[0x20]=2;
-  
+
  health_tick(&c,1,now);assert(report.dead && report.damage==1000000 && report.hp==0 && !report.active);
  // Actor replacement cannot inherit a live health write or revive a corpse.
  c=reset();health_tick(&c,1,now);slot+=4;report.ratio=.5f;health_tick(&c,1,now);assert(hp()==1000 && !report.active);

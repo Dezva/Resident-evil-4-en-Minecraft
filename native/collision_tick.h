@@ -5,7 +5,7 @@ static float collision_previous[3],collision_origin[4];
 static SRWLOCK collision_tick_lock=SRWLOCK_INIT;
 static CubeCommand collision_command; /* protected by collision_tick_lock; no 96KB stack frame */
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now) {
-    unsigned active=0,reason=1,contact=0,correction=0;
+    unsigned active=0,reason=1,contact=0,correction=0,rejected=0;
     uint32_t player=0;
     CubeCommand *command=&collision_command;
     if(!collision_shared || !TryAcquireSRWLockExclusive(&collision_tick_lock))return;
@@ -25,7 +25,12 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     }
     if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
     float distance=0;for(unsigned i=0;i<3;++i){float d=observed[i]-collision_previous[i];distance+=d*d;}
-    if(distance>500*500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;} // Teleports/area transitions: do not drag the player back.
+    /* A valid graphics/input snapshot can be skipped while turning/building.
+       Sprint was measured at ~4.16 units/ms; a fixed 500-unit limit falsely
+       stopped ordinary movement accumulated over ~120ms. Keep a bounded
+       sweep budget, the 500ms lease and instant-teleport rejection. */
+    float limit=500.f+5.f*(uint32_t)(now-collision_stamp);
+    if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
     if(!distance)goto reference; // still refresh lease/position; no sweep when the engine did not move
     int hit=block_resolve_horizontal_validated(command,collision_previous,observed,resolved);
     if(hit<0){reason=3;goto disabled;}
@@ -47,10 +52,15 @@ disabled:
 transient:
     active=0; // retain safe reference and its original age, never adopt a penetrating pose
 publish:
+    rejected=reason>=3;
+    /* Keep the stop cause visible after the next dormant callback; reason=1 used
+       to erase teleport/gap evidence before the host could sample it. */
+    if(state->stop && collision_shared->reason==4 && (!complete || collision_shared->generation==control->generation))reason=4;
     InterlockedIncrement(&collision_shared->sequence);MemoryBarrier();
     collision_shared->ticks++;collision_shared->contacts+=contact;collision_shared->corrections+=correction;
-    if(reason>=3)collision_shared->rejections++;
-    collision_shared->reason=reason;collision_shared->active=active;collision_shared->generation=complete?control->generation:0;
+    if(rejected)collision_shared->rejections++;
+    collision_shared->reason=reason;collision_shared->active=active;
+    collision_shared->generation=complete?control->generation:reason==4?collision_shared->generation:0;
     MemoryBarrier();InterlockedIncrement(&collision_shared->sequence);
     ReleaseSRWLockExclusive(&collision_tick_lock);
 }

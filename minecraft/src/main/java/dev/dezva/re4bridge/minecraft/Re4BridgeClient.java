@@ -70,6 +70,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private boolean blockDepth=true;
     private final MinecraftHud minecraftHud=new MinecraftHud();
     private ControllerMapping controllerMapping;
+    private boolean groundAligned;
     private ControllerMapping.Point lastEditorPoint;
     private String controllerDimension;
     private ControllerFollower controllerFollower=new ControllerFollower();
@@ -297,9 +298,14 @@ public final class Re4BridgeClient implements ClientModInitializer {
         controllerInput.update(client.player,lock);
         if(lock && synchronizedMovement && controllerMapping!=null && client.player!=null && client.player.isCreative()){
             try {
+                var terrain=current.terrain();
+                if(!groundAligned && !placedScene.anchored() && placementTracker.size()==0 && terrain!=null && terrain.generation()==controlArming.generation() && terrain.fresh(System.nanoTime())){
+                    var aligned=controllerMapping.groundAnchor(terrain);
+                    if(aligned!=null){controllerMapping=aligned;groundAligned=true;lastEditorPoint=null;}
+                }
                 var point=editorPoint(client,sample);
                 if(!client.world.getRegistryKey().getValue().toString().equals(controllerDimension) || lastEditorPoint!=null && (Math.abs(point.x()-lastEditorPoint.x())>8 || Math.abs(point.y()-lastEditorPoint.y())>8 || Math.abs(point.z()-lastEditorPoint.z())>8))throw new IllegalArgumentException("Salto de zona");
-                controllerFollower.follow(client,point,current,editorSupport);if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
+                controllerFollower.follow(client,point,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation());if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
             }catch(IllegalArgumentException error){stopDriving();say(client,"Sincronizacion detenida: salto de zona. Usa blocks on para fijar otra referencia.");}
         }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
@@ -452,7 +458,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void clearBlock() {
-        controllerMapping=null;controllerDimension=null;lastEditorPoint=null;editorSupport=false;
+        controllerMapping=null;groundAligned=false;controllerDimension=null;lastEditorPoint=null;editorSupport=false;
         blockPreview=null;previewBlock=null;previewDimension=null;previewState=null;placementTracker.clear();placedScene.clear();blockMaterials.clear();
     }
 
@@ -558,7 +564,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && synchronizedMovement && controllerMapping!=null){
-                try{controllerFollower.follow(client,editorPoint(client,sample),current,editorSupport);}catch(IllegalArgumentException error){stopDriving();buttons=0;}
+                try{controllerFollower.follow(client,editorPoint(client,sample),current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation());}catch(IllegalArgumentException error){stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {

@@ -2,6 +2,7 @@ package dev.dezva.re4bridge.minecraft;
 
 import dev.dezva.re4bridge.BridgeConnection;
 import dev.dezva.re4bridge.ControllerMapping;
+import dev.dezva.re4bridge.TerrainSnapshot;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.MinecraftClient;
@@ -13,7 +14,7 @@ import net.minecraft.util.math.BlockPos;
 
 /** Local creative editor follows RE4; no teleport packet changes mouse rotation. */
 final class ControllerFollower {
-    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,long stamp) {}
+    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,ControllerMapping mapping,TerrainSnapshot terrain,int generation,long stamp) {}
     private volatile Task task;
     private final AtomicBoolean queued=new AtomicBoolean();
     private ClientPlayerEntity clientPlayer;
@@ -27,6 +28,8 @@ final class ControllerFollower {
     private final EditorFloor floor=new EditorFloor();
     private net.minecraft.server.world.ServerWorld floorWorld;
     private EditorFloor.World floorSlot;
+    private TerrainSnapshot floorMesh;private ControllerMapping floorMap;private BlockPos floorFeet;
+    private java.util.Map<Long,Integer> ground=java.util.Map.of();
     void claim(BlockPos pos){floor.claim(pos);}
     boolean helper(BlockPos pos){return floor.contains(pos);}
     private void floor(ServerPlayerEntity player,Task current){
@@ -38,14 +41,25 @@ final class ControllerFollower {
             public boolean write(BlockPos pos,net.minecraft.block.BlockState state){return world.setBlockState(pos,state,3);}
             public int bottom(){return world.getBottomY();}public int top(){return world.getTopY();}
         };}
-        floor.update(floorSlot,BlockPos.ofFloored(current.point().x(),current.point().y(),current.point().z()));
+        var feet=BlockPos.ofFloored(current.point().x(),current.point().y(),current.point().z());
+        var mesh=current.terrain();var map=current.mapping();
+        if(mesh==null || map==null || mesh.generation()!=current.generation() || !mesh.fresh(System.nanoTime())){floor.update(floorSlot,feet);floorMesh=null;return;}
+        if(mesh!=floorMesh || !map.equals(floorMap) || !feet.equals(floorFeet)){
+            var heights=new java.util.HashMap<Long,Integer>();
+            for(int x=feet.getX()-EditorFloor.RADIUS;x<=feet.getX()+EditorFloor.RADIUS;x++)for(int z=feet.getZ()-EditorFloor.RADIUS;z<=feet.getZ()+EditorFloor.RADIUS;z++){
+                Double height=mesh.groundHeight(map,x+.5,z+.5,feet.getY());
+                if(height!=null)heights.put(BlockPos.asLong(x,0,z),net.minecraft.util.math.MathHelper.floor(height+.0001)-1);
+            }
+            ground=heights;floorMesh=mesh;floorMap=map;floorFeet=feet;
+        }
+        floor.update(floorSlot,feet,(x,z)->ground.get(BlockPos.asLong(x,0,z)));
     }
-    void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support){
+    void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support,ControllerMapping mapping,int generation){
         if(!client.player.isCreative()){release();return;}
         if(clientPlayer!=client.player){release();clientPlayer=client.player;clientSlot=EditorMode.player(clientPlayer);}
         clientMode.take(clientSlot);
         clientPlayer.setVelocity(Vec3d.ZERO);clientPlayer.setPosition(point.x(),point.y(),point.z());
-        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,System.nanoTime());schedule();
+        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,System.nanoTime());schedule();
     }
     void release(){
         task=null;

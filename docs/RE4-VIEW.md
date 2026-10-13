@@ -114,3 +114,14 @@ juego no se reenvían. PostMessage fallido, excepción del hook, cambio/cierre
 de ventana y pérdida de foco tienen causas separadas. VIEW escribe
 `view-events.log` con hora local después de detener/restaurar. Un error de
 log no impide detener. No se rearma ni se recupera el foco automáticamente.
+
+## 0.4.38
+
+El observador WH_MOUSE_LL utiliza un hilo propio con cola de mensajes. Una pausa
+del timer/interfaz PowerShell ya no detiene su bombeo. Al salir se envía WM_QUIT,
+se espera la retirada del hook y solo entonces se liberan botones/mappings.
+La posición de menú continúa agrupada y protegida entre los dos hilos.
+La pérdida de foco incluye HWND, proceso y clase en `view-events.log`.
+Una salida de primera persona puede ser una parada de la DLL antes de hacer
+Alt+Tab: revisa también `collision_state.reason` del host. No se recupera foco
+ni se rearma automáticamente. Win32/hilo real pendientes de prueba en Windows.

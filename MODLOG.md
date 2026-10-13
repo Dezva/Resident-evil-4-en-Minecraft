@@ -1,5 +1,19 @@
 # Registro de desarrollo
 
+## 0.4.38 — suelo de apoyo y paradas con inputs simultáneos
+
+Fotos37 muestran bloques elevados también en Minecraft. Se elimina el salto de
+celda al rechazar contacto nativo; SAT/EAT transmite suelo/pendiente/pared/otro,
+con contacto de base solo en apoyos clasificados y recorte a la huella.
+Referencia vertical calibrada una vez antes de construir; cristal auxiliar por
+columna usa suelo nativo cuantizado y conserva construcciones. El log muestra
+un rechazo adicional junto a stop1, sin fallo de dibujo. Colisión usa presupuesto
+proporcional al tiempo (sprint medido4.16unidades/ms), conserva lease500ms y
+barrido, y mantiene motivo4 tras parada para diagnóstico. VIEW separa hook Win32
+del timer UI y registra proceso/clase del foco perdido; no hay rearme automático.
+Core36/Minecraft49/Python138 y15 fixtures ASan/UBSan. DLL438/mod38.
+Hilo Win32, interacción y estabilidad en RE4 real pendientes de prueba del usuario.
+
 ## 0.4.37 — proporción, altura y apilado
 
 La captura real36 muestra5068 dibujos con profundidad, pero el usuario reporta

@@ -43,4 +43,17 @@ class EditorFloorTests {
         floor.update(b,new BlockPos(0,80,0));assertEquals(1,a.blocks.size());assertEquals(121,b.blocks.size());
         floor.update(b,new BlockPos(0,320,0));assertTrue(b.blocks.isEmpty());floor.clear();
     }
+    @Test void supportFollowsNativeGroundCellInsteadOfTruncatedActorFeet() throws Exception {
+        var json=com.google.gson.JsonParser.parseString("{\"revision\":1,\"generation\":1,\"age_ms\":0,\"complete\":true,\"position\":[0,0,0],\"radius\":12000,\"triangles\":[[-10000,300,-10000,10000,300,-10000,0,300,10000]],\"kinds\":[\"floor\"]}").getAsJsonObject();
+        var mesh=dev.dezva.re4bridge.TerrainSnapshot.parse(json,0);
+        var map=new dev.dezva.re4bridge.ControllerMapping(new dev.dezva.re4bridge.Re4Sample(0,0,0,0,0),0,80,0,0,1000);
+        var world=new World();var floor=new EditorFloor();
+        // Actor can be slightly below the collision surface; this must not lower the proxy floor.
+        floor.update(world,new BlockPos(0,79,0),(x,z)->{var y=mesh.groundHeight(map,x+.5,z+.5,79);return y==null?null:(int)Math.floor(y+.0001)-1;});
+        var ground=new BlockPos(0,79,0);assertTrue(floor.contains(ground));assertFalse(floor.contains(ground.down()));
+        var candidate=new BlockPos(0,80,0);assertTrue(world.read(candidate).isAir());
+        world.write(candidate,Blocks.STONE.getDefaultState());
+        floor.update(world,new BlockPos(0,79,0),(x,z)->79);assertEquals(Blocks.STONE.getDefaultState(),world.read(candidate));
+        floor.clear();assertEquals(Blocks.STONE.getDefaultState(),world.read(candidate));assertEquals(1,world.blocks.size());
+    }
 }

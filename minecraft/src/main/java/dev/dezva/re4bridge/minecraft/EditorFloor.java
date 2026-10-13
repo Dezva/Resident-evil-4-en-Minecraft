@@ -27,10 +27,16 @@ final class EditorFloor {
         return height;
     }
     void update(World next,BlockPos feet){
+        update(next,feet,(x,z)->feet.getY()-1);
+    }
+    void update(World next,BlockPos feet,java.util.function.BiFunction<Integer,Integer,Integer> ground){
         if(world!=next){clear();world=next;}
         if(feet.getY()-1<world.bottom() || feet.getY()+2>=world.top()){clear();return;}
         var wanted=new HashSet<BlockPos>();
-        for(int x=-RADIUS;x<=RADIUS;x++)for(int z=-RADIUS;z<=RADIUS;z++)wanted.add(feet.add(x,-1,z).toImmutable());
+        for(int x=-RADIUS;x<=RADIUS;x++)for(int z=-RADIUS;z<=RADIUS;z++){
+            int gx=feet.getX()+x,gz=feet.getZ()+z;Integer y=ground.apply(gx,gz);
+            if(y!=null && y>=world.bottom() && y+3<world.top())wanted.add(new BlockPos(gx,y,gz));
+        }
         owned.removeAll(claimed);claimed.retainAll(wanted);
         var iterator=owned.iterator();
         while(iterator.hasNext()){

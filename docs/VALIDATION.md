@@ -941,3 +941,15 @@ poses/escalas/altura de cuadrícula y todos los vértices de dos bloques con
 rotaciones frente al contorno. Contacto pequeño de suelo admitido y muro
 rechazado. Instalación/desinstalación y checksum del paquete comprobados.
 No hay driver D3D9/RE4 ejecutado en cloud; apariencia final Windows pendiente.
+
+## 0.4.38
+
+Core36/Minecraft49; Fabric build JDK21. Python138;15 fixtures C ASan/UBSan.
+Suelo fraccionario hasta0.99bloques, candidato original en contacto clasificado,
+pared rechazada sin cambio a voxel superior, pendientes recortadas a huella y
+corte superior rechazado; calibración evita adoptar techo sobre el jugador;
+helper por suelo nativo conserva construcciones. Sprint4.15unidades/ms tras
+150ms sin graphics, barrido desde referencia segura, teletransporte rechazado,
+parada persistente. Backend VIEW compilado, routing/focus/restauración y
+preparación autenticada comprobados; Win32 hook/thread y GPU real no ejecutados.
+DLL438 PE32 y paquete completo mod/host/VIEW/DLL con hashes verificados.

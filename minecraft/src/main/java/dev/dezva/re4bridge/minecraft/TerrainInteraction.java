@@ -23,7 +23,11 @@ public final class TerrainInteraction {
     private static TerrainSnapshot.Hit ray(Context c,Vec3d a,Vec3d b){return c.mesh.raycast(TerrainSnapshot.nativePoint(c.mapping,point(a)),TerrainSnapshot.nativePoint(c.mapping,point(b)));}
     private static Direction normal(Context c,TerrainSnapshot.Point n){double co=Math.cos(c.mapping.rotation()),si=Math.sin(c.mapping.rotation());return Direction.getFacing((float)(co*n.x()+si*n.z()),(float)n.y(),(float)(-si*n.x()+co*n.z()));}
     private static boolean covered(Context c,Vec3d p){return ready(c) && c.mesh.covered(TerrainSnapshot.nativePoint(c.mapping,point(p)));}
-    private static boolean box(Context c,Box box){return !c.mesh.intersects(c.mapping,placementBounds(box),.0005);}
+    private static boolean box(Context c,Box box){return !c.mesh.placementIntersects(c.mapping,placementBounds(box),.0005);}
+    static BlockPos candidateCell(TerrainSnapshot mesh,ControllerMapping mapping,Vec3d impact,Direction side,java.util.function.Predicate<BlockPos> replaceable){
+        var cell=BlockPos.ofFloored(impact.add(side.getOffsetX()*.0001,side.getOffsetY()*.0001,side.getOffsetZ()*.0001));
+        return replaceable.test(cell) && !mesh.placementIntersects(mapping,placementBounds(new Box(cell)),.0005)?cell:null;
+    }
     // Two centimeters of support contact, not one whole voxel of vertical displacement.
     static double[] placementBounds(Box box){return new double[]{box.minX,box.minY+Math.min(.02,(box.maxY-box.minY)*.2),box.minZ,box.maxX,box.maxY,box.maxZ};}
     static BlockHitResult nearestPlaced(Vec3d start,Vec3d end,Set<BlockPos> positions,java.util.function.Function<BlockPos,net.minecraft.util.shape.VoxelShape> shapes){
@@ -51,7 +55,7 @@ public final class TerrainInteraction {
                 Direction side=normal(c,nativeHit.normal());BlockPos cell=BlockPos.ofFloored(impact.add(side.getOffsetX()*.0001,side.getOffsetY()*.0001,side.getOffsetZ()*.0001));
                 if(!cell.equals(cachedCell) || side!=cachedSide || c.mesh!=cachedMesh){
                     cachedCell=cell;cachedSide=side;cachedMesh=c.mesh;cachedCandidate=null;
-                    for(int step=0;step<2;step++){var candidate=cell.offset(side,step);try{if(client.world.getBlockState(candidate).isReplaceable() && box(c,new Box(candidate))){cachedCandidate=candidate;break;}}catch(IllegalArgumentException unknown){break;}}
+                    try{cachedCandidate=candidateCell(c.mesh,c.mapping,impact,side,p->client.world.getBlockState(p).isReplaceable());}catch(IllegalArgumentException unknown){cachedCandidate=null;}
                 }
                 best=cachedCandidate!=null?candidateHit(impact,side,cachedCandidate):BlockHitResult.createMissed(impact,side,cell);
                 if(best.getType()==HitResult.Type.BLOCK && (start.squaredDistanceTo(best.getPos())>client.player.getBlockInteractionRange()*client.player.getBlockInteractionRange() || !client.world.getBlockState(best.getBlockPos()).isReplaceable()))best=BlockHitResult.createMissed(impact,side,cell);

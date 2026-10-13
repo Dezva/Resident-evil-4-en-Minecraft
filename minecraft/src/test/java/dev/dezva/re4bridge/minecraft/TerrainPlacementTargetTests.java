@@ -5,6 +5,17 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.*;
 import static org.junit.jupiter.api.Assertions.*;
 class TerrainPlacementTargetTests {
+ @Test void fractionalGroundChoosesSupportedCellAndBlockedWallDoesNotTryTheNextVoxel() throws Exception {
+  var map=new dev.dezva.re4bridge.ControllerMapping(new dev.dezva.re4bridge.Re4Sample(0,0,0,0,0),0,80,0,0,1000);
+  String template="{\"revision\":1,\"generation\":1,\"age_ms\":0,\"complete\":true,\"position\":[0,0,0],\"radius\":12000,\"triangles\":[%s],\"kinds\":[%s]}";
+  String floor="[-10000,300,-10000,10000,300,-10000,0,300,10000]",wall="[500,-1000,-1000,500,2000,-1000,500,0,2000]";
+  var mesh=dev.dezva.re4bridge.TerrainSnapshot.parse(com.google.gson.JsonParser.parseString(template.formatted(floor,"\"floor\"")).getAsJsonObject(),0);
+  var impact=new Vec3d(.5,80.3,.5);var cell=TerrainInteraction.candidateCell(mesh,map,impact,Direction.UP,p->true);
+  assertEquals(new BlockPos(0,80,0),cell);assertTrue(serverLocationAccepts(TerrainInteraction.candidateHit(impact,Direction.UP,cell)));
+  var blocked=dev.dezva.re4bridge.TerrainSnapshot.parse(com.google.gson.JsonParser.parseString(template.formatted(floor+","+wall,"\"floor\",\"wall\"")).getAsJsonObject(),0);
+  assertNull(TerrainInteraction.candidateCell(blocked,map,impact,Direction.UP,p->true)); // adjacent upper cell is free but must not replace the target
+  assertNull(TerrainInteraction.candidateCell(mesh,map,impact,Direction.UP,p->false));
+ }
  // Exact location/center gate of ServerPlayNetworkHandler 1.21.1: each axis <1.0000001.
  boolean serverLocationAccepts(BlockHitResult hit){var d=hit.getPos().subtract(Vec3d.ofCenter(hit.getBlockPos()));return Math.abs(d.x)<1.0000001 && Math.abs(d.y)<1.0000001 && Math.abs(d.z)<1.0000001;}
  @Test void elevatedSlopeCellHasValidPacketPoint(){

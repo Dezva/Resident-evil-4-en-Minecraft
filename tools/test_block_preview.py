@@ -9,12 +9,12 @@ from re4_reader import ReaderError
 
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
-    def test_release437_connects_scene_collision_depth_and_stops_all_leases(self):
+    def test_release438_connects_scene_collision_depth_and_stops_all_leases(self):
         import struct
         from test_cube_test import Kernel,Function
-        kernel=Kernel(version=6,build=437)
-        struct.pack_into('<I',kernel.collision,12,437)
-        depth=ctypes.create_string_buffer(256);struct.pack_into('<5I',depth,0,0x52453444,1,2,437,42)
+        kernel=Kernel(version=6,build=438)
+        struct.pack_into('<I',kernel.collision,12,438)
+        depth=ctypes.create_string_buffer(256);struct.pack_into('<5I',depth,0,0x52453444,1,2,438,42)
         original_open=kernel.OpenFileMappingW.callback;original_view=kernel.MapViewOfFile.callback
         def open_mapping(access,inherit,name):
             if name=='Local\\RE4Bridge-Depth-42':

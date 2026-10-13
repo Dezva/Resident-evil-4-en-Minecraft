@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace RE4BridgeView {
     // The UI never waits for network IO; closing the peer cancels pending preparation.
@@ -38,6 +39,7 @@ namespace RE4BridgeView {
     public interface Desktop {
         bool SameWindow(IntPtr window, uint pid);
         IntPtr Foreground();
+        string ForegroundDescription();
         Snapshot Capture(IntPtr window, uint pid);
         void PrepareView(Snapshot state,Rect screen);
         void Present(Snapshot state, Rect screen);
@@ -114,7 +116,7 @@ namespace RE4BridgeView {
             if(!desktop.SameWindow(game.Handle,game.Pid))return "La ventana de RE4 cambio o se cerro.";
             if(!desktop.SameWindow(minecraft,minecraftPid))return "La ventana de Minecraft cambio o se cerro.";
             if(desktop.MouseFailed)return "Fallo de raton: "+desktop.MouseFailure;
-            if(desktop.Foreground()!=minecraft)return "Minecraft perdio el foco (ventana activa "+desktop.Foreground()+").";
+            if(desktop.Foreground()!=minecraft)return "Minecraft perdio el foco ("+desktop.ForegroundDescription()+").";
             return null;
         }
     }
@@ -195,16 +197,23 @@ namespace RE4BridgeView {
         [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr h,ref Point point);
         [DllImport("user32.dll",SetLastError=true)] static extern bool PostMessageW(IntPtr h,uint message,UIntPtr wparam,IntPtr lparam);
         MouseCallback mouseCallback;IntPtr mouseHook;MouseRouter mouseRouter;uint mouseGamePid;
-        IntPtr menuMapping,menuView;string hookFailure,sendFailure;
+        readonly object mouseLock=new object();Thread mouseThread;uint mouseThreadId;
+        IntPtr menuMapping,menuView;volatile string hookFailure,sendFailure;
+        [StructLayout(LayoutKind.Sequential)] struct Message {public IntPtr Window;public uint Id;public UIntPtr Wparam;public IntPtr Lparam;public uint Time;public Point Position;public uint Private;}
+        [DllImport("user32.dll",SetLastError=true)] static extern int GetMessageW(out Message message,IntPtr window,uint min,uint max);
+        [DllImport("user32.dll")] static extern bool PeekMessageW(out Message message,IntPtr window,uint min,uint max,uint remove);
+        [DllImport("user32.dll")] static extern bool TranslateMessage(ref Message message);
+        [DllImport("user32.dll")] static extern IntPtr DispatchMessageW(ref Message message);
+        [DllImport("user32.dll",SetLastError=true)] static extern bool PostThreadMessageW(uint thread,uint message,UIntPtr wparam,IntPtr lparam);
         public bool MenuOpen {get {
             if(menuView==IntPtr.Zero)return false;
             int before=Marshal.ReadInt32(menuView,8);if((before&1)!=0)return false;
             bool menu=Marshal.ReadInt32(menuView,16)==1 && Marshal.ReadInt32(menuView,32)==1;
             return menu && unchecked(GetTickCount()-(uint)Marshal.ReadInt32(menuView,12))<500 && before==Marshal.ReadInt32(menuView,8);
         }}
-        public bool MouseFailed {get{return hookFailure!=null || mouseRouter!=null && mouseRouter.Failed;}}
+        public bool MouseFailed {get{lock(mouseLock)return hookFailure!=null || mouseRouter!=null && mouseRouter.Failed;}}
         public string MouseFailure {get{return hookFailure??sendFailure??"envio rechazado";}}
-        public void PumpMouse(){if(mouseRouter!=null)mouseRouter.FlushMotion();}
+        public void PumpMouse(){lock(mouseLock)if(mouseRouter!=null)mouseRouter.FlushMotion();}
         public IntPtr At(Point point){return GetAncestor(WindowFromPoint(point),2);}
         public uint Modifiers(){return (GetAsyncKeyState(0x10)&0x8000)!=0?4u|((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u):((GetAsyncKeyState(0x11)&0x8000)!=0?8u:0u);}
         public bool Send(IntPtr h,uint message,uint buttons,Point point,ushort wheel){
@@ -223,15 +232,35 @@ namespace RE4BridgeView {
             if(menuMapping!=IntPtr.Zero){menuView=MapViewOfFile(menuMapping,4,0,0,new UIntPtr(128));
                 if(menuView==IntPtr.Zero || Marshal.ReadInt32(menuView)!=0x5245344f || Marshal.ReadInt32(menuView,4)!=1){if(menuView!=IntPtr.Zero)UnmapViewOfFile(menuView);menuView=IntPtr.Zero;CloseHandle(menuMapping);menuMapping=IntPtr.Zero;}}
             mouseRouter=new MouseRouter(this,game,mc,mcPid);mouseGamePid=game.Pid;
-            mouseCallback=OnMouse;mouseHook=SetWindowsHookExW(14,mouseCallback,GetModuleHandleW(null),0);
-            if(mouseHook==IntPtr.Zero){int error=Marshal.GetLastWin32Error();EndMouse();throw new Win32Exception(error,"No se pudo preparar el raton de VIEW.");}
+            // WH_MOUSE_LL must keep pumping even when the PowerShell/WinForms UI stalls.
+            // Windows silently removes a hook whose owning thread exceeds LowLevelHooksTimeout.
+            var ready=new ManualResetEventSlim(false);mouseReady=ready;
+            mouseThread=new Thread(()=>{
+                try {
+                    mouseThreadId=GetCurrentThreadId();Message pending;PeekMessageW(out pending,IntPtr.Zero,0,0,0);
+                    mouseCallback=OnMouse;mouseHook=SetWindowsHookExW(14,mouseCallback,GetModuleHandleW(null),0);
+                    if(mouseHook==IntPtr.Zero)throw new Win32Exception(Marshal.GetLastWin32Error(),"No se pudo preparar el raton de VIEW.");
+                    ready.Set();
+                    Message message;int result;
+                    while((result=GetMessageW(out message,IntPtr.Zero,0,0))>0){TranslateMessage(ref message);DispatchMessageW(ref message);}
+                    if(result<0)throw new Win32Exception(Marshal.GetLastWin32Error(),"Fallo en la cola del raton.");
+                }catch(Exception error){hookFailure=error.GetType().Name+": "+error.Message;}
+                finally {
+                    if(mouseHook!=IntPtr.Zero){if(!UnhookWindowsHookEx(mouseHook) && Marshal.GetLastWin32Error()!=1404)hookFailure="No se pudo retirar el hook del raton.";mouseHook=IntPtr.Zero;}
+                    ready.Set();
+                }
+            });
+            mouseThread.IsBackground=true;mouseThread.Name="RE4 VIEW mouse";mouseThread.Start();
+            if(!ready.Wait(2000) || hookFailure!=null){EndMouse();throw new InvalidOperationException(hookFailure??"El raton de VIEW no inicio a tiempo.");}
+            // The event remains owned by the worker until EndMouse joins it.
         }
+        ManualResetEventSlim mouseReady;
         IntPtr OnMouse(int code,IntPtr message,IntPtr data){
             try {
                 if(code>=0 && mouseRouter!=null && MouseRouter.ButtonOrWheel((uint)message.ToInt64())){
                     if((uint)message.ToInt64()==0x200 && !MenuOpen)return CallNextHookEx(mouseHook,code,message,data);
                     MouseHookData input=(MouseHookData)Marshal.PtrToStructure(data,typeof(MouseHookData));
-                    if(mouseRouter.Route(code,(uint)message.ToInt64(),input.Position,input.Data,input.Flags)){
+                    lock(mouseLock)if(mouseRouter!=null && mouseRouter.Route(code,(uint)message.ToInt64(),input.Position,input.Data,input.Flags)){
                         if(mouseRouter.Failed)Stop(mouseGamePid);
                         return new IntPtr(1);
                     }
@@ -243,7 +272,13 @@ namespace RE4BridgeView {
             return CallNextHookEx(mouseHook,code,message,data);
         }
         public void EndMouse(){
-            MouseRouter old=mouseRouter;mouseRouter=null; // Fail closed even if unhooking fails.
+            if(mouseThread!=null){
+                if(mouseThread.IsAlive && mouseThreadId!=0 && !PostThreadMessageW(mouseThreadId,0x12,UIntPtr.Zero,IntPtr.Zero))throw new Win32Exception(Marshal.GetLastWin32Error(),"No se pudo detener el raton.");
+                if(!mouseThread.Join(2000))throw new TimeoutException("El raton no termino; se conserva su mapping para limpiar al reintentar.");
+                mouseThread=null;mouseThreadId=0;
+            }
+            if(mouseReady!=null){mouseReady.Dispose();mouseReady=null;}
+            MouseRouter old;lock(mouseLock){old=mouseRouter;mouseRouter=null;} // No callback can access mappings after joining.
             if(old!=null){Point point;GetCursorPos(out point);old.Release(point);}
             if(mouseHook!=IntPtr.Zero){
                 bool removed=UnhookWindowsHookEx(mouseHook);int error=Marshal.GetLastWin32Error();
@@ -283,6 +318,13 @@ namespace RE4BridgeView {
         static void Check(bool ok) { if (!ok) throw new Win32Exception(Marshal.GetLastWin32Error()); }
         public bool SameWindow(IntPtr h,uint pid) { uint owner; return IsWindow(h) && GetWindowThreadProcessId(h,out owner) != 0 && owner == pid; }
         public IntPtr Foreground() { return GetForegroundWindow(); }
+        [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassNameW(IntPtr h,System.Text.StringBuilder name,int max);
+        public string ForegroundDescription(){
+            IntPtr h=Foreground();uint pid;GetWindowThreadProcessId(h,out pid);
+            var name=new System.Text.StringBuilder(256);GetClassNameW(h,name,name.Capacity);
+            string process="desconocido";try{using(var owner=System.Diagnostics.Process.GetProcessById((int)pid))process=owner.ProcessName;}catch(Exception){}
+            return "ventana activa "+h+", proceso "+process+", clase "+name;
+        }
         public Snapshot Capture(IntPtr h,uint pid) {
             Placement placement = new Placement(); placement.Length = Marshal.SizeOf(typeof(Placement));
             Check(GetWindowPlacement(h,ref placement));

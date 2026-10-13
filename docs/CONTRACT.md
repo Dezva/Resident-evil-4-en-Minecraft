@@ -505,3 +505,12 @@ la consulta nativa y la selección con la escena. Preparación usa ojos reales
 de Steve, limitados por el rango nativo existente. Rayos de construcción
 usando pose/orientación del tick, no interpolación de otro renderer. Contacto
 de apoyo0.02bloques, máximo20% de altura de una forma; laterales/techo intactos.
+
+## Terreno0.4.38
+
+La respuesta `terrain` admite `kinds` paralelo a `triangles`, con igual cantidad,
+valores floor/slope/wall/other. Ausente significa other: no se deduce suelo de
+la normal de un raycast bidireccional. Solo suelo/pendiente con componente normal
+vertical suficiente permite contacto en la base sin corte superior. Consultas
+de flechas conservan todas las superficies. No se desplaza una colocación
+rechazada a un voxel vecino; hay una sola referencia para suelo, hit y volumen.

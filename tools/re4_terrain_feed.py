@@ -32,12 +32,13 @@ class TerrainFeed:
             report=self.extractor(self.read,self.base,self.size,position,radius=12000,manager_cache=self.cache)
             rows=report['triangles'];complete=report['complete'] and len(rows)<=MAX_TRIANGLES
             triangles=[[*p[0],*p[1],*p[2]] for row in rows for p in [row['vertices']]] if complete else []
+            kinds=[row.get('kind','other') for row in rows] if complete else []
             reason='disponible' if complete else 'mapa incompleto o excede limite local'
-        except (ReaderError,ValueError,OSError) as error:complete=False;triangles=[];reason='lectura de mapa no disponible'
+        except (ReaderError,ValueError,OSError) as error:complete=False;triangles=[];kinds=[];reason='lectura de mapa no disponible'
         with self.lock:
             if self.request is None or self.request[1]!=generation or max(abs(self.request[0][i]-position[i]) for i in range(3))>3000 or self.closed.is_set():return
             self.revision=self.revision%2147483647+1
-            self.latest=(generation,started,dict(revision=self.revision,complete=complete,reason=reason,position=list(position),radius=12000,triangles=triangles))
+            self.latest=(generation,started,dict(revision=self.revision,complete=complete,reason=reason,position=list(position),radius=12000,triangles=triangles,kinds=kinds))
     def run(self):
         next_capture=0
         while not self.closed.is_set():

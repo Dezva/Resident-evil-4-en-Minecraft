@@ -70,6 +70,7 @@ public class FakeViewDesktop : Desktop {
     public bool GameAlive = true, FailPresent, FailRestore, DenyFocus, FailMouse, FailMouseEnd;
     public bool SameWindow(IntPtr h,uint pid) { return h == new IntPtr(1) ? GameAlive && pid == 10 : h == new IntPtr(2) && pid == 20; }
     public IntPtr Foreground() { return Current; }
+    public string ForegroundDescription(){return "ventana activa "+Current+", proceso fixture";}
     public Snapshot Capture(IntPtr h,uint pid) { Calls.Add("capture"); return new Snapshot {Handle=h,Pid=pid}; }
     public void PrepareInput(Snapshot s,Rect r){Calls.Add("inputsize");}
     public void PrepareView(Snapshot s,Rect r){Calls.Add("resize");Resizes++;}
@@ -120,6 +121,7 @@ public class ViewChecks {
         Check(!session.Active && api.Calls.Contains("restore") && session.StopConfirmed,"Mouse setup failure must stop and restore");
         api=new FakeViewDesktop();session=Ready(api);session.Enter(new Rect());api.MouseFailed=true;
         Check(!session.StillFocused(),"Delivery failure ends view instead of recovering focus");
+        api.MouseFailed=false;api.Current=new IntPtr(3);Check(session.Interruption().Contains("proceso fixture"),"Focus log identifies the receiving window");api.MouseFailed=true;
         api.FailMouseEnd=true;try{session.Normal(false);}catch(Exception){}
         Check(!session.Active && api.Calls.Contains("restore") && session.StopConfirmed,"Even mouse cleanup failure must restore window");
         IntPtr view=Marshal.AllocHGlobal(80);

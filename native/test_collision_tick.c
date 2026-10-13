@@ -57,6 +57,14 @@ int main(void) {
         cube_collision_tick(&c,1,now);assert(!report.corrections && coordinate(0)==(fail==9?103:100) && coordinate(1)==8 && !collision_tick_lock.held);
     }
     c=reset();cube_collision_tick(&c,1,now);pose(1000,0,0);cube_collision_tick(&c,1,now);assert(report.reason==4 && coordinate(0)==1000);
+    cube_collision_tick(&c,0,now);cube_collision_tick(&c,1,now);
+    assert(report.reason==4 && report.rejections==1 && report.generation==1 && !report.active && state->stop); // cause survives dormant/torn callbacks without inflating failures
+    c=reset();cube_collision_tick(&c,1,now);
+    graphics_ready=0;now+=150;c.stamp=published.stamp=now;pose(322.5f,8,0);cube_collision_tick(&c,1,now);
+    assert(!state->stop && !report.corrections);graphics_ready=1;cube_collision_tick(&c,1,now);
+    assert(!state->stop && report.corrections==1 && coordinate(0)<-250 && coordinate(1)==8); // 4.15 units/ms; sweep retained safe pose
+    c=reset();cube_collision_tick(&c,1,now);now+=150;c.stamp=published.stamp=now;pose(5000,0,0);cube_collision_tick(&c,1,now);
+    assert(state->stop && report.reason==4 && !report.corrections && coordinate(0)==5000); // genuine teleport is not swept back
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);now=1101;cube_collision_tick(&c,1,now);assert(report.corrections==1 && coordinate(0)<-250);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);published.origin[0]=1;cube_collision_tick(&c,1,now);assert(report.reason==2 && coordinate(0)==100);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);collision_tick_lock.held=1;cube_collision_tick(&c,1,now);assert(coordinate(0)==100 && !report.corrections);collision_tick_lock.held=0;

@@ -361,6 +361,15 @@ La matriz observada GX4:3 se admite en viewport widescreen. Bloques y contorno
 usan focalX de esa matriz para XY, y los planos reales para profundidad. FOV,
 estructura perspectiva, finitud y límites de aspecto/planos siguen validados.
 
+## Build438
+
+Colisiones: presupuesto de desplazamiento500+5×elapsed_ms, con lease500ms
+conservada. El sprint medido~4158unidades/s puede superar el antiguo límite fijo
+tras150ms de pases gráficos omitidos. Sigue el barrido desde la última posición
+segura; saltos instantáneos/teletransportes se rechazan sin arrastrar al jugador.
+El motivo4 de parada permanece visible en callbacks inactivos de la generación.
+No cambia layout IPC. Fixtures de recuperación tras gap y salto real, ASan/UBSan.
+
 ## Build437
 
 Corrige la expansión horizontal de36: GX virtual4:3 se lleva a focalX efectivo

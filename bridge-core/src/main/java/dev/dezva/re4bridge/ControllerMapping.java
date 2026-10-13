@@ -25,6 +25,13 @@ public record ControllerMapping(Re4Sample origin,double x,double y,double z,doub
         if(!Double.isFinite(height) || Math.abs(height)>2500)throw new IllegalArgumentException("Invalid grid height");
         return new ControllerMapping(new Re4Sample(origin.x(),origin.y()+height,origin.z(),origin.yawRadians(),origin.receivedNs()),x,y,z,rotation,scale);
     }
+    /** Calibrate once before building; never re-anchor existing constructions. */
+    public ControllerMapping groundAnchor(TerrainSnapshot terrain){
+        Double ground=terrain.groundHeight(this,x,z,y-2.75);
+        if(ground==null || Math.abs(ground-y)*scale>2500)return null;
+        double nativeY=toNative(x,ground,z).y;
+        return new ControllerMapping(new Re4Sample(origin.x(),nativeY,origin.z(),origin.yawRadians(),origin.receivedNs()),x,Math.ceil(y),z,rotation,scale);
+    }
     public double minecraftEyeHeight(double eye){
         double nativeEye=eye*scale;
         if(!Double.isFinite(nativeEye) || nativeEye<40 || nativeEye>2500)throw new IllegalArgumentException("Eye height outside native range");

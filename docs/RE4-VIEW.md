@@ -134,3 +134,13 @@ stop latched y sin iniciar ninguna petición al mod. Tras un clic en la ventana
 verificada de Minecraft, el timer inicia preparación una sola vez. F9 espera
 la confirmación y F8 cancela tanto la espera de foco como la petición en curso.
 No hay cambio automático de foco durante esa espera ni pérdida de restauración.
+
+## 0.4.40 — selector de modo y Esc
+
+El panel añade Mantener modo del mundo / Supervivencia / Creativo. La petición
+de preparación autentica ese valor fijo; se rechazan nombres/valores distintos
+y se espera confirmación del mod antes de jugar. Una versión antigua del mod
+que no confirme el modo solicitado produce un mensaje de actualización y corte.
+F9 continúa presentando RE4; Esc/E reciben las interfaces de Minecraft en el
+overlay con botones de movimiento0 y el mismo armado. F8 conserva retorno normal.
+El menú pausa Minecraft, pero esta versión no congela la simulación de RE4.

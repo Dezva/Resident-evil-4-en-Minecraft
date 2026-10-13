@@ -14,7 +14,7 @@ import net.minecraft.util.math.BlockPos;
 
 /** Local creative editor follows RE4; no teleport packet changes mouse rotation. */
 final class ControllerFollower {
-    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,ControllerMapping mapping,TerrainSnapshot terrain,int generation,long stamp) {}
+    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,ControllerMapping mapping,TerrainSnapshot terrain,int generation,boolean sprinting,long stamp) {}
     private volatile Task task;
     private final AtomicBoolean queued=new AtomicBoolean();
     private ClientPlayerEntity clientPlayer;
@@ -30,6 +30,7 @@ final class ControllerFollower {
     private EditorFloor.World floorSlot;
     private TerrainSnapshot floorMesh;private ControllerMapping floorMap;private BlockPos floorFeet;
     private java.util.Map<Long,Integer> ground=java.util.Map.of();
+    private ControllerMapping.Point lastTravel;private long travelStamp;private int travelGeneration;
     void claim(BlockPos pos){floor.claim(pos);}
     boolean helper(BlockPos pos){return floor.contains(pos);}
     private void floor(ServerPlayerEntity player,Task current){
@@ -55,12 +56,13 @@ final class ControllerFollower {
         floor.update(floorSlot,feet,(x,z)->ground.get(BlockPos.asLong(x,0,z)));
     }
     void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support,ControllerMapping mapping,int generation){
-        if(!client.player.isCreative()){release();return;}
+        if(!BridgePlayMode.supported(client.player) || !client.player.isAlive()){release();return;}
         if(clientPlayer!=client.player){release();clientPlayer=client.player;clientSlot=EditorMode.player(clientPlayer);}
         clientMode.take(clientSlot);
         EditorPhysics.follow(clientPlayer,true,System.nanoTime(),()->bridge.status().connected() && bridge.nativeStop()==0);
         clientPlayer.setVelocity(Vec3d.ZERO);clientPlayer.setPosition(point.x(),point.y(),point.z());
-        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,System.nanoTime());schedule();
+        boolean sprinting=!MinecraftHud.menu(client) && client.options.sprintKey.isPressed() && (client.options.forwardKey.isPressed() || client.options.backKey.isPressed() || client.options.leftKey.isPressed() || client.options.rightKey.isPressed());
+        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,sprinting,System.nanoTime());schedule();
     }
     void release(){
         task=null;
@@ -75,19 +77,24 @@ final class ControllerFollower {
             try {
                 Task current=task;
                 var player=current==null?null:executor.getPlayerManager().getPlayer(current.id());
-                boolean valid=current!=null && current.server()==executor && player!=null && player.isCreative()
+                boolean valid=current!=null && current.server()==executor && BridgePlayMode.supported(player) && player.isAlive()
                     && player.getServerWorld().getRegistryKey().getValue().toString().equals(current.dimension())
                     && System.nanoTime()-current.stamp()<200_000_000L && current.bridge().status().connected() && current.bridge().nativeStop()==0;
                 if(!valid || player!=serverPlayer){
                     EditorPhysics.release(serverPlayer,false);
                     if(serverPlayer!=null && serverPlayer.getServer()==executor){serverMode.release();serverPlayer.sendAbilitiesUpdate();serverSlot=null;}
-                    serverPlayer=null;floor.clear();floorWorld=null;floorSlot=null;
+                    serverPlayer=null;lastTravel=null;floor.clear();floorWorld=null;floorSlot=null;
                 }
                 if(valid && task==current){
                     if(serverPlayer==null){serverPlayer=player;serverSlot=EditorMode.player(player);}
                     serverMode.take(serverSlot);
                     EditorPhysics.follow(player,false,current.stamp(),()->task!=null && current.bridge().status().connected() && current.bridge().nativeStop()==0);
                     floor(player,current);
+                    if(lastTravel!=null && travelGeneration==current.generation() && !player.isCreative()){
+                        double distance=Math.hypot(current.point().x()-lastTravel.x(),current.point().z()-lastTravel.z());
+                        player.addExhaustion(BridgePlayMode.sprintExhaustion(distance,current.stamp()-travelStamp,current.sprinting()));
+                    }
+                    lastTravel=current.point();travelStamp=current.stamp();travelGeneration=current.generation();
                     // Normal movement packets retain rotation; no repeated position-look teleports.
                     player.setPosition(current.point().x(),current.point().y(),current.point().z());
                     player.setVelocity(Vec3d.ZERO);

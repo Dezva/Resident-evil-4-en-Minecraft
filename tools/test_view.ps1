@@ -169,14 +169,16 @@ function Set-ViewPanel([bool]$compact) { $script:panelHidden=$compact }
 $api=[RE4BridgeView.FakeViewDesktop]::new();$api.Current=[IntPtr]::new(3);$api.DenyFocus=$true
 $session=[RE4BridgeView.Session]::new($api,[IntPtr]::new(1),10,[IntPtr]::new(2),20)
 $bounds=[RE4BridgeView.Rect]::new();$label=[pscustomobject]@{Text=''}
+$mode=[pscustomobject]@{SelectedIndex=1}
 $script:waitingForMinecraft=$false;$script:prepareCall=$null;$script:preparationStarts=0
-function Invoke-MinecraftPreparation($directory) {$script:preparationStarts++;return [pscustomobject]@{Completed=$false}}
+function Invoke-MinecraftPreparation($directory,$gameMode) {$script:receivedMode=$gameMode;$script:preparationStarts++;return [pscustomobject]@{Completed=$false}}
 Prepare-All
 if (!$script:waitingForMinecraft -or !$session.Prepared -or $script:preparationStarts -ne 0) {throw 'Denied focus must retain layout and wait without sending preparation.'}
 Continue-MinecraftPreparation;Prepare-All
 if ($script:preparationStarts -ne 0 -or $api.Resizes -ne 1) {throw 'Waiting must not retry focus, resize or send commands.'}
 $api.Current=[IntPtr]::new(2);Continue-MinecraftPreparation;Continue-MinecraftPreparation
 if ($script:waitingForMinecraft -or $script:preparationStarts -ne 1 -or $null -eq $script:prepareCall) {throw 'One manual Minecraft click must start preparation exactly once.'}
+if ($script:receivedMode -ne 'survival') {throw 'VIEW must pass the selected game mode after manual activation.'}
 $script:prepareCall=$null;$script:waitingForMinecraft=$true
 Return-ToNormal
 if ($script:waitingForMinecraft -or $session.Prepared) {throw 'F8 must cancel pending manual activation.'}
@@ -209,16 +211,17 @@ try {
     $port=$listener.LocalEndpoint.Port
     New-Item -ItemType Directory -Path (Join-Path $temporary 'config') | Out-Null
     @{protocol=1;port=$port-1;token=('a'*64)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $temporary 'config/re4bridge.json')
-    $call=Invoke-MinecraftPreparation $temporary
+    $call=Invoke-MinecraftPreparation $temporary 'survival'
     $peer=$listener.AcceptTcpClient();$peer.ReceiveTimeout=2000
     $reader=[System.IO.StreamReader]::new($peer.GetStream())
     $request=$reader.ReadLine() | ConvertFrom-Json
-    if ($request.type -ne 'prepare' -or $request.token -ne ('a'*64) -or $request.protocol -ne 1 -or $call.Completed) {throw 'Preparation must authenticate without blocking the UI.'}
-    $bytes=[System.Text.Encoding]::UTF8.GetBytes('{"protocol":1,"ok":true,"message":"Listo F9"}'+"`n")
+    if ($request.game_mode -ne 'survival' -or $request.type -ne 'prepare' -or $request.token -ne ('a'*64) -or $request.protocol -ne 1 -or $call.Completed) {throw 'Preparation must authenticate the selected mode without blocking the UI.'}
+    $bytes=[System.Text.Encoding]::UTF8.GetBytes('{"protocol":1,"ok":true,"message":"Listo F9","game_mode":"survival"}'+"`n")
     $peer.GetStream().Write($bytes,0,$bytes.Length)
     $deadline=[DateTime]::UtcNow.AddSeconds(2)
     while (!$call.Completed -and [DateTime]::UtcNow -lt $deadline) {Start-Sleep -Milliseconds 5}
-    if (!$call.Completed -or (Complete-MinecraftPreparation $call) -ne 'Listo F9') {throw 'Preparation reply missing.'}
+    if (!$call.Completed -or (Complete-MinecraftPreparation $call 'survival') -ne 'Listo F9') {throw 'Preparation reply missing.'}
+    try {[void](Complete-MinecraftPreparation $call 'creative');throw 'Mismatched mode acknowledged.'}catch {if ($_.Exception.Message -eq 'Mismatched mode acknowledged.') {throw}}
     $call.Dispose();$reader.Dispose();$peer.Close()
     $call=Invoke-MinecraftPreparation $temporary;$peer=$listener.AcceptTcpClient();$peer.ReceiveTimeout=2000
     $reader=[System.IO.StreamReader]::new($peer.GetStream());[void]$reader.ReadLine()

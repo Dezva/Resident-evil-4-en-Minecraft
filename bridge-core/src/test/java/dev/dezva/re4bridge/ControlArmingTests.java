@@ -4,6 +4,16 @@ import static org.junit.jupiter.api.Assertions.*;
 import static dev.dezva.re4bridge.ControlArming.Screen.*;
 
 class ControlArmingTests {
+    @Test void escapePauseKeepsHeartbeatAndGenerationUntilExplicitStopOrLossOfFocus(){
+        var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);int generation=gate.generation();
+        for(long tick=2;tick<202;tick++)gate.tick(tick*50_000_000L,true,true,PAUSE,true,true,0);
+        assertTrue(gate.active());assertEquals(generation,gate.generation());assertTrue(gate.reason().contains("pausa"));
+        gate.tick(11_000_000_000L,false,true,NONE,true,true,0);assertTrue(gate.active());assertEquals(generation,gate.generation());
+        gate.tick(11_000_000_001L,true,true,PAUSE,true,true,1);assertFalse(gate.active());
+        gate.tick(11_000_000_002L,false,true,NONE,true,true,0);assertFalse(gate.active());
+        gate.request(12_000_000_000L);gate.tick(12_000_000_001L,false,true,NONE,true,false,0);
+        gate.tick(12_000_000_002L,true,false,PAUSE,true,true,0);assertFalse(gate.active());
+    }
     @Test void commandChatDoesNotSendArmedInputAndDeadlineStartsAfterClosure() {
         var gate = new ControlArming();
         gate.request(0);

@@ -514,3 +514,15 @@ la normal de un raycast bidireccional. Solo suelo/pendiente con componente norma
 vertical suficiente permite contacto en la base sin corte superior. Consultas
 de flechas conservan todas las superficies. No se desplaza una colocación
 rechazada a un voxel vecino; hay una sola referencia para suelo, hit y volumen.
+
+## Preparación y pausa0.4.40
+
+VIEW prepare admite game_mode opcional keep/survival/creative, con keep por
+defecto. Valor textual exacto, acción fija autenticada; ACK incluye game_mode
+solo después de completar la preparación. Los modos explícitos esperan
+confirmación del GameMode local de Minecraft antes de solicitar armado.
+ControlArming admite PAUSE solo en armado ya activo; no activa un arm pendiente
+con menú abierto. Pausa/inventario emiten controles con buttons0, look y leases
+vigentes. Foco, F8, muestras caducadas, timeout o parada nativa conservan sus
+checks y no se rearman solos. Supervivencia usa vida/comida de Minecraft;
+no se modifica HP ni el reloj de RE4. IPC/DLL build439 sin cambios.

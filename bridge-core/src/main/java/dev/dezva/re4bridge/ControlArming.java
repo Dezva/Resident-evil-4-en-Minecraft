@@ -2,7 +2,7 @@ package dev.dezva.re4bridge;
 
 /** Client-thread arming: wait for command chat to close before requesting native input. */
 public final class ControlArming {
-    public enum Screen { NONE, CHAT, INVENTORY, OTHER }
+    public enum Screen { NONE, CHAT, INVENTORY, PAUSE, OTHER }
     private boolean pending;
     private boolean active;
     private int generation;
@@ -27,7 +27,7 @@ public final class ControlArming {
             boolean freshSample, boolean nativeArmed, int nativeStop) {
         if (!pending && !active) return;
         if (!focused) { stop("Minecraft perdio el foco"); return; }
-        if (paused) { stop("Minecraft pausado"); return; }
+        if (paused && !(active && screen==Screen.PAUSE)) { stop("Minecraft pausado"); return; }
         if (!freshSample) { stop("sin muestra reciente de RE4"); return; }
         if (pending) {
             if (now - requestedNs >= 2_000_000_000L) { stop("chat no cerrado; repite arm"); return; }
@@ -39,12 +39,12 @@ public final class ControlArming {
             reason = "solicitando control nativo";
             return;
         }
-        if (screen != Screen.NONE && screen != Screen.INVENTORY) { stop("chat o menu abierto"); return; }
+        if (screen != Screen.NONE && screen != Screen.INVENTORY && screen != Screen.PAUSE) { stop("chat o menu abierto"); return; }
         // Start the acknowledgement deadline when input is actually allowed, not inside chat.
         if (now - activatedNs >= 1_000_000_000L && (!nativeArmed || nativeStop != 0)) {
             stop(nativeStop != 0 ? "parada nativa " + nativeStop : "host rechazo el armado; repite arm");
             return;
         }
-        reason = screen == Screen.INVENTORY ? "inventario; movimiento suspendido" : nativeArmed ? "activo" : "solicitando control nativo";
+        reason = screen==Screen.PAUSE?"pausa; movimiento suspendido":screen == Screen.INVENTORY ? "inventario; movimiento suspendido" : nativeArmed ? "activo" : "solicitando control nativo";
     }
 }

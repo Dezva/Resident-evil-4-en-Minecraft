@@ -16,6 +16,6 @@ public final class EditorPhysics {
     static boolean active(Object player,boolean client,long now){
         var lease=slot(client).get();return lease!=null && lease.player==player && now>=lease.stamp && now-lease.stamp<200_000_000L && lease.allowed.getAsBoolean();
     }
-    public static boolean active(PlayerEntity player){return player.isCreative() && active(player,player.getWorld().isClient,System.nanoTime());}
+    public static boolean active(PlayerEntity player){return BridgePlayMode.supported(player) && player.isAlive() && active(player,player.getWorld().isClient,System.nanoTime());}
     private EditorPhysics() {}
 }

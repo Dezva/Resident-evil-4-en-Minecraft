@@ -1,5 +1,19 @@
 # Registro de desarrollo
 
+## 0.4.40 — menús sin rearme y supervivencia Minecraft
+
+Esc/opciones/contenedores y pantalla de muerte se capturan en overlay conservando
+armado con buttons0 y generación; cierre retoma control, foco/F8/TTL permanecen.
+Selector VIEW keep/survival/creative autenticado y confirmado, cambio local de
+GameMode antes de armar sin objetos/HP/comida gratuitos. Seguidor/noClip también
+en supervivencia, vuelo prestado y restaurado según modo; no invulnerabilidad.
+HUD llama renderMainHud/XP/efectos vanilla para corazón/comida/armadura/aire,
+mano/items/recetas reales. Sprint consume extenuación por distancia efectiva;
+minería omite solo penalización aérea del seguidor. Vida/comida Minecraft
+independientes de Leon, conforme a la elección. No pausa reloj ni mapea daño RE4.
+Core38/Minecraft57/Python139, VIEW autenticación/modo/foco/F8. DLL439 conservada
+sin recompilar; interacción real Windows pendiente.
+
 ## 0.4.39 — referencia física sin dibujo y preparación con foco manual
 
 Log38:36 pases omitidos, sin nuevos dibujos/fallos, seguido por stop1 y

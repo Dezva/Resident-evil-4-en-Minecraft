@@ -32,16 +32,20 @@ final class MinecraftHud implements AutoCloseable {
     HudFrame latest(){return System.nanoTime()-requestedAt<200_000_000L?encoder.latest():null;}
     static boolean capturing;static net.minecraft.client.gl.Framebuffer activeTarget;
     HudFrame snapshot(MinecraftClient client,int viewportWidth,int viewportHeight){
-        if(client.options.hudHidden && !inventory(client)){requested=false;return null;}
+        if(client.options.hudHidden && !menu(client)){requested=false;return null;}
         if(failure!=null || encoder.failure()!=null)throw new IllegalStateException(failure!=null?failure:encoder.failure());
         requestedWidth=viewportWidth>0?viewportWidth:client.getWindow().getFramebufferWidth();
         requestedHeight=viewportHeight>0?viewportHeight:client.getWindow().getFramebufferHeight();
-        requested=true;requestedAt=System.nanoTime();var frame=encoder.latest();return frame!=null && frame.menu()==inventory(client)?frame:null;
+        requested=true;requestedAt=System.nanoTime();var frame=encoder.latest();return frame!=null && frame.menu()==menu(client)?frame:null;
     }
-    static boolean inventory(MinecraftClient client){return client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen || client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;}
+    static boolean inventory(MinecraftClient client){return inventory(client.currentScreen);}
+    static boolean inventory(net.minecraft.client.gui.screen.Screen screen){return screen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?>;}
+    static boolean pause(MinecraftClient client){return pause(client.currentScreen);}
+    static boolean pause(net.minecraft.client.gui.screen.Screen screen){return screen!=null && !(screen instanceof net.minecraft.client.gui.screen.ChatScreen) && !inventory(screen) && (screen.shouldPause() || screen instanceof net.minecraft.client.gui.screen.DeathScreen);}
+    static boolean menu(MinecraftClient client){return inventory(client) || pause(client);}
     void render(MinecraftClient client,RenderTickCounter ticks){
-        if(!requested || System.nanoTime()-requestedAt>=200_000_000L || failure!=null || client.player==null || client.world==null || !client.isWindowFocused() || client.currentScreen!=null && !inventory(client))return;
-        boolean menu=inventory(client);long now=Util.getMeasuringTimeMs();
+        if(!requested || System.nanoTime()-requestedAt>=200_000_000L || failure!=null || client.player==null || client.world==null || !client.isWindowFocused() || client.currentScreen!=null && !menu(client))return;
+        boolean menu=menu(client);long now=Util.getMeasuringTimeMs();
         double reduction=Math.min(1.,Math.min((double)HudFrame.MAX_WIDTH/requestedWidth,(double)HudFrame.MAX_HEIGHT/requestedHeight));
         int width=Math.max(32,(int)Math.round(requestedWidth*reduction)),height=Math.max(32,(int)Math.round(requestedHeight*reduction));
         try(GuiRenderState saved=new GuiRenderState()){
@@ -80,7 +84,9 @@ final class MinecraftHud implements AutoCloseable {
                         client.currentScreen.renderWithTooltip(context,x,y,ticks.getTickDelta(false));
                         cursor(context,x,y);
                     }else{
-                        client.inGameHud.renderHotbar(context,ticks);
+                        client.inGameHud.renderMainHud(context,ticks);
+                        client.inGameHud.renderExperienceLevel(context,ticks);
+                        client.inGameHud.renderStatusEffectOverlay(context,ticks);
                         context.drawGuiTexture(Identifier.ofVanilla("hud/crosshair"),guiWidth/2-7,guiHeight/2-7,15,15);
                     }
                     context.draw();

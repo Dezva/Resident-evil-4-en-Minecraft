@@ -3,6 +3,9 @@ accessible field net/minecraft/client/texture/SpriteContents image Lnet/minecraf
 accessible class net/minecraft/client/texture/SpriteContents$Animation
 accessible field net/minecraft/client/texture/SpriteContents animation Lnet/minecraft/client/texture/SpriteContents$Animation;
 accessible method net/minecraft/client/gui/hud/InGameHud renderHotbar (Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V
+accessible method net/minecraft/client/gui/hud/InGameHud renderMainHud (Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V
+accessible method net/minecraft/client/gui/hud/InGameHud renderExperienceLevel (Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V
+accessible method net/minecraft/client/gui/hud/InGameHud renderStatusEffectOverlay (Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V
 accessible field com/mojang/blaze3d/systems/RenderSystem shaderLightDirections [Lorg/joml/Vector3f;
 accessible field net/minecraft/client/gl/ShaderProgram activeProgram Lnet/minecraft/client/gl/ShaderProgram;
 accessible field net/minecraft/client/gl/ShaderProgram activeProgramGlRef I

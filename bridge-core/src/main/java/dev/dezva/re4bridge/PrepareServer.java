@@ -6,13 +6,20 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /** Loopback-only, authenticated, fixed-action VIEW preparation endpoint. */
 public final class PrepareServer implements AutoCloseable {
-    private final ServerSocket server;private final BridgeConfig config;private final Consumer<CompletableFuture<String>> prepare;
+    public enum Mode {KEEP, SURVIVAL, CREATIVE;
+        public String wire(){return name().toLowerCase(java.util.Locale.ROOT);}
+    }
+    private final ServerSocket server;private final BridgeConfig config;private final BiConsumer<Mode,CompletableFuture<String>> prepare;
     private volatile boolean closed;private final Thread worker;
     public static int port(BridgeConfig config){return config.port()==65535?65534:config.port()+1;}
     public PrepareServer(BridgeConfig config,Consumer<CompletableFuture<String>> prepare) throws IOException {
+        this(config,(mode,future)->prepare.accept(future));
+    }
+    public PrepareServer(BridgeConfig config,BiConsumer<Mode,CompletableFuture<String>> prepare) throws IOException {
         this.config=config;this.prepare=prepare;server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),port(config)),1);
         worker=new Thread(this::run,"re4bridge-view-prepare");worker.setDaemon(true);worker.start();
     }
@@ -23,13 +30,18 @@ public final class PrepareServer implements AutoCloseable {
             var input=new FilterInputStream(new BufferedInputStream(peer.getInputStream())){int count;@Override public int read() throws IOException {if(++count>4096)throw new IOException("VIEW request too large");return super.read();}};
             var request=LineProtocol.read(input);var token=request.getAsJsonPrimitive("token");
             if(!request.get("type").getAsString().equals("prepare") || !token.isString() || token.getAsString().length()!=64 || !MessageDigest.isEqual(token.getAsString().getBytes(StandardCharsets.US_ASCII),config.token().getBytes(StandardCharsets.US_ASCII)))throw new IOException("Preparacion no autorizada");
-            prepare.accept(future);peer.setSoTimeout(100);long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);
+            Mode mode=Mode.KEEP;
+            if(request.has("game_mode")){
+                var value=request.getAsJsonPrimitive("game_mode");if(!value.isString())throw new IOException("Modo de juego no valido");
+                switch(value.getAsString()){case "keep":break;case "survival":mode=Mode.SURVIVAL;break;case "creative":mode=Mode.CREATIVE;break;default:throw new IOException("Modo de juego no valido");}
+            }
+            prepare.accept(mode,future);peer.setSoTimeout(100);long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);
             while(!future.isDone()) {
                 if(closed)throw new IOException("VIEW cerrado");if(System.nanoTime()>deadline)throw new TimeoutException();
                 try {if(input.read()<0)throw new IOException("VIEW desconectado");throw new IOException("Unexpected preparation data");}
                 catch(SocketTimeoutException waiting) { }
             }
-            String message=future.get();response.addProperty("ok",true);response.addProperty("message",message);
+            String message=future.get();response.addProperty("ok",true);response.addProperty("message",message);response.addProperty("game_mode",mode.wire());
         }catch(Exception error){future.cancel(false);String message=error instanceof ExecutionException && error.getCause()!=null?error.getCause().getMessage():error instanceof TimeoutException?"Minecraft no termino la preparacion; control detenido.":"No se pudo preparar Minecraft: "+error.getClass().getSimpleName();response.addProperty("message",message);}
         peer.getOutputStream().write(LineProtocol.encode(response));
     }

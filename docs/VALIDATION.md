@@ -965,3 +965,14 @@ un clic activa una única petición y F8 restaura/cancela. Se comprueba el reset
 noClip de PlayerEntity1.21.1 antes de LivingEntity.tick, lease por jugador exacto,
 límites de edad/parada/cambio de dueño y separación cliente/servidor. Build Fabric
 JDK21 y DLL439 PE32. Interacción/Win32/GPU real no ejecutados en cloud.
+
+## 0.4.40
+
+Core38/Minecraft57, build Fabric/JDK21. Python139; fixtures VIEW con modo
+transmitido y ACK verificado, espera de foco sin repetir, F8. Pausa10segundos
+mantiene generación y controles pueden retomar sin request; parada/foco no.
+Bytecode vanilla InGameHud verifica salud/comida/armadura/aire/XP y punto único
+de penalización aérea en minería; HungerManager consume/come con valores reales.
+Capacidades prestadas y restauradas en supervivencia/cambio de modo; no se
+modifica creativeMode/invulnerable. DLL439 y hash mantienen verificación de39
+(16 fixtures ASan/UBSan). GPU/render real y gameplay Windows no ejecutados.

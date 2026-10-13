@@ -114,7 +114,7 @@ def main(argv=None):
     parser.add_argument('--game-exe',default=DEFAULT_EXE)
     parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1])
     args=parser.parse_args(argv)
-    report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.39',
+    report={'mode':'READ ONLY CAPTURE IPC','diagnostic':'0.4.40',
                          'generated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}
     result=0
     try:

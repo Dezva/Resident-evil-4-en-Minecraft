@@ -9,3 +9,5 @@ accessible method net/minecraft/client/gui/hud/InGameHud renderStatusEffectOverl
 accessible field com/mojang/blaze3d/systems/RenderSystem shaderLightDirections [Lorg/joml/Vector3f;
 accessible field net/minecraft/client/gl/ShaderProgram activeProgram Lnet/minecraft/client/gl/ShaderProgram;
 accessible field net/minecraft/client/gl/ShaderProgram activeProgramGlRef I
+accessible field net/minecraft/client/network/ClientPlayerInteractionManager currentBreakingPos Lnet/minecraft/util/math/BlockPos;
+accessible field net/minecraft/client/network/ClientPlayerInteractionManager currentBreakingProgress F

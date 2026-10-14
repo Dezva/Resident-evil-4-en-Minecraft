@@ -15,16 +15,20 @@ class NativeRuntime:
             error=ctypes.get_last_error()
             if error==2:return
             raise ReaderError(f'Canal de escenas no disponible (Windows {error})')
-        self.address=k.MapViewOfFile(self.handle,6,0,0,64)
+        self.address=k.MapViewOfFile(self.handle,6,0,0,80)
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
-        self.words=(ctypes.c_uint32*16).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,1,443,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.43')
+        self.words=(ctypes.c_uint32*20).from_address(self.address)
+        if tuple(self.words[:4])!=(MAGIC,2,444,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.44')
         self.available=True;self.publish(0,0)
-    def publish(self,generation,action_id):
+    def publish(self,generation,action_id,vertical=None):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')
         if not self.available:return
         seq=(self.words[12]+1)|1;self.words[12]=seq&0xffffffff
         self.words[13]=self.k.GetTickCount();self.words[14]=action_id;self.words[15]=generation
+        ctypes.c_float.from_address(self.address+64).value=vertical['lift'] if vertical else 0
+        self.words[17]=vertical['token'] if vertical else 0
+        ctypes.c_float.from_address(self.address+72).value=vertical['scale'] if vertical else 0
+        self.words[19]=int(vertical is not None)
         self.words[12]=(seq+1)&0xffffffff
     def status(self):
         if not self.available:return dict(available=False,fresh=False)

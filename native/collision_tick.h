@@ -1,7 +1,7 @@
 #include "block_collision.h"
 /* Existing pad/camera/projection callbacks; one small geometry snapshot, no atlas copies. */
 static uint32_t collision_player,collision_generation,collision_stamp;
-static float collision_previous[3],collision_origin[4];
+static float collision_previous[3],collision_origin[4],collision_raw_y;
 static SRWLOCK collision_tick_lock=SRWLOCK_INIT;
 static CubeCommand collision_command; /* protected by collision_tick_lock; no 96KB stack frame */
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now) {
@@ -17,7 +17,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     if(!block_collision_scene_valid(command)){reason=3;goto disabled;}
     player=current_player();
     if(!player || !writable((void*)(uintptr_t)(player+0x94),12)){reason=3;goto disabled;}
-    float observed[3],resolved[3];memcpy(observed,(void*)(uintptr_t)(player+0x94),12);
+    float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);observed[1]+=runtime_lift;
     for(unsigned i=0;i<3;++i)if(!isfinite(observed[i]) || fabsf(observed[i])>20000000.f){reason=3;goto disabled;}
     active=1;reason=0;
     if(collision_player!=player || collision_generation!=control->generation || memcmp(collision_origin,command->origin,16)){
@@ -27,7 +27,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     // A menu/GUI initialization gap must not be interpreted as a player teleport.
     if((uint32_t)(now-collision_stamp)>=500 && (control->flags&8u) && !control->buttons){reason=2;goto reference;}
     if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
-    float distance=0;for(unsigned i=0;i<3;++i){float d=observed[i]-collision_previous[i];distance+=d*d;}
+    float distance=0;for(unsigned i=0;i<3;++i){float d=i==1?raw[1]-collision_raw_y:observed[i]-collision_previous[i];distance+=d*d;}
     /* A valid graphics/input snapshot can be skipped while turning/building.
        Sprint was measured at ~4.16 units/ms; a fixed 500-unit limit falsely
        stopped ordinary movement accumulated over ~120ms. Keep a bounded
@@ -35,21 +35,21 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     float limit=500.f+5.f*(uint32_t)(now-collision_stamp);
     if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
     if(!distance)goto reference; // still refresh lease/position; no sweep when the engine did not move
-    int hit=block_resolve_horizontal_validated(command,collision_previous,observed,resolved);
+    int hit=block_resolve_horizontal_actor_validated(command,collision_previous,observed,resolved,runtime_body_radius,runtime_body_height);
     if(hit<0){reason=3;goto disabled;}
     contact=(unsigned)hit;
     if(hit) {
         if(!isfinite(resolved[0]+resolved[2]) || fabsf(resolved[0])>20000000.f || fabsf(resolved[2])>20000000.f){reason=3;goto disabled;}
         if(*player_slot!=player || state->stop || !state->armed || (GetAsyncKeyState(VK_F8)&0x8000)
             || (uint32_t)(GetTickCount()-control->stamp)>=500
-            || memcmp(observed,(void*)(uintptr_t)(player+0x94),12)){reason=5;goto disabled;}
+            || memcmp(raw,(void*)(uintptr_t)(player+0x94),12)){reason=5;goto disabled;}
         /* Never replace native Y, velocity, animation, inventory or collision flags. */
         memcpy((void*)(uintptr_t)(player+0x94),resolved,4);memcpy((void*)(uintptr_t)(player+0x9C),resolved+2,4);
         observed[0]=resolved[0];observed[2]=resolved[2];correction=1;
     }
 reference:
     collision_player=player;collision_generation=control->generation;collision_stamp=now;
-    memcpy(collision_previous,observed,12);memcpy(collision_origin,command->origin,16);goto publish;
+    memcpy(collision_previous,observed,12);collision_raw_y=raw[1];memcpy(collision_origin,command->origin,16);goto publish;
 disabled:
     active=0;collision_player=collision_generation=0;goto publish;
 transient:

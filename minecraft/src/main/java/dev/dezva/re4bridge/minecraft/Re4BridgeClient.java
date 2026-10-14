@@ -77,6 +77,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private final HealthLink healthLink=new HealthLink();
     private boolean healthSessionOpen;
     private boolean wasScripted;
+    private final BridgeVertical vertical=new BridgeVertical();
+    private final BlockParticles particles=new BlockParticles();
+    private final java.util.Map<BlockPos,Long> brokenAt=new java.util.HashMap<>();
     private final MouseLook mouseLook = new MouseLook();
     private boolean mouseEnabled;
     private boolean firstPersonEnabled;
@@ -239,7 +242,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
                             var life=bridge.healthState();ctx.getSource().sendFeedback(Text.literal("Vida compartida: "+(life!=null && life.available()?"Leon="+life.hp()+"/"+life.maximum()+"; activa="+life.active()+"; motivo="+life.reason():"requiere DLL/host0.4.41")));
-                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; acciones R="+runtime.actions():"requiere DLL/host0.4.43")));
+                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; acciones R="+runtime.actions():"requiere DLL/host0.4.44")));
                             ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
@@ -252,8 +255,15 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }))));
         if(config!=null)try{prepareServer=new dev.dezva.re4bridge.PrepareServer(config,(mode,future) -> MinecraftClient.getInstance().execute(() -> prepare(MinecraftClient.getInstance(),future,mode)));}catch(IOException error){System.err.println("RE4 Bridge: endpoint VIEW no disponible: "+error.getClass().getSimpleName());}
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {if(prepareServer!=null)prepareServer.close();});
-        OverlayCapture.renderer=ticks -> minecraftHud.render(MinecraftClient.getInstance(),ticks);
+        OverlayCapture.renderer=ticks -> {
+            var client=MinecraftClient.getInstance();var current=bridge;
+            if(current!=null && current.status().connected() && controlArming.active() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null && client.player!=null && client.isWindowFocused() && client.currentScreen==null && !current.scripted()){
+                current.refreshLook(controlArming.generation(),controllerMapping.look(client.player.getYaw(),client.player.getPitch(),nativeEyeHeight(client)));
+            }
+            minecraftHud.render(client,ticks);
+        };
         BridgeKeys.screen=this::screenChanging;
+        BridgeBlockEffects.broken=(p,state)->breakEffect(MinecraftClient.getInstance(),p,state);
         BridgeKeys.mode=()->bridge!=null && bridge.status().connected() && bridge.controllerMode() && controlArming.active() && firstPersonEnabled;
         BridgeKeys.toggle=()->toggleMode(MinecraftClient.getInstance());
         BridgeKeys.scripted=()->bridge!=null && bridge.scripted();
@@ -317,7 +327,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
         var current=bridge;
         var sample=current==null?null:current.re4Sample();
         boolean scripted=current!=null && current.scripted();
-        if(wasScripted && !scripted)lastEditorPoint=null;
+        if(wasScripted && !scripted){lastEditorPoint=null;vertical.hold();}
         wasScripted=scripted;
         boolean lock=(synchronizedMovement || !minecraftWalking) && (controlArming.active() || controlArming.pending())
             && current!=null && current.controllerMode() && current.status().connected()
@@ -335,7 +345,12 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 }
                 var point=editorPoint(client,sample);
                 if(!client.world.getRegistryKey().getValue().toString().equals(controllerDimension) || lastEditorPoint!=null && (Math.abs(point.x()-lastEditorPoint.x())>8 || Math.abs(point.y()-lastEditorPoint.y())>8 || Math.abs(point.z()-lastEditorPoint.z())>8))throw new IllegalArgumentException("Salto de zona");
-                controllerFollower.follow(client,point,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation());if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
+                var supportBoxes=new java.util.ArrayList<Box>();
+                for(var p:placedScene.positions())if(client.world.isChunkLoaded(p))for(var b:sceneShapes(client,p))supportBoxes.add(b.offset(p));
+                var mesh=current.terrain();if(mesh!=null && (!mesh.fresh(System.nanoTime()) || mesh.generation()!=controlArming.generation()))mesh=null;
+                var elevated=vertical.step(point,controlArming.generation(),controlArming.active() && client.options.jumpKey.isPressed() && !MinecraftHud.menu(client),client.options.sprintKey.isPressed(),MinecraftHud.menu(client),supportBoxes,mesh,controllerMapping.gridHeight(placedScene.height()));
+                if(controlArming.active())current.vertical(controlArming.generation(),vertical.token(),vertical.lift(point,controllerMapping.scale()),controllerMapping.scale());
+                controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),point.y());if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
             }catch(IllegalArgumentException error){stopDriving();say(client,"Sincronizacion detenida: salto de zona. Usa blocks on para fijar otra referencia.");}
         }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
@@ -413,7 +428,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
             if(current.healthState()==null || !current.healthState().available()){future.completeExceptionally(new IllegalStateException("Instala la DLL y host0.4.41 para vida compartida y pausa en movimiento."));prepareFuture=null;return;}
-            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.43 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
+            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.44 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
             synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
@@ -421,6 +436,14 @@ public final class Re4BridgeClient implements ClientModInitializer {
         }else if(controlArming.active() && current.nativeArmed() && current.cameraActive()){
             future.complete("Minecraft preparado en "+(client.interactionManager.getCurrentGameMode()==net.minecraft.world.GameMode.SURVIVAL?"supervivencia":"creativo")+". F9 muestra RE4; Esc abre el menu; F8 vuelve a RE4 normal.");prepareFuture=null;
         }
+    }
+
+    private void breakEffect(MinecraftClient client,BlockPos pos,BlockState state){
+        var current=bridge;long now=System.nanoTime();
+        if(client.world==null || current==null || !controlArming.active() || current.scripted() || placedScene.style()!=3 || !placedScene.positions().contains(pos))return;
+        brokenAt.entrySet().removeIf(e->now-e.getValue()>200_000_000L);
+        if(brokenAt.containsKey(pos))return;brokenAt.put(pos.toImmutable(),now);
+        blockMaterials.resources(client);var faces=blockMaterials.faces(client,pos,state);particles.burst(pos,blockMaterials.tiles().get(faces[1].tile()));
     }
 
     private void capturePlacement(MinecraftClient client,Hand hand,BlockHitResult hit,boolean event) {
@@ -496,7 +519,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
 
     private void stopDriving() {
-        healthSessionOpen=false;
+        healthSessionOpen=false;vertical.clear();particles.clear();brokenAt.clear();
+        if(bridge!=null)bridge.clearVertical();
         if(bridge!=null)bridge.clearAction();
         healthLink.release(bridge);
         controllerInput.release();controllerFollower.release();
@@ -526,7 +550,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
 
     private int blockCollisions(MinecraftClient client,boolean enabled) {
         if(enabled && (bridge==null || !bridge.collisionAvailable())){say(client,"Colision requiere host y DLL 0.4.24.");return 0;}
-        stopDriving();placedScene.collisions(enabled);say(client,"Paredes para Leon: "+(enabled?"activadas":"desactivadas")+". Usa arm. Saltos/apoyo encima y enemigos pendientes.");return 1;
+        stopDriving();placedScene.collisions(enabled);say(client,"Paredes para Leon: "+(enabled?"activadas":"desactivadas")+". Usa arm. Espacio salta en el controlador; colision con enemigos en revision.");return 1;
     }
     private int blockStyle(MinecraftClient client,int style) {
         if(style==3 && (bridge==null || !bridge.materialsAvailable())){say(client,"Texturas Minecraft requieren host y DLL 0.4.24.");return 0;}
@@ -616,7 +640,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && !current.scripted() && synchronizedMovement && controllerMapping!=null){
-                try{controllerFollower.follow(client,editorPoint(client,sample),current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation());}catch(IllegalArgumentException error){stopDriving();buttons=0;}
+                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),base.y());}catch(IllegalArgumentException error){stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
@@ -626,7 +650,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
             String dimension=client.world.getRegistryKey().getValue().toString();
-            if (!placedScene.update(client.world::getBlockState,pos -> sceneShapes(client,pos),client.world::isChunkLoaded,dimension))
+            if(placedScene.style()==3)blockMaterials.resources(client);
+            if (!placedScene.update(client.world::getBlockState,pos -> sceneShapes(client,pos),client.world::isChunkLoaded,dimension,(p,state)->breakEffect(client,p,state)))
                 say(client,"Cuadricula retirada: demasiadas formas. Usa blocks on para empezar otra mas pequena.");
             if (sample==null || !sample.fresh(now)) placementTracker.clear();
             for (var placed:placementTracker.pollAll(client.world::getBlockState,dimension)) {
@@ -643,8 +668,12 @@ public final class Re4BridgeClient implements ClientModInitializer {
                     || !client.world.getBlockState(previewBlock).equals(previewState))) {
                 clearBlock();
             }
-            if(placedScene.style()==3)blockMaterials.resources(client);
-            var scene=placedScene.snapshot((pos,state) -> blockMaterials.faces(client,pos,state),blockMaterials);
+            var manager=client.interactionManager;
+            boolean mining=manager!=null && !client.player.isCreative() && manager.isBreakingBlock() && !MinecraftHud.menu(client) && !current.scripted();
+            placedScene.mining(mining?manager.currentBreakingPos:null,mining?Math.min(9,(int)(manager.currentBreakingProgress*10)):-1);
+            particles.tick(!MinecraftHud.menu(client) && !current.scripted());
+            var baseScene=placedScene.snapshot((pos,state) -> blockMaterials.mining(client,blockMaterials.faces(client,pos,state),placedScene.miningStage(pos)),blockMaterials);
+            var scene=placedScene.style()==3?placedScene.visual(baseScene,particles):baseScene;
             boolean terrain=controlArming.active() && !current.scripted() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null;
             current.terrainRequested(terrain);
             current.depthRequested(controlArming.active() && blockDepth);

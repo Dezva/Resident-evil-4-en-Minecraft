@@ -14,7 +14,7 @@ import net.minecraft.util.math.BlockPos;
 
 /** Local creative editor follows RE4; no teleport packet changes mouse rotation. */
 final class ControllerFollower {
-    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,ControllerMapping mapping,TerrainSnapshot terrain,int generation,boolean sprinting,long stamp) {}
+    private record Task(MinecraftServer server,UUID id,String dimension,ControllerMapping.Point point,BridgeConnection bridge,boolean floor,ControllerMapping mapping,TerrainSnapshot terrain,int generation,boolean sprinting,float exhaustion,int fallHarm,boolean grounded,double groundY,long stamp) {}
     private volatile Task task;
     private final AtomicBoolean queued=new AtomicBoolean();
     private ClientPlayerEntity clientPlayer;
@@ -42,7 +42,7 @@ final class ControllerFollower {
             public boolean write(BlockPos pos,net.minecraft.block.BlockState state){return world.setBlockState(pos,state,3);}
             public int bottom(){return world.getBottomY();}public int top(){return world.getTopY();}
         };}
-        var feet=BlockPos.ofFloored(current.point().x(),current.point().y(),current.point().z());
+        var feet=BlockPos.ofFloored(current.point().x(),current.groundY(),current.point().z());
         var mesh=current.terrain();var map=current.mapping();
         if(mesh==null || map==null || mesh.generation()!=current.generation() || !mesh.fresh(System.nanoTime())){floor.update(floorSlot,feet);floorMesh=null;return;}
         if(mesh!=floorMesh || !map.equals(floorMap) || !feet.equals(floorFeet)){
@@ -55,14 +55,16 @@ final class ControllerFollower {
         }
         floor.update(floorSlot,feet,(x,z)->ground.get(BlockPos.asLong(x,0,z)));
     }
-    void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support,ControllerMapping mapping,int generation){
+    private int physiologyGeneration,oldFallHarm;private float oldExhaustion;
+    void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support,ControllerMapping mapping,int generation){follow(client,point,bridge,support,mapping,generation,0,0,true,point.y());}
+    void follow(MinecraftClient client,ControllerMapping.Point point,BridgeConnection bridge,boolean support,ControllerMapping mapping,int generation,float exhaustion,int fallHarm,boolean grounded,double groundY){
         if(!BridgePlayMode.supported(client.player) || !client.player.isAlive()){release();return;}
         if(clientPlayer!=client.player){release();clientPlayer=client.player;clientSlot=EditorMode.player(clientPlayer);}
         clientMode.take(clientSlot);
-        EditorPhysics.follow(clientPlayer,true,System.nanoTime(),()->bridge.status().connected() && bridge.nativeStop()==0);
-        clientPlayer.setVelocity(Vec3d.ZERO);clientPlayer.setPosition(point.x(),point.y(),point.z());
+        EditorPhysics.follow(clientPlayer,true,System.nanoTime(),()->bridge.status().connected() && bridge.nativeStop()==0,grounded);
+        clientPlayer.setOnGround(grounded);clientPlayer.setVelocity(Vec3d.ZERO);clientPlayer.setPosition(point.x(),point.y(),point.z());
         boolean sprinting=!MinecraftHud.menu(client) && client.options.sprintKey.isPressed() && (client.options.forwardKey.isPressed() || client.options.backKey.isPressed() || client.options.leftKey.isPressed() || client.options.rightKey.isPressed());
-        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,sprinting,System.nanoTime());schedule();
+        server=client.getServer();task=new Task(server,clientPlayer.getUuid(),client.world.getRegistryKey().getValue().toString(),point,bridge,support,mapping,bridge.terrain(),generation,sprinting,exhaustion,fallHarm,grounded,groundY,System.nanoTime());schedule();
     }
     void release(){
         task=null;
@@ -88,8 +90,15 @@ final class ControllerFollower {
                 if(valid && task==current){
                     if(serverPlayer==null){serverPlayer=player;serverSlot=EditorMode.player(player);}
                     serverMode.take(serverSlot);
-                    EditorPhysics.follow(player,false,current.stamp(),()->task!=null && current.bridge().status().connected() && current.bridge().nativeStop()==0);
+                    EditorPhysics.follow(player,false,current.stamp(),()->task!=null && current.bridge().status().connected() && current.bridge().nativeStop()==0,current.grounded());
                     floor(player,current);
+                    if(physiologyGeneration!=current.generation()){physiologyGeneration=current.generation();oldFallHarm=0;oldExhaustion=0;}
+                    if(!player.isCreative()){
+                        player.addExhaustion(Math.max(0,current.exhaustion()-oldExhaustion));
+                        int damage=Math.max(0,current.fallHarm()-oldFallHarm);if(damage>0)player.damage(player.getDamageSources().fall(),damage);
+                    }
+                    oldExhaustion=Math.max(oldExhaustion,current.exhaustion());oldFallHarm=Math.max(oldFallHarm,current.fallHarm());
+                    player.setOnGround(current.grounded());
                     if(lastTravel!=null && travelGeneration==current.generation() && !player.isCreative()){
                         double distance=Math.hypot(current.point().x()-lastTravel.x(),current.point().z()-lastTravel.z());
                         player.addExhaustion(BridgePlayMode.sprintExhaustion(distance,current.stamp()-travelStamp,current.sprinting()));

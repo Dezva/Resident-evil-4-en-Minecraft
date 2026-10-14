@@ -44,12 +44,11 @@ public final class TerrainInteraction {
     public static void crosshair(MinecraftClient client,float delta){
         Context c=context;if(!active(c) || client.player==null || client.world==null || !client.player.getUuid().equals(c.player))return;
         var sample=c.bridge.re4Sample();if(sample==null || !sample.fresh(System.nanoTime()))return;
-        var head=c.mapping.eye(sample,c.eye,0);
-        Vec3d start=new Vec3d(head.x(),head.y(),head.z()),end=start.add(c.direction.multiply(client.player.getBlockInteractionRange()));
+        Vec3d start=client.player.getLerpedPos(delta).add(0,client.player.getEyeHeight(net.minecraft.entity.EntityPose.STANDING),0);
+        Vec3d end=start.add(client.player.getRotationVec(1).multiply(client.player.getBlockInteractionRange()));
         client.targetedEntity=null;
-        if(!ready(c) || !covered(c,start) || !covered(c,end)){client.crosshairTarget=BlockHitResult.createMissed(end,Direction.UP,BlockPos.ofFloored(end));return;}
         BlockHitResult best=placed(c,client.world,start,end,true);double distance=best==null?Double.POSITIVE_INFINITY:start.squaredDistanceTo(best.getPos());
-        var nativeHit=ray(c,start,end);
+        var nativeHit=ready(c) && covered(c,start) && covered(c,end)?ray(c,start,end):null;
         if(nativeHit!=null){Vec3d impact=vector(TerrainSnapshot.grid(c.mapping,nativeHit.point()));
             if(start.squaredDistanceTo(impact)<distance){
                 Direction side=normal(c,nativeHit.normal());BlockPos cell=BlockPos.ofFloored(impact.add(side.getOffsetX()*.0001,side.getOffsetY()*.0001,side.getOffsetZ()*.0001));
@@ -76,7 +75,7 @@ public final class TerrainInteraction {
         if(!ready(c))return false;
         var pos=placement.getBlockPos();var shape=state.getOutlineShape(placement.getWorld(),pos);
         if(shape.isEmpty())shape=state.getCollisionShape(placement.getWorld(),pos);
-        try{for(var bounds:shape.getBoundingBoxes())if(!box(c,bounds.offset(pos)))return false;return true;}catch(IllegalArgumentException unknown){return false;}
+        try{for(var bounds:shape.getBoundingBoxes()){var volume=bounds.offset(pos);if(volume.intersects(placement.getPlayer().getBoundingBox()) || !box(c,volume))return false;}return true;}catch(IllegalArgumentException unknown){return false;}
     }
     private static Context arrow(PersistentProjectileEntity arrow){Context c=context;return active(c) && arrow.getOwner()!=null && arrow.getOwner().getUuid().equals(c.player) && arrow.getWorld().getRegistryKey().getValue().toString().equals(c.dimension)?c:null;}
     public static boolean managedArrow(PersistentProjectileEntity arrow){return arrow(arrow)!=null;}

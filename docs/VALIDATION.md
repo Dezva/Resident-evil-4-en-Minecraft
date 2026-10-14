@@ -1045,3 +1045,33 @@ retirada de hashes publicados442/441/439, conserva partidas y DLL ajenas.
 No se ejecutó RE4/driver D3D9/Win32 interactivo en cloud: prueba final Windows
 pendiente. No se atribuye un crash al host: registro muestra una consola que
 sigue produciendo telemetría, falsa clasificación y posterior stop1.
+
+## 0.4.44
+
+Core43/Minecraft69, build Fabric/JDK21 y DLL444 PE32 con warnings como errores.
+Python154. Física: altura1.2522bloques, salto/pausa/techo colocado y nativo,
+construcción y apoyo en una columna de seis bloques, extenuación y caída con
+daño una sola vez. Rayo mirando verticalmente desde pies elevados elige la cara
+UP; cambios de cara, cuadros UV y packet point permanecen válidos.
+
+Grietas: composición multiplica píxeles sin modificar el material fuente.
+Fragmentos:24máximo, expiración/pausa, último bloque visible, formas finitas y
+prefijo0 sin colisión; conservar geometría/materiales físicos anteriores.
+AW y refmap incluyen progreso/posición de rotura y hook breakBlock remapeado.
+Minecraft real/resource pack/GPU y aspecto de grietas/debris no ejecutados.
+
+TCP autenticado transmite altura/token/generación y mirada90° entre frames.
+Refresh gráfico conserva createdNs y no evita desarmado cuando cesan ticks.
+IPC Runtime v2 valida región de comando, cancelación, valores no finitos/rango,
+token/generación/FP/F8/TTL, pausa y suavizado50ms. Callbacks de cámara elevan vista
+sin escribir Y; barrido con altura virtual6000 permite pasar sobre un bloque sin
+falsa parada ni modificación Y. Colisión real excluye geometría con prefijo
+visual mientras la misma caja sí bloquea si se declara física.
+
+Siete fixtures runtime/camera/collision/reader/geometry/draw/overlay pasan
+ASan/UBSan. VIEW e installer pasan, incluyendo retirada de DLL443 publicada,
+además de442/441/439, copia verificada y conservación de partidas/DLL ajenas.
+Los límites de input/F8/foco/dispositivo se mantienen. Ganados siguen reportados
+como fallidos en el juego: no se dan por corregidos por los fixtures sintéticos.
+Animación/Y de salto de Leon, vuelo creativo, combate y objetos sueltos RE4
+siguen pendientes. Se necesita prueba de gameplay y Win32/D3D9 en Windows.

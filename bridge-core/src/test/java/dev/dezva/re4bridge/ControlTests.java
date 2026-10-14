@@ -16,6 +16,7 @@ class ControlTests {
         try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
             await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==65);
+            bridge.vertical(7,1,420,1000);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=1 lift=420.0");}catch(Exception e){return false;}});
             bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
             assertTrue(Files.readString(log).contains("ACTION generation=7 id=1"));
             bridge.suspendForMenu();await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);
@@ -51,13 +52,17 @@ class ControlTests {
             var look=new MouseLook.Input(true,true,0,0,1620);
             bridge.publishSceneControl(true,1,1,look,null,image.get());
             await(bridge::nativeArmed);
+            bridge.refreshLook(1,new MouseLook.Input(true,true,99,90,1620,true));
+            await(()->{try{return Files.readString(log).contains("'total_yaw': 99.0");}catch(Exception e){return false;}});
             image.set(overlay(64,false)); // No new control tick here.
             await(()->{try{return Files.readString(log).contains("OVERLAY width=64 menu=False");}catch(Exception e){return false;}});
             image.set(overlay(96,true)); // A menu image cannot be mixed with gameplay buttons.
             Thread.sleep(25);assertFalse(Files.readString(log).contains("OVERLAY width=96 menu=True"));
             bridge.publishSceneControl(true,0,1,look,null,image.get());
             await(()->{try{return Files.readString(log).contains("OVERLAY width=96 menu=True");}catch(Exception e){return false;}});
-            image.set(overlay(128,true));await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
+            image.set(overlay(128,true));
+            for(int i=0;i<60;i++){bridge.refreshLook(1,look);Thread.sleep(5);}
+            await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
         }finally{peer.destroyForcibly();}
     }
     @Test void controlStartsDisarmedTransmitsOnlyFreshInputAndDisarmsAfterSamplingStops() throws Exception {

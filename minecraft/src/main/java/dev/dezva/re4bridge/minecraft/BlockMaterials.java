@@ -20,12 +20,12 @@ final class BlockMaterials {
     private final List<String> tiles=new ArrayList<>();
     private int missing;
     private Object resourceEpoch;
-    private long revision;
+    private long revision;private final int[][] cracks=new int[10][];
     private String lastError="ninguno";
     private final Set<String> reported=new HashSet<>();
     long revision(){return revision;}
     String lastError(){return lastError;}
-    void resources(MinecraftClient client){var epoch=client.getBlockRenderManager().getModels().getModel(net.minecraft.block.Blocks.STONE.getDefaultState());if(resourceEpoch!=epoch){clear();resourceEpoch=epoch;}}
+    void resources(MinecraftClient client){var epoch=client.getBlockRenderManager().getModels().getModel(net.minecraft.block.Blocks.STONE.getDefaultState());if(resourceEpoch!=epoch){clear();java.util.Arrays.fill(cracks,null);resourceEpoch=epoch;}}
     record Face(int tile,double[] map) {
         Face {map=map.clone();if(map.length!=6)throw new IllegalArgumentException("Invalid UV map");for(double v:map)if(!Double.isFinite(v) || Math.abs(v)>1024)throw new IllegalArgumentException("Invalid UV transform");}
         BlockScene.Face bounds(Box box,int axis) {
@@ -64,6 +64,20 @@ final class BlockMaterials {
             }
         }
         return result;
+    }
+    Face[] mining(MinecraftClient client,Face[] faces,int stage){
+        if(stage<0 || stage>9)return faces;
+        if(cracks[stage]==null){
+            try(var stream=client.getResourceManager().getResourceOrThrow(net.minecraft.util.Identifier.ofVanilla("textures/block/destroy_stage_"+stage+".png")).getInputStream();var image=net.minecraft.client.texture.NativeImage.read(stream)){
+                var pixels=new int[256];for(int y=0;y<16;y++)for(int x=0;x<16;x++){int c=image.getColor(Math.min(image.getWidth()-1,x*image.getWidth()/16),Math.min(image.getHeight()-1,y*image.getHeight()/16));pixels[y*16+x]=(c&0xFF00FF00)|((c&255)<<16)|((c>>>16)&255);}cracks[stage]=pixels;
+            }catch(IOException error){return faces;}
+        }
+        Face[] result=new Face[6];for(int i=0;i<6;i++){var original=faces[i];var key=List.<Object>of("crack",tiles.get(original.tile),stage);Integer id=cache.get(key);if(id==null && tiles.size()<BlockScene.MAX_TILES){id=tiles.size();tiles.add(crackTile(tiles.get(original.tile),cracks[stage]));cache.put(key,id);}result[i]=id==null?original:new Face(id,original.map);}
+        return result;
+    }
+    static String crackTile(String base,int[] crack){
+        var source=ByteBuffer.wrap(Base64.getDecoder().decode(base)).order(ByteOrder.LITTLE_ENDIAN);var out=ByteBuffer.allocate(1024).order(ByteOrder.LITTLE_ENDIAN);
+        for(int i=0;i<256;i++){int color=source.getInt(),c=crack[i],alpha=c>>>24;int result=color&0xFF000000;for(int shift:new int[]{0,8,16}){int factor=((c>>>shift)&255);int channel=(color>>>shift)&255;result|=(channel*(255-alpha)+channel*factor*alpha/255)/255<<shift;}out.putInt(result);}return Base64.getEncoder().encodeToString(out.array());
     }
     static String compose(List<BakedQuad> quads,List<Integer> tints)throws IOException {
         if(quads.size()>16 || quads.size()!=tints.size())throw new IOException("Complex face");

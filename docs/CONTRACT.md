@@ -588,3 +588,28 @@ activar controles ni escritura gameplay. runtime_scripted sigue condicionado
 al armado y stop0; no se cambian leases ni recuperación automática.
 Runtime64bytes y otros ABI conservan tamaño, build443. Host exige443 en Runtime
 para rechazar la clasificación defectuosa442; otros lectores conservan historial.
+
+## Construcción/salto0.4.44
+
+Control80bytes v2 conserva layout; pitch ahora admite[-90,90]. refreshLook cambia
+solo mirada de la instantánea, preserva createdNs, armado/generación/botones y
+menú. No renueva el TTL de input200ms ni modifica stops.
+
+Runtime v2/build444 ocupa80bytes. Reporte0..47 conserva layout; request seqlock48,
+stamp52/action56/generation60 más float lift64/token68/float scale72/enabled76.
+Solo host escribe48..79; lift0..128*scale, scale40..2500, token1..INT_MAX, enabled1,
+snapshot completo/TTL500ms/F8/arm/generation/FP requeridos. Interpolación50ms por
+token nuevo en pad; menú conserva altura, escenas/paradas retiran el offset.
+Solo cámara/pies de construcción virtuales: Y/velocidad/rutina nativa no escritos.
+El umbral de discontinuidad conserva X/Z y Y cruda del actor, excluyendo offset
+solicitado. Radio/altura física virtual siguen escala, acotados por solver.
+
+Scene.collider_count opcional0..boxes.size indica prefijo físico. CubeCommand
+v6 mantiene96352bytes; material_reserved3164 vale prefix+1 o0 (histórico: todas).
+Lectores aceptan únicamente0 o mode2 con prefix válido. Barridos jugador/enemigo
+usan prefijo; dibujo/materiales conservan todas las formas. Un scene solo con
+fragmentos tiene collisionsfalse y prefijo0. Límites128formas/64tiles intactos.
+La física/vida Minecraft es del executor local; extenuación y daño de caída
+acumulados por generación evitan duplicación al coalescer tareas del seguidor.
+EditorPhysics grounded distingue penalización aérea de minería, manteniendo
+lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.

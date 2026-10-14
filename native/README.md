@@ -1,6 +1,12 @@
 # Native RE4 bridge
 
-Current build443 fixes gameplay misclassified as a movie in build442: CINESCO
+Current build444 adds virtual vertical feet/view from Runtimev2 (80bytes),
+90-degree pitch and a collision prefix for render-only block fragments. Native
+actor Y/velocity/routines are untouched. Offset interpolation runs in pad;
+camera and construction sweeps consume it, while discontinuity tests retain
+the actor's raw Y. Scene v6 uses material_reserved=count+1 (0=all colliders).
+Actual game enemy collision failure remains unresolved; no combat is added.
+It retains the build443 gameplay fix: CINESCO
 alone is no longer a scripted-scene signal, and pad refreshes telemetry while
 disarmed. Regression uses the user's actual0x03000110 flags. It preserves the
 separate64-byte scene/action channel, yields camera,
@@ -10,7 +16,7 @@ flags for one native pad pulse and restore them before the next original pad.
 Humanoid enemy sweeps run from the existing pad callback: maximum256 slots,
 64active actors, X/Z only, identity/lease/F8 validation. No AI/pathfinding,
 attack occlusion, vertical support or boss collision is implemented.
-See [0.4.43](../docs/RE4-BLOCK-0.4.43.md) and [IPC contract](../docs/CONTRACT.md).
+See [0.4.44](../docs/RE4-BLOCK-0.4.44.md) and [IPC contract](../docs/CONTRACT.md).
 Gameplay/driver validation still requires Windows; native fixtures are synthetic.
 
 ## Historical creation facade and explicit cube test, 0.4.18

@@ -10,6 +10,10 @@ from test_cube_test import Kernel
 from test_re4_control import Writer
 
 class SceneTests(unittest.TestCase):
+    def test_render_only_collision_prefix_is_validated(self):
+        scene=self.scene();scene['collider_count']=0;validate_preview(scene)
+        for value in (True,-1,len(scene['boxes'])+1):
+            with self.assertRaises(ProtocolError):validate_preview(dict(scene,collider_count=value))
     def scene(self):
         return {'origin':[10,20,30,.25], 'boxes':[[-500,0,-500,500,1000,500],[500,0,-500,1500,500,500]]}
     def test_scene_mapping_full_snapshot_rotation_individual_removal_and_cleanup(self):

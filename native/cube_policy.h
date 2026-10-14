@@ -14,6 +14,7 @@ typedef struct {uint32_t epoch,blocked,blocked_reason;unsigned fatal,lost,anchor
 enum {CUBE_OFF=1,CUBE_STALE,CUBE_F8,CUBE_LOST,CUBE_RESTORE,CUBE_INTERFACE,CUBE_CAMERA,CUBE_TARGET,CUBE_GRAPHICS};
 enum {CUBE_BEGIN,CUBE_FRAME,CUBE_DRAW,CUBE_FAILURE,CUBE_RESTORE_FAILURE,CUBE_ESCAPE,
       CUBE_RESET,CUBE_RESET_FAILURE,CUBE_PRESENT_FAILURE,CUBE_REJECT,CUBE_CAMERA_REJECT,CUBE_PASS_SKIP,CUBE_ACTIVE};
+static inline unsigned block_collision_count(const CubeCommand *c){return c->material_reserved?c->material_reserved-1:c->count;}
 static inline int cube_gate(CubeGate *gate,const CubeCommand *command,uint32_t now,int f8) {
     if (gate->fatal) return CUBE_RESTORE;
     if (!command || !command->enabled || !command->epoch || command->enabled!=1) return CUBE_OFF;

@@ -8,7 +8,7 @@ class MouseLookTests {
         assertEquals(2, look.sample(-179, 0, false, 160).totalYaw());
         look.sample(-169, 0, false, 160);
         assertEquals(22, look.sample(-159, 0, false, 160).totalYaw());
-        assertEquals(85, look.sample(-159, 90, true, 160).pitch());
+        assertEquals(90, look.sample(-159, 90, true, 160).pitch());
         look.reset();
         assertEquals(0, look.sample(40, 0, false, 160).totalYaw());
     }

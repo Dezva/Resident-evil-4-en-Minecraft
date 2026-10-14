@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include "runtime_policy.h"
@@ -21,6 +22,7 @@ static int readable(const void *p,size_t n){queries++;return p && n;}
 static uint32_t GetTickCount(void){return now;}
 static int GetAsyncKeyState(int key){(void)key;return f8?0x8000:0;}
 #define VK_F8 119
+static int runtime_scripted(void);
 /* ACTUAL_RUNTIME */
 int main(void){
     RuntimeShared report={0};runtime_shared=&report;global=(uint32_t)(uintptr_t)globals;assert((uintptr_t)globals<=UINT32_MAX);
@@ -54,6 +56,24 @@ int main(void){
     }
     state->arm_id=7;state->stop=0;f8=0;control.flags=0;now=1000;report.request_sequence=2;report.generation=7;
     runtime_action_apply(&control,1,now);assert(runtime_actions==2);runtime_action_restore();
+    flags=50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
+    control.flags=3;report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.request_stamp=control.stamp=now=1000;
+    runtime_vertical_tick(&control,1,now);assert(runtime_lift==0);now=1025;runtime_vertical_tick(&control,1,now);assert(runtime_lift==600 && runtime_body_radius==300 && runtime_body_height==1800);
+    now=1050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200);
+    control.flags=11;now=1060;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200);
+    control.flags=3;f8=1;runtime_vertical_tick(&control,1,now);assert(runtime_lift==0);f8=0;
+    for(unsigned failure=0;failure<8;failure++){
+        report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=2;report.generation=7;report.request_stamp=control.stamp=now=1000;control.flags=3;control.generation=7;
+        if(failure==0)report.scale=NAN;
+        if(failure==1)report.lift=-1;
+        if(failure==2)report.lift=128001;
+        if(failure==3)report.vertical_enabled=2;
+        if(failure==4)report.lift_token=0xFFFFFFFFu;
+        if(failure==5)report.generation=8;
+        if(failure==6)control.flags=0;
+        if(failure==7)now=1500;
+        runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_body_radius==250 && runtime_body_height==1600);
+    }
     state->armed=0;queries=0;assert(!runtime_scripted() && !queries);
     flags=50331920;memcpy(globals+0x501C,&flags,4);now+=16;
     assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8

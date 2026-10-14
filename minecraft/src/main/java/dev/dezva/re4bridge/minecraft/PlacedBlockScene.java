@@ -22,11 +22,13 @@ final class PlacedBlockScene {
     private int style;
     private boolean collisions;
     private boolean cachedValid;
-    private BlockScene cached;
+    private BlockScene cached;private BlockPos miningPos;private int miningStage=-1;
     private BlockMaterials cachedMaterials;
     private long cachedMaterialRevision;
     private void changed(){cachedValid=false;cached=null;}
 
+    void mining(BlockPos pos,int stage){if(stage<0)pos=null;if(!java.util.Objects.equals(pos,miningPos) || stage!=miningStage){miningPos=pos==null?null:pos.toImmutable();miningStage=stage;changed();}}
+    BlockScene visual(BlockScene scene,BlockParticles particles){return anchor==null?scene:particles.decorate(scene,anchor,nativeAnchor,yaw,height);}
     boolean put(BlockPlacementProbe.Placed placed,List<Box> shapes,double minecraftYaw) {
         if (shapes.isEmpty()) return false;
         boolean first=anchor==null;
@@ -57,13 +59,16 @@ final class PlacedBlockScene {
         return update(read,shapes,pos -> true,world);
     }
     boolean update(Function<BlockPos,BlockState> read,Function<BlockPos,List<Box>> shapes,java.util.function.Predicate<BlockPos> loaded,String world) {
+        return update(read,shapes,loaded,world,(p,s)->{});
+    }
+    boolean update(Function<BlockPos,BlockState> read,Function<BlockPos,List<Box>> shapes,java.util.function.Predicate<BlockPos> loaded,String world,java.util.function.BiConsumer<BlockPos,BlockState> removed){
         if (anchor==null) return true;
         if (!dimension.equals(world)) {clear();return true;}
         var iterator=blocks.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry=iterator.next();if (!loaded.test(entry.getKey())) continue;
             var state=read.apply(entry.getKey());
-            if (state.isAir() || !state.isOf(entry.getValue().state().getBlock())) {iterator.remove();changed();}
+            if (state.isAir() || !state.isOf(entry.getValue().state().getBlock())) {if(state.isAir())removed.accept(entry.getKey(),entry.getValue().state());iterator.remove();changed();}
             else {
                 // Slabs may become double slabs and fences may gain neighbours.
                 var updated=new Entry(state,List.copyOf(shapes.apply(entry.getKey())));
@@ -103,6 +108,7 @@ final class PlacedBlockScene {
         cachedMaterials=materials;cachedMaterialRevision=materials==null?0:materials.revision();cachedValid=true;
         return cached;
     }
+    int miningStage(BlockPos pos){return pos.equals(miningPos)?miningStage:-1;}
     void collisions(boolean value){if(collisions!=value){collisions=value;changed();}}
     boolean collisions(){return collisions;}
     double height(){return height;}
@@ -116,5 +122,5 @@ final class PlacedBlockScene {
     int style() {return style;}
     boolean anchored() {return anchor!=null;}
     String dimension() {return dimension;}
-    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;yaw=height=0;style=0;collisions=false;changed();}
+    void clear() {blocks.clear();anchor=null;nativeAnchor=null;dimension=null;miningPos=null;miningStage=-1;yaw=height=0;style=0;collisions=false;changed();}
 }

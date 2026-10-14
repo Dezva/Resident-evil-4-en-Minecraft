@@ -9,10 +9,10 @@ from re4_reader import ReaderError
 
 class Kernel:
     def __init__(self):
-        self.buffer=ctypes.create_string_buffer(64);self.words=(ctypes.c_uint32*16).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,1,443,42);self.closed=[]
+        self.buffer=ctypes.create_string_buffer(80);self.words=(ctypes.c_uint32*20).from_buffer(self.buffer)
+        self.words[:4]=(MAGIC,2,444,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
-        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==64 else 0)
+        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==80 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
@@ -28,11 +28,11 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);self.assertEqual(writer.writes[-1],(True,65));native.close()
     def test_old_broken_dll_rejected_with_update_message(self):
         k=Kernel();k.words[2]=442
-        with self.assertRaisesRegex(ReaderError,'DLL0.4.43'):NativeRuntime(42,k)
+        with self.assertRaisesRegex(ReaderError,'DLL0.4.44'):NativeRuntime(42,k)
         self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])
-        native.publish(7,8);self.assertEqual(before,list(k.words[4:12]));self.assertEqual(tuple(k.words[12:]),(4,1000,8,7))
+        native.publish(7,8);self.assertEqual(before,list(k.words[4:12]));self.assertEqual(tuple(k.words[12:16]),(4,1000,8,7))
         state=native.status();self.assertEqual(state['scene'],1);self.assertTrue(state['action_available']);self.assertTrue(state['enemies_available'])
         k.words[4]=3;self.assertFalse(native.status()['fresh']);native.close();self.assertEqual(k.words[14],0);self.assertEqual(len(k.closed),2)
     def test_cinematic_missing_player_and_idle_pad_keep_existing_generation_but_not_a_new_arm(self):
@@ -50,6 +50,18 @@ class RuntimeTests(unittest.TestCase):
         runtime.scene=1;runtime.fresh=False
         self.assertFalse(policy.apply(frame,{'state':'waiting_player'})['armed'])
         runtime.fresh=True;self.assertFalse(policy.apply(frame,{'state':'player'})['armed']) # stopped session cannot resume itself
+    def test_vertical_mapping_is_separate_from_native_report_and_stop_cancels_it(self):
+        k=Kernel();native=NativeRuntime(42,k);native.publish(7,0,dict(lift=1250,scale=1000,token=9))
+        self.assertEqual(ctypes.c_float.from_buffer(k.buffer,64).value,1250);self.assertEqual(k.words[17],9)
+        self.assertEqual(ctypes.c_float.from_buffer(k.buffer,72).value,1000);self.assertEqual(k.words[19],1)
+        writer=Writer();policy=ControlPolicy(writer,runtime=native);policy.stop();self.assertEqual(k.words[19],0);native.close()
+    def test_invalid_vertical_requests_never_write_control(self):
+        base=dict(type='re4_control',armed=True,buttons=0,arm_id=7,vertical=dict(lift=1250,scale=1000,token=1))
+        validate_control(base)
+        for change in (dict(lift=float('nan')),dict(lift=-1),dict(lift=128001),dict(scale=0),dict(token=True),dict(token=0)):
+            writer=Writer();frame=dict(base,vertical=dict(base['vertical'],**change))
+            with self.assertRaises(ProtocolError):ControlPolicy(writer).apply(frame,{'state':'player'})
+            self.assertEqual(writer.writes,[])
     def test_action_validation_never_sends_in_menus_or_disarmed(self):
         base=dict(type='re4_control',armed=True,buttons=0,arm_id=1,action_id=1)
         validate_control(base)

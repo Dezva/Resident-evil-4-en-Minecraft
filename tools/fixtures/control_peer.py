@@ -54,8 +54,9 @@ class Health:
     def status(self):
         return dict(available=True,active=self.enabled,fresh=True,reason=0,generation=self.generation,player=4096,hp=800,maximum=1000,damage=200000,healing=0,dead=False,mode=self.request['mode'] if self.request else 0)
 class Runtime:
-    def __init__(self):self.last=None;self.actions=0
-    def publish(self,generation,action_id):
+    def __init__(self):self.last=None;self.actions=0;self.last_vertical=None
+    def publish(self,generation,action_id,vertical=None):
+        if vertical and self.last_vertical!=vertical:self.last_vertical=vertical;print(f"VERTICAL generation={generation} token={vertical['token']} lift={vertical['lift']}",flush=True)
         if action_id and self.last!=(generation,action_id):
             self.last=(generation,action_id);self.actions+=1
             print(f'ACTION generation={generation} id={action_id}',flush=True)

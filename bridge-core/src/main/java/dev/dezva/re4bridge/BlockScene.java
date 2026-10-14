@@ -7,7 +7,8 @@ import java.util.Base64;
 
 /** A fixed rigid grid. Bounds are in native units relative to its origin. */
 public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes,int style,
-                         boolean collisions,List<String> tiles,List<List<Face>> faces) {
+                         boolean collisions,List<String> tiles,List<List<Face>> faces,int colliderCount) {
+    public BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes,int style,boolean collisions,List<String> tiles,List<List<Face>> faces){this(x,y,z,yaw,boxes,style,collisions,tiles,faces,boxes.size());}
     public static final int MAX_BOXES=128,MAX_TILES=64;
     public BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes) {this(x,y,z,yaw,boxes,0);}
     public BlockScene(double x,double y,double z,double yaw,List<Bounds> boxes,int style) {this(x,y,z,yaw,boxes,style,false,List.of(),List.of());}
@@ -31,6 +32,7 @@ public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxe
         for(double n:new double[]{x,y,z})if(!Double.isFinite(n) || Math.abs(n)>20_000_000)throw new IllegalArgumentException("Invalid scene origin");
         if(!Double.isFinite(yaw) || Math.abs(yaw)>Math.PI)throw new IllegalArgumentException("Invalid grid yaw");
         boxes=List.copyOf(boxes);tiles=List.copyOf(tiles);faces=faces.stream().map(List::copyOf).toList();
+        if(colliderCount<0 || colliderCount>boxes.size())throw new IllegalArgumentException("Invalid collision prefix");
         if(boxes.isEmpty() || boxes.size()>MAX_BOXES || style<0 || style>3)throw new IllegalArgumentException("Invalid scene");
         if(style==3) {
             if(tiles.isEmpty() || tiles.size()>MAX_TILES || faces.size()!=boxes.size())throw new IllegalArgumentException("Invalid materials");
@@ -44,7 +46,7 @@ public record BlockScene(double x,double y,double z,double yaw,List<Bounds> boxe
     public JsonObject toJson() {
         var result=new JsonObject();var origin=new JsonArray();for(double n:new double[]{x,y,z,yaw})origin.add(n);
         result.add("origin",origin);var shapes=new JsonArray();boxes.forEach(b->shapes.add(b.toJson()));result.add("boxes",shapes);
-        result.addProperty("style",style);if(collisions)result.addProperty("collisions",true);
+        if(colliderCount!=boxes.size())result.addProperty("collider_count",colliderCount);result.addProperty("style",style);if(collisions)result.addProperty("collisions",true);
         if(style==3) {
             var t=new JsonArray();tiles.forEach(t::add);result.add("tiles",t);var f=new JsonArray();
             for(var group:faces){var a=new JsonArray();group.forEach(face->a.add(face.toJson()));f.add(a);}result.add("faces",f);

@@ -1,5 +1,30 @@
 # Registro de desarrollo
 
+## 0.4.44 — construcción por caras, salto del controlador y efectos de rotura
+
+Usuario confirma mejoras43 pero falla al acertar caras; pide preparar creativo/
+survival, salto/colocar debajo y rotura antes de combate. Ray usa ojos interpolados
+y mirada actual en render y antes de input; se conserva selección de bloques
+conocidos ante demora del mesh. Mirada90° en core/host/DLL, refresh entre frames
+preserva timestamp de input. Volumen de colocación rechaza cuerpo aun con noclip.
+
+Física20Hz: impulso.42, gravedad.08/drag.98, apoyo/techo de bloques y techo nativo,
+columna/pillar, gravedad al perder apoyo, pausa, extenuación y daño de caída MC.
+Suelo auxiliar anclado a base nativa y pose/minería distingue aire. Runtime IPCv2
+80bytes agrega lift/token/scale/enabled bajo seqlock; cámara y pies virtuales
+reciben altura suavizada50ms. No se escribe Y/velocidad/rutina de Leon: su salto
+animado y saltar obstáculos nativos siguen pendientes. Desplazamiento virtual
+no se cuenta como teleport del actor; movimiento nativo conserva sus checks.
+
+Grietas de diez estados leídas del resource pack y multiplicadas sobre material.
+Hook de rotura exitosa del manager más observación de mundo con dedup200ms;
+fragmentos texturados,24máximo/0.8s, pase nativo de profundidad y sin física.
+Scene.collider_count especifica prefijo físico; v6.material_reserved almacena
+count+1 (0 conserva todas), validación y barridos excluyen los fragmentos.
+World limits/tiles/leases/F8 se conservan. Reporte real de enemigos no resuelto;
+no se añade combate en esta entrega. DLL444/mod/host44 requieren actualización
+completa. Pruebas sintéticas/builds; juego/GPU Windows pendiente.
+
 ## 0.4.43 — Preparar y movimiento bloqueados por falso estado de cinemática
 
 Registro del usuario: runtime.scene1/flags50331920 (0x03000110), armado verdadero,

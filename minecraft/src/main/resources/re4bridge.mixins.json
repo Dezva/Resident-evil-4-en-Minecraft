@@ -10,7 +10,8 @@
     "TerrainArrowMixin",
     "EditorPhysicsMixin",
     "BridgeMenuMixin",
-    "BridgeKeyboardMixin"
+    "BridgeKeyboardMixin",
+    "BridgeBreakMixin"
   ],
   "injectors": {
     "defaultRequire": 1

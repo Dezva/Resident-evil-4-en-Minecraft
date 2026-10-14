@@ -15,6 +15,11 @@ MAGIC = 0x52453443
 
 def validate_control(frame):
     if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
+    vertical=frame.get('vertical')
+    if vertical is not None:
+        if not isinstance(vertical,dict) or set(vertical)!={'lift','scale','token'} or type(vertical['token']) is not int or not 1<=vertical['token']<=2147483647:raise ProtocolError('Invalid vertical request')
+        if any(type(vertical[k]) not in (int,float) or not math.isfinite(vertical[k]) for k in ('lift','scale')) or not 40<=vertical['scale']<=2500 or not 0<=vertical['lift']<=128*vertical['scale']:raise ProtocolError('Invalid vertical position')
+        if not frame.get('armed'):raise ProtocolError('Vertical request requires arm')
     validate_health(frame.get('health'))
     if type(frame.get('menu',False)) is not bool or frame.get('menu',False) and frame.get('buttons')!=0:raise ProtocolError('Menu requires zero movement')
     if type(frame.get('depth',False)) is not bool:raise ProtocolError('Invalid depth mode')
@@ -40,7 +45,7 @@ def validate_control(frame):
             raise ProtocolError('Invalid absolute gaze flags')
         if absolute and (type(look.get('total_yaw')) not in (int,float) or abs(look['total_yaw'])>180):
             raise ProtocolError('Invalid absolute gaze')
-        for name, limit in [("total_yaw", 10000000), ("pitch", 85), ("eye_height", 2500)]:
+        for name, limit in [("total_yaw", 10000000), ("pitch", 90), ("eye_height", 2500)]:
             value = look.get(name)
             if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > limit:
                 raise ProtocolError("Invalid look value")
@@ -145,7 +150,7 @@ class ControlPolicy:
             self.health.publish(self.armed,frame['arm_id'],frame.get('health'))
             result['health_state']=self.health.status()
         if self.runtime is not None:
-            self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0)
+            self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0,frame.get('vertical') if self.armed and not scripted else None)
             result['runtime_state']=activity
         return result
 

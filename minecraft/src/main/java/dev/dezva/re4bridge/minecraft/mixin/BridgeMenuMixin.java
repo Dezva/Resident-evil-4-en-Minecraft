@@ -13,5 +13,5 @@ abstract class BridgeMenuMixin {
     @Inject(method="setScreen",at=@At("HEAD"))
     private void re4bridge$menu(Screen next,CallbackInfo ci){BridgeKeys.screen(next);}
     @Inject(method="handleInputEvents",at=@At("HEAD"))
-    private void re4bridge$scripted(CallbackInfo ci){BridgeKeys.input((MinecraftClient)(Object)this);}
+    private void re4bridge$scripted(CallbackInfo ci){var client=(MinecraftClient)(Object)this;BridgeKeys.input(client);dev.dezva.re4bridge.minecraft.TerrainInteraction.crosshair(client,1);}
 }

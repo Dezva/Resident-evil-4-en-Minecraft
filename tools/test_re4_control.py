@@ -96,7 +96,7 @@ class ControlTests(unittest.TestCase):
         policy = ControlPolicy(writer)
         frame = dict(self.frame(), look=look)
         self.assertFalse(policy.apply(frame, {'state':'player'})['armed'])
-        for field, value in [('total_yaw',float('nan')), ('pitch',86), ('eye_height',0),
+        for field, value in [('total_yaw',float('nan')), ('pitch',91), ('eye_height',0),
                              ('eye_height',2501), ('eye_height',-2501), ('enabled',1)]:
             invalid = dict(frame, look=dict(look, **{field:value}))
             with self.assertRaises(ProtocolError): validate_control(invalid)

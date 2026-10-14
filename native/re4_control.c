@@ -292,7 +292,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     }
     float frame[12], position[3], target[3];
     float feet[3], yaw;
-    memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));
+    memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));feet[1]+=runtime_lift;
     yaw = view_yaw;
     float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
     if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player
@@ -346,7 +346,7 @@ static int refresh_render_frame(const ControlFrame *control,uint32_t player,floa
             || (control->flags&3u)!=3u || !(state->capabilities&2u)
             || !re4_valid_look(control->total,control->pitch,control->eye,control->flags))return 0;
     float feet[3],frame[12],position[3],target[3];
-    memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));
+    memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));feet[1]+=runtime_lift;
     if(!re4_eye_frame(feet,view_yaw,control->pitch,control->eye,frame,position,target) || *player_slot!=player)return 0;
     for(unsigned i=0;i<3;++i){render_point.position[i]=frame[4*i+3];render_point.target[i]=render_point.position[i]+target[i];}
     render_point.roll=0;render_point.fovy=isfinite(fovy) && fovy>0 && fovy<179?fovy:50.f;
@@ -540,6 +540,7 @@ static void __cdecl pad_hook(void) {
         relative_walk = 0; state->native_buttons = 0; last_arm_id = 0; consumed_yaw = 0;
     }
     if(!fp_live)native_hud_restore();
+    runtime_vertical_tick(&control,complete,now);
     cube_collision_tick(&control,complete,now);
     health_tick(&control,complete,now);
     enemy_collision_tick(&control,complete,now);
@@ -655,7 +656,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=443; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=444; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

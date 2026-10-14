@@ -35,6 +35,8 @@ static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon 
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
 static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
 #include "runtime_policy.h"
+static float runtime_lift,runtime_body_radius=250,runtime_body_height=1600;
+static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}
 static int runtime_scripted(void){return state->armed && !state->stop && runtime_refresh()!=0;}
 static void runtime_action_restore(void){}
@@ -110,6 +112,9 @@ int main(void){
     packet.generation++;assert(!cube_camera(block_view,&block_fov,&block_player));packet.generation--;
     block_camera_frame.sequence++;assert(!cube_camera(block_view,&block_fov,&block_player));block_camera_frame.sequence++;
     now+=100;assert(!cube_camera(block_view,&block_fov,&block_player));now-=100;
+    runtime_lift=1200;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
+    assert(fabsf(render_point.position[1]-(feet[1]+packet.eye+1200))<.01f);
+    assert(*(float*)(uintptr_t)(id+0x98)==feet[1]);runtime_lift=0; // jump raises camera without writing engine Y
     // Native movie owns camera/model/HUD while the logical bridge stays armed.
     packet.buttons=65;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
     assert(state->camera_active && state->native_buttons==65 && !state->stop); // preparation ACK and W/sprint remain possible

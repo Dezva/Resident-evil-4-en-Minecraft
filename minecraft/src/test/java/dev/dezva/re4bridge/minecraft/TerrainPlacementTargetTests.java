@@ -42,6 +42,12 @@ class TerrainPlacementTargetTests {
   assertNotNull(hit);assertEquals(stone,hit.getBlockPos());assertEquals(Direction.UP,hit.getSide());assertEquals(1,hit.getPos().y,1e-8);
   assertEquals(new BlockPos(0,1,2),hit.getBlockPos().offset(hit.getSide()));assertTrue(serverLocationAccepts(hit));
  }
+ @Test void verticalAimSelectsTheTopBelowJumpingFeetAndFaceChangesImmediately(){
+  var blocks=java.util.Set.of(BlockPos.ORIGIN,new BlockPos(1,0,0));var start=new Vec3d(.5,2.82,.5);
+  var down=TerrainInteraction.nearestPlaced(start,start.add(0,-5,0),blocks,p->net.minecraft.util.shape.VoxelShapes.fullCube());
+  assertEquals(BlockPos.ORIGIN,down.getBlockPos());assertEquals(Direction.UP,down.getSide());assertEquals(new BlockPos(0,1,0),down.getBlockPos().offset(down.getSide()));
+  var side=TerrainInteraction.nearestPlaced(new Vec3d(3,.5,.5),new Vec3d(0,.5,.5),blocks,p->net.minecraft.util.shape.VoxelShapes.fullCube());assertEquals(new BlockPos(1,0,0),side.getBlockPos());assertEquals(Direction.EAST,side.getSide());
+ }
  @Test void supportContactToleranceDoesNotMoveCellOrEraseWalls(){
   var box=new Box(0,0,0,1,1,1);var bounds=TerrainInteraction.placementBounds(box);
   assertEquals(.02,bounds[1]);assertEquals(1,bounds[4]);assertEquals(box.minX,bounds[0]);assertEquals(box.maxX,bounds[3]);assertEquals(box.minZ,bounds[2]);assertEquals(box.maxZ,bounds[5]);

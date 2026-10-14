@@ -14,7 +14,7 @@ int main(void) {
     assert(re4_valid_look(100, 85, 160, 3));
     assert(re4_valid_look(100,85,160,11)); // GUI hold keeps first-person camera valid
     assert(!re4_valid_look(100,85,160,19));
-    assert(!re4_valid_look(100, 86, 160, 3));
+    assert(!re4_valid_look(100, 91, 160, 3));
     assert(!re4_valid_look(100, 0, 160, 2));
     assert(!re4_valid_look(INFINITY, 0, 160, 1));
     assert(!re4_valid_look(0, 0, 0, 1));
@@ -33,7 +33,7 @@ int main(void) {
     assert(target[0] > 999.f && fabsf(target[2]) < 0.001f);
     assert(frame[3] == feet[0] && frame[7] == 1370 && frame[11] == feet[2]);
     for (int sign = -1; sign <= 1; sign += 2) {
-        assert(re4_eye_frame(feet,2,sign*85,2500,frame,pos,target));
+        assert(re4_eye_frame(feet,2,sign*90,2500,frame,pos,target));
         float length = target[0]*target[0] + target[1]*target[1] + target[2]*target[2];
         assert(fabsf(length-1000000.f) < 1.f && target[1]*sign < 0);
     }

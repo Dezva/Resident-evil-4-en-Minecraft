@@ -174,3 +174,12 @@ DLL443 corrige la máscara y refresca escena aun desarmado. Actualizar paquete
 completo y reinstalar DLL; el host rechaza442 con mensaje claro. VIEW conserva
 su preparación autenticada y no omite sus checks de foco ni recupera un armado
 tras parada. Guía: RE4-BLOCK-0.4.43.md.
+
+## 0.4.44 — construcción y salto
+
+Preparar sigue igual, con paquete/mod/host/DLL444 completos por Runtimev2.
+La tecla de salto de Minecraft mueve Steve y la vista de RE4, permite apoyo
+en construcciones y colocar debajo; no fuerza una animación nativa de Leon.
+E/Esc/F5/R/F8 conservan sus funciones, en VIEW y en ventana. Mira90°, grietas y
+fragmentos se añaden en el controlador/renderer, sin nuevos mensajes de ratón
+ni cambios de foco de VIEW. Guía: RE4-BLOCK-0.4.44.md.

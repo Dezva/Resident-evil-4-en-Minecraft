@@ -50,7 +50,7 @@ def read_cube_status(k,pid):
             data=ctypes.string_at(view,92);words=struct.unpack('<23I',data)
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443) or words[4]!=pid:
+            if words[:2]!=(0x52453455,1) or words[3] not in (418,419,421,422,423,424,426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443,444) or words[4]!=pid:
                 raise ReaderError('Version/build/PID de cubo incompatible.')
             report=dict(zip(FIELDS,words[3:]))
             if report['stop_reason'] not in REASONS or report['last_scene_active'] not in (0,1):
@@ -78,7 +78,7 @@ def read_collision_status(k,pid):
             words=struct.unpack('<12I',ctypes.string_at(view,48))
             after=struct.unpack('<I',ctypes.string_at(view+8,4))[0]
             if before!=after or before!=words[2]:continue
-            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
+            if words[:2]!=(0x52453456,1) or (words[3] not in (424,426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443,444) or words[4]!=pid) or words[9]>5 or words[10]>1 or words[11]>2147483647:raise ReaderError('Estado de colision incompatible.')
             result=dict(zip(('ticks','contacts','corrections','rejections','reason','active','generation'),words[5:]));result['active']=bool(result['active']);return result
         raise SnapshotBusy('Estado de colision cambiando.')
     finally:
@@ -145,7 +145,7 @@ class CubeSession:
         if self.version==6:
             import base64
             active=scene if enabled and scene is not None else {}
-            body=struct.pack('<4I',int(active.get('collisions',False)),generation if active else 0,len(active.get('tiles',[])),0)
+            body=struct.pack('<4I',int(active.get('collisions',False)),generation if active else 0,len(active.get('tiles',[])),active['collider_count']+1 if 'collider_count' in active else 0)
             for group in active.get('faces',[]):
                 for face in group:body+=struct.pack('<I8f',*face)
             body+=bytes(27648-36*6*len(active.get('faces',[])))

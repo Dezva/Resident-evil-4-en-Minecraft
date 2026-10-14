@@ -43,7 +43,7 @@ public record ControllerMapping(Re4Sample origin,double x,double y,double z,doub
     }
     /** Absolute mapped gaze survives missed first mouse samples and body/idle turns. */
     public MouseLook.Input look(double minecraftYaw,double pitch,double eye){
-        return new MouseLook.Input(true,true,Math.toDegrees(Math.IEEEremainder(Math.toRadians(minecraftYaw)+rotation,2*Math.PI)),Math.max(-85,Math.min(85,pitch)),eye,true);
+        return new MouseLook.Input(true,true,Math.toDegrees(Math.IEEEremainder(Math.toRadians(minecraftYaw)+rotation,2*Math.PI)),Math.max(-90,Math.min(90,pitch)),eye,true);
     }
     public float minecraftYaw(double nativeYaw){return (float)Math.toDegrees(Math.IEEEremainder(-nativeYaw-rotation,2*Math.PI));}
 }

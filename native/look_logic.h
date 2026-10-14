@@ -46,7 +46,7 @@ static inline void re4_view_frame(const float *eye, float yaw, float pitch,
 static inline int re4_valid_look(float total, float pitch, float eye, unsigned flags) {
     return !(flags & ~15u) && (!(flags&4u) || ((flags&3u)==3u && fabsf(total)<=180.f)) && (!(flags & 2u) || (flags & 1u))
         && isfinite(total) && fabsf(total) <= 10000000.f
-        && isfinite(pitch) && fabsf(pitch) <= 85.f
+        && isfinite(pitch) && fabsf(pitch) <= 90.f
         && isfinite(eye) && fabsf(eye) >= 40.f && fabsf(eye) <= 2500.f;
 }
 /* World-axis eye matrix: yaw belongs to the sight line, never to an orbit offset. */

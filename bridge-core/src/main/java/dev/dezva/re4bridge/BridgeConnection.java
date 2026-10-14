@@ -23,6 +23,14 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile HealthRequest healthRequest;
     private volatile HealthState healthState;
     private volatile RuntimeState runtimeState;
+    private record Vertical(int generation,int token,double lift,double scale,long stamp){}
+    private volatile Vertical vertical;
+    public void vertical(int generation,int token,double lift,double scale){if(!Double.isFinite(lift+scale) || scale<40 || scale>2500 || lift<0 || lift>128*scale || token<1 || generation<1)throw new IllegalArgumentException("Invalid vertical movement");vertical=new Vertical(generation,token,lift,scale,System.nanoTime());}
+    public void clearVertical(){vertical=null;}
+    public void refreshLook(int generation,MouseLook.Input look){
+        control.updateAndGet(old->{if(old==null || !old.frame().get("armed").getAsBoolean() || old.frame().get("arm_id").getAsInt()!=generation || old.frame().get("menu").getAsBoolean() || !old.frame().has("look"))return old;
+            var frame=old.frame().deepCopy();var j=new JsonObject();j.addProperty("enabled",look.enabled());j.addProperty("first_person",look.firstPerson());j.addProperty("total_yaw",look.totalYaw());j.addProperty("pitch",look.pitch());j.addProperty("eye_height",look.eyeHeight());j.addProperty("absolute_yaw",look.absoluteYaw());frame.add("look",j);return new ControlFrame(frame,old.hud(),old.createdNs());});
+    }
     private record ActionRequest(int generation,int id,long createdNs){}
     private volatile ActionRequest actionRequest;private int actionGeneration,actionCounter;
     public RuntimeState runtimeState(){return runtimeState;}
@@ -198,6 +206,8 @@ public final class BridgeConnection implements AutoCloseable {
                         // snapshot receives this bounded transition grace; movement never does.
                         if (latest != null && System.nanoTime() - latest.createdNs() < (latest.frame().has("menu") && latest.frame().get("menu").getAsBoolean() && latest.frame().get("buttons").getAsInt()==0?1_000_000_000L:200_000_000L)) {
                             frame = latest.frame().deepCopy();
+                            var v=vertical;
+                            if(v!=null && frame.get("armed").getAsBoolean() && v.generation()==frame.get("arm_id").getAsInt() && (System.nanoTime()-v.stamp()<200_000_000L || frame.get("menu").getAsBoolean())){var j=new JsonObject();j.addProperty("lift",v.lift());j.addProperty("scale",v.scale());j.addProperty("token",v.token());frame.add("vertical",j);}
                             var action=actionRequest;
                             if(action!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean()
                                 && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L)frame.addProperty("action_id",action.id());

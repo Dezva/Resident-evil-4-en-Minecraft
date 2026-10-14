@@ -11,13 +11,14 @@ MAX_BOXES=128
 def validate_preview(preview):
     if preview is None: return
     if not isinstance(preview,dict): raise ProtocolError('Invalid block preview')
-    scene='origin' in preview and {'origin','boxes'}<=set(preview) and set(preview)<={'origin','boxes','style','collisions','tiles','faces'}
+    scene='origin' in preview and {'origin','boxes'}<=set(preview) and set(preview)<={'origin','boxes','style','collisions','tiles','faces','collider_count'}
     if not scene and set(preview)!={'bounds'}: raise ProtocolError('Invalid block preview')
     boxes=preview['boxes'] if scene else [preview['bounds']]
     if not isinstance(boxes,list) or not 1<=len(boxes)<=MAX_BOXES: raise ProtocolError('Invalid scene size')
     if scene:
         if type(preview.get('style',0)) is not int or preview.get('style',0) not in (0,1,2,3):raise ProtocolError('Invalid scene style')
         if type(preview.get('collisions',False)) is not bool:raise ProtocolError('Invalid collision flag')
+        if type(preview.get('collider_count',len(boxes))) is not int or not 0<=preview.get('collider_count',len(boxes))<=len(boxes):raise ProtocolError('Invalid collision prefix')
         tiles=preview.get('tiles',[]);faces=preview.get('faces',[])
         if preview.get('style',0)==3:
             if not isinstance(tiles,list) or not 1<=len(tiles)<=64 or not isinstance(faces,list) or len(faces)!=len(boxes):raise ProtocolError('Invalid material count')
@@ -57,7 +58,7 @@ class NativePreview:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23; conserva los controles desactivados.')
             self.baseline=initial_snapshot(read_cube_status,kernel,pid)
             self.last_snapshot=self.baseline
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434),(6,435),(6,436),(6,437),(6,438),(6,439),(6,441),(6,442),(6,443)) or not self.baseline['live_devices']:
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434),(6,435),(6,436),(6,437),(6,438),(6,439),(6,441),(6,442),(6,443),(6,444)) or not self.baseline['live_devices']:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23 y dispositivo grafico activo.')
             if self.session.version==6:
                 from re4_cube_test import read_collision_status
@@ -101,7 +102,7 @@ class NativePreview:
                 try:self.baseline=read_cube_status(self.session.k,self.session.pid);self.last_snapshot=self.baseline
                 except SnapshotBusy:self.baseline=self.last_snapshot
                 self.generation=generation
-            key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes']),scene.get('style',0),scene.get('collisions',False),tuple(scene.get('tiles',[])),tuple(tuple(tuple(f) for f in group) for group in scene.get('faces',[]))) if scene is not None else (generation,tuple(bounds))
+            key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes']),scene.get('style',0),scene.get('collisions',False),scene.get('collider_count',len(scene['boxes'])),tuple(scene.get('tiles',[])),tuple(tuple(tuple(f) for f in group) for group in scene.get('faces',[]))) if scene is not None else (generation,tuple(bounds))
             if key!=self.key:
                 import secrets
                 self.session.epoch=secrets.randbits(32) or 1

@@ -32,13 +32,13 @@ int main(void) {
     shared.style=2;assert(cube_command_read(&out) && out.style==2);
     shared.style=3;assert(!cube_command_read(&out));shared.tile_count=1;assert(cube_command_read(&out));
     shared.collisions=1;assert(!cube_command_read(&out));shared.arm_generation=7;assert(cube_command_read(&out));
-    shared.material_reserved=1;assert(!cube_command_read(&out));shared.material_reserved=0;
+    shared.material_reserved=1;assert(cube_command_read(&out) && block_collision_count(&out)==0);shared.material_reserved=4;assert(!cube_command_read(&out));shared.material_reserved=0;
     shared.mode=1;assert(!cube_command_read(&out));
     shared.mode=2;memset(out.materials,0xA5,sizeof(out.materials));memset(out.pixels,0xA5,sizeof(out.pixels));
     assert(cube_collision_command_read(&out) && out.arm_generation==7 && out.boxes[1][5]==1000);
     for(unsigned i=3168;i<sizeof(out);i++)assert(((unsigned char*)&out)[i]==0xA5); // no image/UV copy
     shared.sequence|=1;assert(!cube_collision_command_read(&out));shared.sequence++;
-    shared.material_reserved=1;assert(!cube_collision_command_read(&out));shared.material_reserved=0;
+    shared.material_reserved=4;assert(!cube_collision_command_read(&out));shared.material_reserved=0;
     cube_command=NULL;assert(!cube_command_read(&out));
     puts("Cube command reader: readonly complete snapshot, torn retry, odd/malformed rejection and no cached activation passed");
 }

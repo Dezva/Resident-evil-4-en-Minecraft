@@ -18,5 +18,9 @@ int main(void) {
     command.origin[3]=NAN;assert(run(a,b,out)==-1);command.origin[3]=0;command.origin[0]=command.origin[2]=0;
     command.boxes[0][3]=command.boxes[0][0];assert(run(a,b,out)==-1);memcpy(command.boxes[0],wall,sizeof(wall));
     for(unsigned i=0;i<10000;++i){a[0]=-300-(float)(i%1000);a[2]=(float)(i%1200)-600;b[0]=1500;b[2]=a[2];int hit=run(a,b,out);assert(hit>=0 && isfinite(out[0]+out[1]+out[2]));if(fabsf(a[2])<750)assert(hit==1 && out[0]<-250);}
+    command.count=2;command.material_reserved=2; // one real collider, one visual fragment
+    memcpy(command.boxes[1],wall,sizeof(wall));command.boxes[1][0]=-2000;command.boxes[1][3]=-1000;
+    float particle_start[3]={-2400,0,0},particle_end[3]={-800,0,0};assert(run(particle_start,particle_end,out)==0 && out[0]==-800);
+    command.material_reserved=0;assert(run(particle_start,particle_end,out)==1); // the same geometry would block if marked solid
     puts("Horizontal collision: swept walls, sliding, corners, body height, spawn escape, rigid grid and bounded cases passed");
 }

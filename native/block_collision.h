@@ -4,9 +4,9 @@
 #include "block_geometry.h"
 /* Upright conservative square footprint. Horizontal response only; native Y/ground is preserved. */
 static inline int block_collision_scene_valid(const CubeCommand *command) {
-    if(command->mode!=2 || !command->count || command->count>CUBE_MAX_BOXES)return 0;
+    if(command->mode!=2 || !block_collision_count(command) || command->count>CUBE_MAX_BOXES || block_collision_count(command)>command->count)return 0;
     for(unsigned i=0;i<4;++i)if(!isfinite(command->origin[i]) || fabsf(command->origin[i])>(i==3?3.141593f:20000000.f))return 0;
-    for(unsigned i=0;i<command->count;++i)if(!block_valid_shape_bounds(command->boxes[i]))return 0;
+    for(unsigned i=0;i<block_collision_count(command);++i)if(!block_valid_shape_bounds(command->boxes[i]))return 0;
     return 1;
 }
 static inline void block_local_point(const float *origin,const float *point,float *local) {
@@ -37,7 +37,7 @@ static inline int block_resolve_horizontal_actor_validated(const CubeCommand *co
     int contacts=0;
     for(unsigned iteration=0;iteration<4;++iteration) {
         float earliest=1,normal=0;unsigned axis=0;int found=0;
-        for(unsigned i=0;i<command->count;++i){float t,n;unsigned a;if(block_sweep_horizontal(command->boxes[i],start,delta,radius,height,&t,&a,&n) && (!found || t<earliest)){earliest=t;axis=a;normal=n;found=1;}}
+        for(unsigned i=0;i<block_collision_count(command);++i){float t,n;unsigned a;if(block_sweep_horizontal(command->boxes[i],start,delta,radius,height,&t,&a,&n) && (!found || t<earliest)){earliest=t;axis=a;normal=n;found=1;}}
         if(!found){for(unsigned i=0;i<3;++i)start[i]+=delta[i];break;}
         for(unsigned i=0;i<3;++i){start[i]+=delta[i]*earliest;delta[i]*=1-earliest;}
         start[axis]+=normal*.5f;delta[axis]=0;contacts++;

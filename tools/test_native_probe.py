@@ -2,7 +2,7 @@
 import struct
 import unittest
 from re4_native_probe import (inspect, KEY_SIGNATURE, PAD_SIGNATURE, GLOBAL_SIGNATURE, PROJECTION_SIGNATURE,
-                              observed_projection_profile, OBSERVED_PROJECTION_CALLS)
+                              observed_projection_profile, OBSERVED_PROJECTION_CALLS, ENEMY_SIGNATURE)
 from test_re4_reader import Memory
 
 
@@ -16,6 +16,22 @@ def fixture():
 
 
 class ProbeTests(unittest.TestCase):
+    def test_enemy_sites_with_shared_or_distinct_operands_are_reported_read_only(self):
+        m=fixture()
+        signature=bytes(0 if p=='?' else int(p,16) for p in ENEMY_SIGNATURE.split())
+        for offset in (0x1800,0x1900):
+            m.data[offset:offset+len(signature)]=signature
+            struct.pack_into('<I',m.data,offset+13,m.base+0x3400)
+        struct.pack_into('<4I',m.data,0x3400,m.base+0x3200,m.base+0x4000,1,0x408)
+        before=bytes(m.data);report=inspect(m.read,m.base,m.size)
+        self.assertEqual(report['checks']['enemy_manager_matches'],2)
+        self.assertTrue(report['checks']['enemy_manager_shared_target'])
+        self.assertEqual(report['enemy_manager']['capacity'],1)
+        self.assertEqual(bytes(m.data),before)
+        struct.pack_into('<I',m.data,0x190d,m.base+0x3500)
+        report=inspect(m.read,m.base,m.size)
+        self.assertFalse(report['checks']['enemy_manager_shared_target']);self.assertNotIn('enemy_manager',report)
+
     def test_observed_profile_requires_all_calls_and_both_verified_destinations(self):
         rows = [dict(call_rva=hex(call),target_rva=hex(0x344f if call==0x1f7bad else 0xe395),
                      resolved_target_rva=hex(0x202f60 if call==0x1f7bad else 0x19f3a0))

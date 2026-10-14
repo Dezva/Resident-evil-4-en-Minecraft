@@ -8,6 +8,12 @@ import unittest
 
 
 class NativeCaptureTests(unittest.TestCase):
+    def test_render_debris_between_snapshots_preserves_colliders(self):
+        self.compile_run('test_block_debris.c')
+
+    def test_enemy_manager_discovery_accepts_one_shared_target(self):
+        self.compile_run('test_runtime_discovery.c')
+
     def compile_run(self,name,extra=None):
         root=Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as directory:

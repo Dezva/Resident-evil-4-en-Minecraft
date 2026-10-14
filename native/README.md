@@ -1,5 +1,10 @@
 # Native RE4 bridge
 
+Build446 adds bounded120ms contextual holds, shared-operand enemy discovery
+and render-only debris prediction between20Hz packets. See
+[0.4.46](../docs/RE4-BLOCK-0.4.46.md) for tested scope and Windows checks.
+The notes below describe build445 and earlier versions.
+
 Current build445 uses Runtimev3 (112bytes) for contextual check/pickup/confirm,
 separate native event cancellation and enemy diagnostics. Pad owns input;
 scripted projection can deliver a bounded50ms action pulse when pad is idle80ms.

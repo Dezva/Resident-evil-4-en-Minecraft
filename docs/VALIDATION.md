@@ -1076,6 +1076,30 @@ como fallidos en el juego: no se dan por corregidos por los fixtures sintéticos
 Animación/Y de salto de Leon, vuelo creativo, combate y objetos sueltos RE4
 siguen pendientes. Se necesita prueba de gameplay y Win32/D3D9 en Windows.
 
+## 0.4.46 — 2026-10-14
+
+- Gradle8.11.1/JDK21:43 tests bridge-core y72 Minecraft, sin fallos/errores/skips.
+  Compilación y remap del JAR446, access widener y check pasan. Remap sources
+  sigue SKIPPED por el proyecto y no es parte del paquete instalable.
+- Python:160 tests pasan. Casos nuevos: destino compartido frente a ambiguo
+  en firma EmMgr, diagnóstico de coincidencias sin escrituras, movimiento de
+  partículas entre snapshots con colisionadores intactos. Callback real de
+  runtime verifica120ms sostenidos, una sola arista, no prolongación al
+  renovar paquetes y guardas. COM/captura/cámara/colisión fixtures también pasan.
+- MinGW14.2.0: DLL446 PE32 i386 compilada con warnings como errores. Segundo
+  build reproduce SHA256
+  `fed0452d496f5078c16b602c2225293ff21afe236cbe618947837f633b2910bb`.
+  Cinco fixtures nativos de política/branch/mirada/geometría/vida pasan.
+- PowerShell7.4.7: backup/install, rechazo de sobreescritura, desinstalación
+  desde DLL445 y anteriores, archivos desconocidos rechazados y diagnóstico
+  IPC pasan en directorios temporales. No se modifica ninguna partida real.
+- Logs del usuario:41 reportes con detector ausente (enemy_reason6), cero
+  actores revisados; acciones inyectadas6..17. No demuestran si la causa de
+  ausencia es una firma múltiple, ausente o un operando fuera de rango. PROBE
+  ahora informa esa diferencia. No se ejecuta RE4/driver real en Linux y no se
+  afirma interacción/colisión/fluidez reales comprobadas. Daño desde abajo por
+  elevación virtual permanece pendiente.
+
 ## 0.4.45 — 2026-10-14
 
 - JDK21/Gradle8.11.1 offline: bridge-core43 y Minecraft72 pruebas, cero fallos,

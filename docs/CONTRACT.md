@@ -615,6 +615,26 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización0.4.46
+
+Runtime v3 conserva sus112bytes y offsets; el host0.4.46 exige build446 para
+no aceptar silenciosamente una DLL445 sin estas correcciones. Una solicitud R
+produce una sola arista de Key_btn_trg y un Key_btn_on sostenido hasta120ms;
+los paquetes que repiten el mismo token no prolongan ese plazo. Las llamadas
+auxiliares de proyección conservan el disparo inicial hasta la siguiente lectura
+del pad. Menú/F8/caducidad/generación/muerte cancelan la inyección.
+
+La firma EmMgr del SDK fijado sigue siendo la misma. Se permiten hasta64
+coincidencias solo si todos los operandos resuelven una misma dirección
+alineada y legible dentro del módulo. Destinos distintos permanecen rechazados.
+PROBE añade conteos/destinos y capacidad/stride mediante lecturas.
+
+Scene v6 tampoco cambia. La predicción visual opera sobre el sufijo posterior
+al collider_count de una copia local, nunca sobre IPC ni cajas de física.
+Predice como máximo50ms entre snapshots compatibles con intervalos10..100ms;
+materiales, tamaños, sesión, origen o conjunto incompatibles reinician velocidad.
+No extiende leases ni la vida del fragmento, ni cambia posición Y de los actores.
+
 ## Altura/acciones/enemigos0.4.45
 
 Runtimev3/build445:112bytes. Reporte0..47 y comando48..79 mantienen offsets.

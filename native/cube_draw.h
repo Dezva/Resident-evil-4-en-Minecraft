@@ -4,11 +4,11 @@
 /* Executes only within a successful BeginScene, on a freshly wrapped device.
  * Texture pixels persist per facade; state backups never retain game resources between draws. */
 static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) {
-    if(runtime_scripted()){cube_record(CUBE_PASS_SKIP,0);return;}
+    if(runtime_scripted()){f->debris.valid=0;cube_record(CUBE_PASS_SKIP,0);return;}
     CubeCommand command;
     int complete=cube_command_read(&command);
     int reason=cube_gate(&f->gate,complete?&command:NULL,GetTickCount(),GetAsyncKeyState(VK_F8)&0x8000);
-    if (reason || f->escaped || f->resetting || !f->scene) {block_texture_cache_release(&f->block_texture);cube_record(CUBE_REJECT,f->escaped?CUBE_INTERFACE:reason?reason:CUBE_OFF);return;}
+    if (reason || f->escaped || f->resetting || !f->scene) {f->debris.valid=0;block_texture_cache_release(&f->block_texture);cube_record(CUBE_REJECT,f->escaped?CUBE_INTERFACE:reason?reason:CUBE_OFF);return;}
     IDirect3DDevice9 *device=f->inner;
     IDirect3DSurface9 *target=NULL,*back=NULL;
     HRESULT hr=device->lpVtbl->GetRenderTarget(device,0,&target);
@@ -21,7 +21,7 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
     if (!matches) {cube_record(CUBE_PASS_SKIP,0);return;}
     float view[12],fov;uint32_t player;
     if (!cube_camera(view,&fov,&player)) {cube_record(CUBE_CAMERA_REJECT,0);return;}
-    if (f->player!=player) {f->player=player;f->gate.anchored=0;}
+    if (f->player!=player) {f->player=player;f->gate.anchored=0;f->debris.valid=0;}
     D3DVIEWPORT9 viewport;
     hr=device->lpVtbl->GetViewport(device,&viewport);
     if (FAILED(hr)) {f->gate.blocked=command.epoch;f->gate.blocked_reason=CUBE_GRAPHICS;cube_record(CUBE_FAILURE,(uint32_t)hr);return;}
@@ -81,6 +81,10 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
                 for(unsigned i=0;i<command.count;++i)for(unsigned j=0;j<6;++j) {
                     if(command.materials[i][j].tile>=command.tile_count){HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;}
                     for(unsigned k=0;k<8;++k)if(!isfinite(command.materials[i][j].uv[k]) || command.materials[i][j].uv[k]<0 || command.materials[i][j].uv[k]>1){HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;}
+                }
+                block_debris_predict(&f->debris,&command,GetTickCount());
+                for(unsigned i=block_collision_count(&command);i<command.count;i++)if(!block_valid_shape_bounds(command.boxes[i])){
+                    HeapFree(GetProcessHeap(),0,surface);cube_record(CUBE_CAMERA_REJECT,0);return;
                 }
             }
             vertices=surface->vertices;

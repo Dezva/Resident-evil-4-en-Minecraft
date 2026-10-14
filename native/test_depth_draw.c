@@ -13,7 +13,8 @@
 #include "cube_policy.h"
 #include "block_surface.h"
 #include "block_texture.h"
-typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;} CubeDevice;
+#include "block_debris.h"
+typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;BlockDebris debris;} CubeDevice;
 typedef struct {DWORD render[256],stage[2][32],sampler[16],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;

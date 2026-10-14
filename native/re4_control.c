@@ -446,6 +446,7 @@ static void __cdecl projection_hook(void) {
     unsigned char *camera = (unsigned char *)(uintptr_t)((uintptr_t)global+0x74);
     int applied = 0;
     if(GetAsyncKeyState(VK_F8)&0x8000)InterlockedExchange(&state->stop,1);
+    runtime_action_projection(); // contextual requests also need the bounded fallback when PadRead is idle
     cube_collision_tick(&control,complete,GetTickCount());
     if(!block_camera_scene || !block_camera_frame.valid || block_camera_frame.epoch!=block_camera_epoch)enemy_collision_tick(&control,complete,GetTickCount());
     uint32_t player=current_player();
@@ -611,6 +612,15 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
     return find_patterns(base,image_size,nt,pattern,length,&found,1) == 1 ? found : NULL;
 }
 
+#include "runtime_discovery.h"
+static uint32_t shared_pattern_operand(unsigned char *base,DWORD size,IMAGE_NT_HEADERS32 *nt,
+        const int *pattern,SIZE_T length,SIZE_T offset,SIZE_T bytes){
+    unsigned char *sites[64];
+    unsigned count=find_patterns(base,size,nt,pattern,length,sites,64);
+    uint32_t address=re4_shared_operand(sites,count,offset,(uintptr_t)base,size,bytes);
+    return address && readable((void*)(uintptr_t)address,bytes)?address:0;
+}
+
 static int cube_camera(float *view,float *fov,uint32_t *player) {
     if(runtime_scripted())return 0;
     *player=current_player();if (!*player || !global_slot || !readable((void *)global_slot,4)) return 0;
@@ -676,7 +686,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=445; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=446; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -721,8 +731,8 @@ static void install_hook(void) {
     key_on = (volatile uint64_t *)(uintptr_t)keys_address;
     unsigned char *trigger=unique_pattern(base,size,nt,trigger_pattern,sizeof(trigger_pattern)/sizeof(int));
     if(trigger){uint32_t address;memcpy(&address,trigger+1,4);if(!(address&3u) && address>=(uintptr_t)base && address<=(uintptr_t)base+size-8 && writable((void*)(uintptr_t)address,8))key_trigger=(volatile uint64_t*)(uintptr_t)address;}
-    unsigned char *manager=unique_pattern(base,size,nt,enemy_pattern,sizeof(enemy_pattern)/sizeof(int));
-    if(manager){uint32_t address;memcpy(&address,manager+13,4);if(!(address&3u) && address>=(uintptr_t)base && address<=(uintptr_t)base+size-32 && readable((void*)(uintptr_t)address,32)){enemy_manager=address;runtime_enemy_available=1;}}
+    enemy_manager=shared_pattern_operand(base,size,nt,enemy_pattern,sizeof(enemy_pattern)/sizeof(int),13,32);
+    runtime_enemy_available=enemy_manager!=0;
 
     DWORD old_protect;
     state->status = 3;

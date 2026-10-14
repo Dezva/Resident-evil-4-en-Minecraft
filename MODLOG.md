@@ -1,3 +1,16 @@
+## 0.4.46 — interacción sostenida, referencias compartidas y partículas entre paquetes
+
+Corrección reconstruida desde 0.4.45 tras los registros del usuario: R solicita
+acciones pero RE4 no interactúa; detector de ganados ausente (motivo6, cero
+actores revisados). Pulso nativo de120ms con una sola arista y respaldo también
+en gameplay con pad inactivo. Se aceptan sitios de la firma conocida que
+resuelvan un mismo cEmMgr, conservando rechazo de ambigüedades. Fragmentos
+visuales predichos por fotograma hasta50ms, sin tocar colisionadores.
+Host y DLL446 completos requeridos. 43 pruebas core,72 Minecraft,160 Python e
+instaladores simulados pasan; interacción/ganados/fluidez reales Windows
+pendientes. Golpes desde abajo con elevación virtual no corregidos.
+Ver [guía0.4.46](docs/RE4-BLOCK-0.4.46.md).
+
 ## 0.4.45 — altura, acciones y detector de ganados
 
 - Corrige el error de cobertura de techos que se presentaba como «salto de zona» al subir columnas. Mapa local centrado a la altura virtual; espera segura durante actualización.

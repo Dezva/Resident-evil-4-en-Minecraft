@@ -3,6 +3,7 @@
 #include "cube_policy.h"
 #include "block_geometry.h"
 #include "block_texture.h"
+#include "block_debris.h"
 typedef struct {
     IDirect3DDevice9 iface;IDirect3DDevice9 *inner;
     volatile LONG references;CRITICAL_SECTION lock;
@@ -11,6 +12,7 @@ typedef struct {
     void *overlay;
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
+    BlockDebris debris;
     float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage;DWORD depth_z,depth_write,depth_compare,depth_world_compare;
 } CubeDevice;
 static const GUID cube_iunknown={0,0,0,{0xc0,0,0,0,0,0,0,0x46}};

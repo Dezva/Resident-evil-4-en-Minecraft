@@ -12,6 +12,7 @@ static SRWLOCK runtime_report_lock=SRWLOCK_INIT;
 static uint32_t enemy_manager,runtime_enemy_available,runtime_enemy_contacts,runtime_enemy_corrections;
 static uint32_t runtime_actions,runtime_skips,action_generation,action_consumed;
 static uint32_t runtime_pad_stamp,action_stamp;
+static uint32_t action_pending_id,action_pending_generation,action_pending_kind;
 static uint32_t runtime_enemy_reason=1,runtime_enemy_scanned,runtime_enemy_eligible,runtime_enemy_capacity,runtime_enemy_stride;
 static uint64_t action_saved_on,action_saved_trigger;static unsigned action_injected;
 static unsigned runtime_cache_valid;static uint32_t runtime_cache_stamp,runtime_cache_epoch,runtime_cache_generation,runtime_cache_flags;
@@ -78,7 +79,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=3;p->build=445;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=3;p->build=446;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){
@@ -97,17 +98,30 @@ static void runtime_action_apply(const ControlFrame *control,int complete,uint32
     }
     unsigned live=stable && complete && state->armed && control->armed && !state->stop && control->generation==state->arm_id && now-control->stamp<500
         && !(GetAsyncKeyState(VK_F8)&0x8000);
-    if(request.action_kind>1 || (request.action_kind==1 && (!runtime_scripted() || !(runtime_cache_flags&(0x10000000u|0x04000000u|0x00001000u)))) || runtime_death())return;
-    if(!re4_action_pulse(now,request.request_stamp,control->generation,request.generation,request.action_id,
-        &action_generation,&action_consumed,live,(control->flags&8u)!=0))return;
+    if(!live || (control->flags&8u) || request.generation!=control->generation || now-request.request_stamp>=500
+        || !request.action_id || request.action_kind>1
+        || (request.action_kind==1 && (!runtime_scripted() || !(runtime_cache_flags&(0x10000000u|0x04000000u|0x00001000u)))) || runtime_death()){
+        action_pending_id=0;runtime_action_restore();return;
+    }
+    unsigned first=re4_action_pulse(now,request.request_stamp,control->generation,request.generation,request.action_id,
+        &action_generation,&action_consumed,live,0);
+    if(first){
+        action_pending_id=request.action_id;action_pending_generation=request.generation;action_pending_kind=request.action_kind;action_stamp=now;
+    }else if(action_pending_id!=request.action_id || action_pending_generation!=request.generation
+        || action_pending_kind!=request.action_kind || now-action_stamp>=RE4_ACTION_HOLD_MS){runtime_action_restore();return;}
+    else if(action_injected)return; // auxiliary projection calls must not erase this pad frame's rising edge
     uint64_t bits=request.action_kind?RE4_SKIP_BITS:RE4_ACTION_BITS;
-    action_saved_on=*key_on&RE4_BORROWED_BITS;action_saved_trigger=*key_trigger&RE4_BORROWED_BITS;action_injected=1;action_stamp=now;
-    *key_on|=bits;*key_trigger|=bits;if(request.action_kind)runtime_skips++;else runtime_actions++;
+    runtime_action_restore();
+    action_saved_on=*key_on&RE4_BORROWED_BITS;action_saved_trigger=*key_trigger&RE4_BORROWED_BITS;action_injected=1;
+    *key_on|=bits;
+    /* One rising edge, then a short held input across subsequent native pad
+       polls. Never turn a single R/F6 press into repeated trigger events. */
+    if(first){*key_trigger|=bits;if(request.action_kind)runtime_skips++;else runtime_actions++;}
 }
 
 static void runtime_action_projection(void){
     uint32_t now=GetTickCount();
-    if(action_injected && now-action_stamp>=50)runtime_action_restore();
+    if(action_injected && now-action_stamp>=RE4_ACTION_HOLD_MS)runtime_action_restore();
     if(now-runtime_pad_stamp<80)return;
     ControlFrame control={0};int complete=read_control_frame(&control);
     runtime_action_apply(&control,complete,now);

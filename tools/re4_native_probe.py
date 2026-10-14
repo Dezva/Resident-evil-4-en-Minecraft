@@ -8,6 +8,8 @@ from re4_reader import (DEFAULT_EXE, VERSION_SIGNATURE, ReaderError, WindowsProc
 
 KEY_SIGNATURE = "A1 ? ? ? ? 33 C9 83 E0 ? 83 3D"
 PAD_SIGNATURE = "E8 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? 6A 04 E8 ? ? ? ? 83 C4 18 E8 ? ? ? ? E8 ? ? ? ? A1"
+ENEMY_SIGNATURE = "81 E1 01 02 00 00 83 F9 01 75 ? 50 B9 ? ? ? ? E8"
+TRIGGER_SIGNATURE = "A1 ? ? ? ? 25 ? ? ? ? 0B C1 74 ? 88 0D"
 CAMERA_SIGNATURE = "52 8D 85 ? ? ? ? 50 8D 4D ? 51 8B CB E8"
 SMOOTH_SIGNATURE = "E8 ? ? ? ? 80 BB B6 01 00 00 00"
 CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
@@ -49,9 +51,19 @@ def inspect(read, base, size, query=None):
     projection_calls = []
     for name, signature in [("version", VERSION_SIGNATURE), ("keys", KEY_SIGNATURE), ("pad", PAD_SIGNATURE),
                             ("camera", CAMERA_SIGNATURE), ("camera_ctrl", CAMERA_CTRL_SIGNATURE), ("camera_smoothing", SMOOTH_SIGNATURE),
-                            ("global", GLOBAL_SIGNATURE), ("projection", PROJECTION_SIGNATURE)]:
+                            ("global", GLOBAL_SIGNATURE), ("projection", PROJECTION_SIGNATURE),
+                            ("enemy_manager", ENEMY_SIGNATURE), ("action_trigger", TRIGGER_SIGNATURE)]:
         found = [address + hit for address, data in blobs for hit in matches(data, signature)]
         checks[name + "_matches"] = len(found)
+        if name == 'enemy_manager':
+            pointers = [u32(read(site+13,4)) for site in found]
+            checks['enemy_manager_unique_targets'] = len(set(pointers))
+            checks['enemy_manager_shared_target'] = 0 < len(found) <= 64 and len(set(pointers)) == 1
+            checks['enemy_manager_in_module'] = bool(pointers) and all(base <= p <= base+size-32 and p % 4 == 0 for p in pointers)
+            if checks['enemy_manager_shared_target'] and checks['enemy_manager_in_module']:
+                vt,array,capacity,stride=struct.unpack('<4I',read(pointers[0],16))
+                report['enemy_manager'] = dict(manager_rva=hex(pointers[0]-base),vtable_in_module=base<=vt<base+size,
+                    capacity=capacity,stride=stride,array_aligned=array>=0x10000 and array%4==0)
         if name == 'projection': projection_calls = found
         if len(found) == 1:
             hits[name] = found[0]

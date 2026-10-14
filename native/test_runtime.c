@@ -43,8 +43,16 @@ int main(void){
     flags=50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     report.request_stamp=1000;report.action_id=1;report.generation=7;
     runtime_action_apply(&control,1,now);assert(runtime_actions==1 && (on&RE4_ACTION_BITS)==RE4_ACTION_BITS && (trigger&RE4_ACTION_BITS)==RE4_ACTION_BITS);
+    for(unsigned call=0;call<20;call++){runtime_action_apply(&control,1,now);assert(runtime_actions==1 && (trigger&RE4_ACTION_BITS)==RE4_ACTION_BITS);}
     runtime_action_restore();assert(on==0x80 && trigger==0x20); // only borrowed action bits restored before original input
-    runtime_action_apply(&control,1,now);assert(runtime_actions==1); // same token is one pulse
+    for(unsigned elapsed=16;elapsed<120;elapsed+=16){
+        now=1000+elapsed;control.stamp=report.request_stamp=now;
+        runtime_action_apply(&control,1,now);
+        assert(runtime_actions==1 && (on&RE4_ACTION_BITS)==RE4_ACTION_BITS && trigger==0x20);
+        runtime_action_restore();assert(on==0x80 && trigger==0x20);
+    }
+    now=1120;control.stamp=report.request_stamp=now;runtime_action_apply(&control,1,now);
+    assert(runtime_actions==1 && on==0x80 && trigger==0x20); // fresh request cannot prolong an already consumed press
     for(unsigned fail=0;fail<7;fail++){
         report.action_id=2;report.request_stamp=control.stamp=now=1000;report.generation=control.generation=7;control.flags=0;state->armed=1;state->stop=0;state->arm_id=7;report.request_sequence=0;f8=0;
         if(fail==0)state->stop=1;
@@ -91,7 +99,7 @@ int main(void){
     report.action_id=5;report.request_stamp=control.stamp=now=2100;runtime_pad_stamp=now;
     runtime_action_projection();assert(runtime_skips==1); // active pad owns input
     now=2200;report.request_stamp=now;runtime_action_projection();assert(runtime_skips==2 && (on&RE4_SKIP_BITS));
-    now+=60;runtime_action_projection();assert(runtime_skips==2 && !(on&RE4_SKIP_BITS)); // bounded pulse even without pad
+    now+=RE4_ACTION_HOLD_MS;runtime_action_projection();assert(runtime_skips==2 && !(on&RE4_SKIP_BITS)); // bounded pulse even without pad
     state->armed=0;queries=0;assert(!runtime_scripted() && !queries);
     flags=50331920;memcpy(globals+0x501C,&flags,4);now+=16;
     assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8

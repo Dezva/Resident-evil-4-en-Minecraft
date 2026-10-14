@@ -3,6 +3,8 @@ import argparse
 import ctypes
 import json
 import struct
+import time
+from pathlib import Path
 from re4_reader import (DEFAULT_EXE, VERSION_SIGNATURE, ReaderError, WindowsProcess,
                         code_sections, find_pid, matches, u32)
 
@@ -16,6 +18,42 @@ CAMERA_CTRL_SIGNATURE = "D9 EE B9 ? ? ? ? D9 9E A4 00 00 00 E8 ? ? ? ? D9 EE"
 GLOBAL_SIGNATURE = "A1 ? ? ? ? B9 FF FF FF 7F 21 48 ? A1"
 PROJECTION_SIGNATURE = "E8 ? ? ? ? 8A 46 30 3C FD"
 OBSERVED_PROJECTION_CALLS = {0x1e7110,0x1e8697,0x1e8f4a,0x1ebb47,0x1f43d3,0x1f7bad,0x205dad}
+
+
+def inspect_enemy_manager(read, base, size, address):
+    row=dict(manager_rva=hex(address-base))
+    try:
+        vt,array,count,stride=struct.unpack('<4I',read(address,16))
+        row.update(vtable_in_module=base<=vt<base+size,capacity=count,stride=stride,
+                   array_aligned=array>=0x10000 and array%4==0)
+        row['cem_layout_possible']=(row['vtable_in_module'] and row['array_aligned'] and 0<count<=4096
+            and 0x408<=stride<=65536 and stride%4==0 and count*stride<=64*1024*1024 and array+count*stride<=0xffffffff)
+        if row['cem_layout_possible']:
+            ids={};routines={};flags={};eligible=0;scanned=0
+            for index in range(count):
+                data=read(array+index*stride,0x408);scanned+=1
+                actor_vt=u32(data);bits=u32(data,4)
+                if not base<=actor_vt<base+size or not bits&0x601:continue
+                kind=data[0x100];routine=data[0xfc];hp=struct.unpack_from('<h',data,0x324)[0]
+                ids[hex(kind)]=ids.get(hex(kind),0)+1;routines[str(routine)]=routines.get(str(routine),0)+1
+                flags[hex(bits&0x601)]=flags.get(hex(bits&0x601),0)+1
+                if bits&0x601==1 and routine in (1,2) and hp>0:eligible+=1
+            row.update(scanned=scanned,ids=ids,routines=routines,validity_flags=flags,live_cem_fields=eligible)
+    except (ReaderError,OSError,ValueError,struct.error) as error:
+        row['read_error']=str(error)
+    return row
+
+
+def sample_native_input(read, base, pointers, seconds, clock=time.monotonic, wait=time.sleep):
+    if not 0<seconds<=20:raise ValueError('Input capture duration must be between 0 and 20 seconds')
+    start=clock();rows=[];previous=None
+    while clock()-start<seconds:
+        values=tuple(struct.unpack('<Q',read(base+int(pointers[key],16),8))[0] for key in ('on_rva','trigger_rva'))
+        if values!=previous and len(rows)<256:
+            rows.append(dict(elapsed_ms=round((clock()-start)*1000),native_on=hex(values[0]),native_trigger=hex(values[1])))
+            previous=values
+        wait(.005)
+    return rows
 
 
 def observed_projection_profile(rows):
@@ -60,6 +98,8 @@ def inspect(read, base, size, query=None):
             checks['enemy_manager_unique_targets'] = len(set(pointers))
             checks['enemy_manager_shared_target'] = 0 < len(found) <= 64 and len(set(pointers)) == 1
             checks['enemy_manager_in_module'] = bool(pointers) and all(base <= p <= base+size-32 and p % 4 == 0 for p in pointers)
+            if checks['enemy_manager_in_module'] and len(found)<=64:
+                report['enemy_manager_candidates']=[inspect_enemy_manager(read,base,size,p) for p in sorted(set(pointers))]
             if checks['enemy_manager_shared_target'] and checks['enemy_manager_in_module']:
                 vt,array,capacity,stride=struct.unpack('<4I',read(pointers[0],16))
                 report['enemy_manager'] = dict(manager_rva=hex(pointers[0]-base),vtable_in_module=base<=vt<base+size,
@@ -70,6 +110,10 @@ def inspect(read, base, size, query=None):
     if 'global' in hits:
         pointer = u32(read(hits['global']+1,4))
         checks['global_slot_in_module'] = base <= pointer <= base+size-4 and pointer % 4 == 0
+    if 'keys' in hits and 'action_trigger' in hits:
+        on=u32(read(hits['keys']+1,4));trigger=u32(read(hits['action_trigger']+1,4))
+        if all(base<=p<=base+size-8 and p%4==0 for p in (on,trigger)) and on!=trigger:
+            report['input_pointers']=dict(on_rva=hex(on-base),trigger_rva=hex(trigger-base))
     if projection_calls:
         rows = []
         targets = []
@@ -181,6 +225,8 @@ def memory_query(process, pid):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", default=DEFAULT_EXE)
+    parser.add_argument("--input-seconds",type=float,default=0)
+    parser.add_argument("--report",type=Path)
     args = parser.parse_args()
     process = None
     query_handle = None
@@ -188,7 +234,14 @@ def main():
         pid = find_pid()
         process = WindowsProcess(pid, args.exe)
         query_handle, query = memory_query(process, pid)
-        print(json.dumps(inspect(process.read, process.base, process.size, query), indent=2))
+        report=inspect(process.read, process.base, process.size, query)
+        if args.input_seconds:
+            if 'input_pointers' not in report:raise ReaderError('No se identificaron ambos canales nativos de entrada')
+            print('Pulsa F8 para detener el puente; enfoca RE4 y pulsa E una vez ante una accion. Lectura de botones en 3 segundos.',flush=True)
+            time.sleep(3)
+            report['native_input_samples']=sample_native_input(process.read,process.base,report['input_pointers'],args.input_seconds)
+        if args.report:args.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
+        print(json.dumps(report, indent=2))
         print("Diagnostico terminado. No se modifico RE4 ni se activaron controles.")
     except (ReaderError, OSError, ValueError) as error:
         print("ERROR:", error)

@@ -2,7 +2,8 @@
 import struct
 import unittest
 from re4_native_probe import (inspect, KEY_SIGNATURE, PAD_SIGNATURE, GLOBAL_SIGNATURE, PROJECTION_SIGNATURE,
-                              observed_projection_profile, OBSERVED_PROJECTION_CALLS, ENEMY_SIGNATURE)
+                              observed_projection_profile, OBSERVED_PROJECTION_CALLS, ENEMY_SIGNATURE,
+                              inspect_enemy_manager,sample_native_input)
 from test_re4_reader import Memory
 
 
@@ -16,6 +17,27 @@ def fixture():
 
 
 class ProbeTests(unittest.TestCase):
+    def test_manager_details_distinguish_small_pool_from_live_cem_layout_without_writes(self):
+        m=fixture();struct.pack_into('<4I',m.data,0x3400,m.base+0x3200,m.base+0x4000,1,0x408)
+        struct.pack_into('<II',m.data,0x4000,m.base+0x3200,1)
+        m.data[0x40fc]=1;m.data[0x4100]=0x12;struct.pack_into('<h',m.data,0x4324,100)
+        before=bytes(m.data);row=inspect_enemy_manager(m.read,m.base,m.size,m.base+0x3400)
+        self.assertTrue(row['cem_layout_possible']);self.assertEqual(row['ids'],{'0x12':1});self.assertEqual(row['live_cem_fields'],1)
+        self.assertEqual(bytes(m.data),before)
+        struct.pack_into('<I',m.data,0x340c,0x100)
+        self.assertFalse(inspect_enemy_manager(m.read,m.base,m.size,m.base+0x3400)['cem_layout_possible'])
+
+    def test_bounded_native_input_capture_reports_real_edges_and_never_writes(self):
+        elapsed=[0.];memory=bytearray(16)
+        def read(address,size):
+            struct.pack_into('<QQ',memory,0,0x400 if elapsed[0]>=.01 else 0,0x400 if .01<=elapsed[0]<.015 else 0)
+            return bytes(memory[address-0x1000:address-0x1000+size])
+        def wait(seconds):elapsed[0]+=seconds
+        rows=sample_native_input(read,0x1000,dict(on_rva='0x0',trigger_rva='0x8'),.02,lambda:elapsed[0],wait)
+        self.assertEqual([(r['native_on'],r['native_trigger']) for r in rows],[('0x0','0x0'),('0x400','0x400'),('0x400','0x0')])
+        for duration in (-1,21):
+            with self.assertRaises(ValueError):sample_native_input(read,0x1000,{},duration)
+
     def test_enemy_sites_with_shared_or_distinct_operands_are_reported_read_only(self):
         m=fixture()
         signature=bytes(0 if p=='?' else int(p,16) for p in ENEMY_SIGNATURE.split())

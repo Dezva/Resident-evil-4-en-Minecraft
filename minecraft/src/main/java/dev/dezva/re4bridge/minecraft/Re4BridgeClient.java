@@ -242,7 +242,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
                             var life=bridge.healthState();ctx.getSource().sendFeedback(Text.literal("Vida compartida: "+(life!=null && life.available()?"Leon="+life.hp()+"/"+life.maximum()+"; activa="+life.active()+"; motivo="+life.reason():"requiere DLL/host0.4.41")));
-                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; detector="+runtime.enemyReason()+"; revisados="+runtime.scanned()+"; ganados="+runtime.eligible()+"; pulsos R="+runtime.actions()+"; saltos F6="+runtime.skips():"requiere DLL/host0.4.48")));
+                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; detector="+runtime.enemyReason()+"; revisados="+runtime.scanned()+"; ganados="+runtime.eligible()+"; pulsos R="+runtime.actions()+"; saltos F6="+runtime.skips():"requiere DLL/host0.4.49")));
                             ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
@@ -350,7 +350,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 for(var p:placedScene.positions())if(client.world.isChunkLoaded(p))for(var b:sceneShapes(client,p))supportBoxes.add(b.offset(p));
                 var mesh=current.terrain();if(mesh!=null && (!mesh.fresh(System.nanoTime()) || mesh.generation()!=controlArming.generation()))mesh=null;
                 vertical.step(point,controlArming.generation(),controlArming.active() && client.options.jumpKey.isPressed() && !MinecraftHud.menu(client),client.options.sprintKey.isPressed(),MinecraftHud.menu(client),supportBoxes,mesh,controllerMapping.gridHeight(placedScene.height()));
-                if(controlArming.active())current.vertical(controlArming.generation(),vertical.token(),vertical.lift(point,controllerMapping.scale()),controllerMapping.scale());
+                if(controlArming.active())current.vertical(controlArming.generation(),vertical.token(),vertical.lift(controllerMapping.scale()),controllerMapping.scale(),controllerMapping.gridHeight(placedScene.height()).toNative(vertical.point().x(),vertical.point().y(),vertical.point().z()).y());
                 /* Commit position only at END tick: vanilla must retain last tick's render position for interpolation. */
                 if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
             }catch(IllegalArgumentException error){recordStop("seguimiento",error);stopDriving();say(client,"Sincronizacion detenida: "+error.getMessage()+". Revisa latest.log.");}
@@ -430,7 +430,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
             if(current.healthState()==null || !current.healthState().available()){future.completeExceptionally(new IllegalStateException("Instala la DLL y host0.4.41 para vida compartida y pausa en movimiento."));prepareFuture=null;return;}
-            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.48 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
+            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.49 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
             synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
@@ -645,7 +645,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && !current.scripted() && synchronizedMovement && controllerMapping!=null){
-                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),base.y());}catch(IllegalArgumentException error){recordStop("seguimiento final",error);stopDriving();buttons=0;}
+                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),vertical.point()==null?base.y():vertical.groundY());}catch(IllegalArgumentException error){recordStop("seguimiento final",error);stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {

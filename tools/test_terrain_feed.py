@@ -23,11 +23,13 @@ class TerrainFeedTests(unittest.TestCase):
             feed=TerrainFeed(None,1,2,extractor=lambda *a,**k:{'complete':complete,'triangles':rows})
             feed.request=((0,0,0),1);feed.capture(feed.request)
             data=feed.latest[2];self.assertFalse(data['complete']);self.assertEqual(data['triangles'],[]);self.assertEqual(data['kinds'],[])
-    def test_vertical_view_moves_the_query_without_expanding_its_budget(self):
+    def test_absolute_feet_move_the_query_without_expanding_its_budget(self):
         feed=TerrainFeed(None,1,2);feed.thread=object()
-        frame=dict(terrain=True,arm_id=3,look=dict(first_person=True),vertical=dict(lift=24000,scale=1000,token=1))
+        frame=dict(terrain=True,arm_id=3,look=dict(first_person=True),vertical=dict(lift=24000,scale=1000,token=1,feet_y=24002))
         feed.observe(frame,dict(state="player",position_raw=[1,2,3]),dict(armed=True))
         self.assertEqual(feed.request,((1,24002,3),3));self.assertIsNone(feed.latest)
+        feed.observe(frame,dict(state="player",position_raw=[1,24002,3]),dict(armed=True))
+        self.assertEqual(feed.request,((1,24002,3),3)) # real actor sample must not double the height
     def test_read_finishing_after_disarm_is_discarded(self):
         feed=None
         def extract(*args,**kwargs):feed.request=None;return {'complete':True,'triangles':[]}

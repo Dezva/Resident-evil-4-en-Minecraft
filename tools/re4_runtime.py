@@ -15,10 +15,10 @@ class NativeRuntime:
             error=ctypes.get_last_error()
             if error==2:return
             raise ReaderError(f'Canal de escenas no disponible (Windows {error})')
-        self.address=k.MapViewOfFile(self.handle,6,0,0,112)
+        self.address=k.MapViewOfFile(self.handle,6,0,0,128)
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
-        self.words=(ctypes.c_uint32*28).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,3,448,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.48')
+        self.words=(ctypes.c_uint32*32).from_address(self.address)
+        if tuple(self.words[:4])!=(MAGIC,4,449,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.49')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')
@@ -30,6 +30,7 @@ class NativeRuntime:
         self.words[17]=vertical['token'] if vertical else 0
         ctypes.c_float.from_address(self.address+72).value=vertical['scale'] if vertical else 0
         self.words[19]=int(vertical is not None);self.words[20]=action_kind
+        ctypes.c_float.from_address(self.address+112).value=vertical['feet_y'] if vertical else 0
         self.words[12]=(seq+1)&0xffffffff
     def status(self):
         if not self.available:return dict(available=False,fresh=False)
@@ -39,11 +40,14 @@ class NativeRuntime:
             stamp,scene,flags,caps,contacts,corrections,actions=list(self.words[5:12])
             enemy_reason,scanned,eligible,skips,_,capacity,stride=list(self.words[21:28])
             view_lift=ctypes.c_float.from_address(self.address+100).value
+            actor_y=ctypes.c_float.from_address(self.address+116).value
+            vertical_active,vertical_writes=list(self.words[30:32])
             if before!=self.words[4]:continue
             if scene>2 or caps>3 or enemy_reason>6 or scanned>4096 or eligible>4096:raise ReaderError('Estado de escenas no valido')
             return dict(available=True,fresh=((self.k.GetTickCount()-stamp)&0xffffffff)<500,scene=scene,flags=flags,
                 enemies_available=bool(caps&1),action_available=bool(caps&2),enemy_contacts=contacts,enemy_corrections=corrections,actions=actions,enemy_reason=enemy_reason,enemy_scanned=scanned,enemy_eligible=eligible,
-                skips=skips,view_lift=view_lift,enemy_capacity=capacity,enemy_stride=stride)
+                skips=skips,view_lift=view_lift,enemy_capacity=capacity,enemy_stride=stride,
+                actor_y=actor_y,vertical_active=bool(vertical_active),vertical_writes=vertical_writes)
         return dict(available=True,fresh=False)
     def close(self):
         if self.available:self.publish(0,0)

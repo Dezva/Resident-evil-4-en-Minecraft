@@ -1,3 +1,36 @@
+# Validación 0.4.49 — altura absoluta y actor real
+
+Linux cloud, 2026-10-14. El video del usuario y las dos copias idénticas del log
+muestran desplazamientos laterales sobre una columna mientras cambia la Y del
+suelo nativo. Una regresión con suelo descendiendo 60 unidades entre paquetes
+falla contra 0.4.48; el extremo absoluto conserva apoyo y X/Z tras el cambio.
+
+- Core Java: 43 pruebas, sin fallos ni omitidas. TCP autenticado Java/Python
+  transmite un feet_y negativo, no solo el desplazamiento lift.
+- Minecraft/Fabric: 77 pruebas, sin fallos ni omitidas. Incluyen altura de salto
+  vanilla, retorno con la Y real como muestra de entrada, columna a plataforma
+  nativa, caída al salir, techo por encima que no se adopta como suelo, pendiente
+  bajo bloque y espera/reanudación de mapa nativo ausente.
+- Python: 163 pruebas. Compilan y ejecutan los callbacks C reales frente a APIs
+  simuladas: colisión horizontal, actor Y, cámara/proyección, acciones y enemigos.
+  18 casos de invalidación vertical comprueban ausencia de escritura; un buffer
+  completo confirma que la aplicación vertical cambia únicamente pos_94.y.
+- DLL Win32 compilada con MinGW y cinco fixtures C del script nativo correctos.
+  Dos compilaciones producen idéntico SHA-256:
+  db52e9a31cedf59cc8a78831b216a07cccc0fd4cc22f8c8ea8e96e4043e330b4.
+- Instaladores PowerShell: respaldo/instalación, rechazo de sobrescritura,
+  retirada propia, actualización desde DLL448 y diagnósticos simulados pasan.
+- JAR 0.4.49 compilado/remapeado. remapSourcesJar opcional omitido por configuración.
+
+No se ha ejecutado RE4 ni un controlador gráfico real en este entorno. La
+aplicación real de altura y el aterrizaje están cubiertos en simulación; caminar
+sobre la columna, pasar a una plataforma del pueblo y ataques desde abajo aún
+requieren comprobar la compilación en Windows. Confirmaciones del usuario de
+R/ganados/partículas corresponden a 0.4.47 y no validan esta nueva altura.
+
+Los registros y el video del usuario no forman parte del paquete ni del commit.
+La evidencia histórica de versiones previas continúa a continuación.
+
 # Evidencia de validacion — prototipo 0.3.0
 
 Validado en Linux cloud, 2026-10-10, con Temurin JDK 21.0.8+9 y Gradle 8.11.1.

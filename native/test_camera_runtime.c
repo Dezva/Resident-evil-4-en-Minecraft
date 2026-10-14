@@ -35,7 +35,8 @@ static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon 
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
 static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
 #include "runtime_policy.h"
-static float runtime_lift,runtime_physics_lift,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
+static float runtime_view_y,runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
+static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale=1000;
 static void runtime_vertical_interpolate(uint32_t stamp){(void)stamp;}
 static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}
@@ -97,7 +98,7 @@ int main(void){
     *(uint32_t *)(uintptr_t)id=0x1234;*(uint32_t *)(uintptr_t)(id+4)=0x12;
     float feet[3]={-103000,-400,1700};memcpy((void *)(uintptr_t)(id+0x94),feet,12);
     float yaw=.7f;memcpy((void *)(uintptr_t)(id+0xA4),&yaw,4);
-    storage.armed=1;storage.capabilities=15;packet=(ControlFrame){.sequence=2,.stamp=1000,.armed=1,.flags=3,.generation=1,.eye=1600};
+    storage.arm_id=1;storage.armed=1;storage.capabilities=15;packet=(ControlFrame){.sequence=2,.stamp=1000,.armed=1,.flags=3,.generation=1,.eye=1600};
     runtime_cache_flags=50331920; // same flags as the failed preparation log; normal gameplay must take control
     pad_hook();assert(last_player==id && fabsf(view_yaw-.7f)<1e-5f);
     float offset[11]={0};offset[10]=60;CameraPoint point={0};float matrix[12]={0};
@@ -115,9 +116,11 @@ int main(void){
     packet.generation++;assert(!cube_camera(block_view,&block_fov,&block_player));packet.generation--;
     block_camera_frame.sequence++;assert(!cube_camera(block_view,&block_fov,&block_player));block_camera_frame.sequence++;
     now+=100;assert(!cube_camera(block_view,&block_fov,&block_player));now-=100;
-    runtime_lift=1200;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
+    runtime_vertical_valid=1;runtime_lift_generation=1;runtime_request_stamp=now;runtime_physics_y=runtime_view_y=feet[1]+1200;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
     assert(fabsf(render_point.position[1]-(feet[1]+packet.eye+1200))<.01f);
-    assert(*(float*)(uintptr_t)(id+0x98)==feet[1]);runtime_lift=0; // jump raises camera without writing engine Y
+    assert(*(float*)(uintptr_t)(id+0x98)==feet[1]+1200);
+    *(float*)(uintptr_t)(id+0x98)=feet[1]-60;packet.sequence+=2;project();assert(render_point.position[1]==feet[1]+2800 && *(float*)(uintptr_t)(id+0x98)==feet[1]+1200);
+    runtime_vertical_valid=0;*(float*)(uintptr_t)(id+0x98)=feet[1]; // real actor and camera share absolute feet despite native floor movement
     // Native movie owns camera/model/HUD while the logical bridge stays armed.
     packet.buttons=65;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
     assert(state->camera_active && state->native_buttons==65 && !state->stop); // preparation ACK and W/sprint remain possible

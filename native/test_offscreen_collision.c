@@ -9,8 +9,8 @@ static void ReleaseSRWLockExclusive(SRWLOCK *lock){assert(lock->held);lock->held
 static void MemoryBarrier(void){}
 static void InterlockedIncrement(LONG *p){++*p;}
 static LONG InterlockedCompareExchange(LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
-typedef struct {uint32_t armed;LONG stop;} Shared;
-static Shared control_state={1,0},*state=&control_state;
+typedef struct {uint32_t armed;LONG stop;uint32_t arm_id;} Shared;
+static Shared control_state={1,0,1},*state=&control_state;
 typedef struct {uint32_t generation,armed,stamp,flags,buttons;} ControlFrame;
 typedef struct {LONG sequence;uint32_t ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 static CollisionTelemetry report,*collision_shared=&report;
@@ -19,7 +19,8 @@ static uint32_t current_player(void){return player_value;}
 static int writable(const void *p,size_t n){assert(p==player_data+0x94 && n==12);return 1;}
 static int cube_collision_command_read(CubeCommand *out){memcpy(out,&command,3168);return 1;}
 static int cube_collision_graphics_ready(void){return scene_active;}
-static float runtime_physics_lift,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
+static float runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
+static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale=1000;
 #include "collision_tick.h"
 static void pose(float x,float y,float z){float p[3]={x,y,z};memcpy(player_data+0x94,p,12);}
 static float coordinate(unsigned axis){float p;memcpy(&p,player_data+0x94+axis*4,4);return p;}

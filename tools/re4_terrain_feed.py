@@ -15,7 +15,7 @@ class TerrainFeed:
         requested=frame.get('terrain',False) and state['armed'] and bool(frame.get('look',{}).get('first_person')) and sample.get('state')=='player'
         with self.lock:
             position=list(sample.get('position_raw',()))
-            if requested and frame.get('vertical') is not None:position[1]+=frame['vertical']['lift']
+            if requested and frame.get('vertical') is not None:position[1]=frame['vertical']['feet_y']
             self.request=(tuple(position),frame['arm_id']) if requested else None
             latest=self.latest
             if requested and self.thread is None:

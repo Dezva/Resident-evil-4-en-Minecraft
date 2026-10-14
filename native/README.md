@@ -1,5 +1,15 @@
 # Native RE4 bridge
 
+Build449 uses Runtime v4 (128 bytes): absolute feet Y drives the actual
+player position and horizontal block collision; the camera interpolates absolute
+endpoints separately. Native terrain supports landing without feeding actor Y
+back into gravity as a new ground floor. Pad/camera/projection reapply only the
+validated player's pos_94.y, with arm/generation/500ms/F8/scene/pointer/pose gates.
+F8 leaves the current position to native RE4; it never restores an old ground Y.
+Native report fields distinguish requested feet from applied actor height.
+[0.4.49 guide](../docs/RE4-BLOCK-0.4.49.md). Windows gameplay remains unverified.
+The following notes describe older builds and their earlier virtual-only Y.
+
 Build448 separates validated physical jump lift from interpolated view lift and
 uses a scaled support contact margin for player sweep/depenetration. See
 [0.4.48](../docs/RE4-BLOCK-0.4.48.md). Older notes follow.

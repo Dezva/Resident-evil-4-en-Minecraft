@@ -104,6 +104,16 @@ public final class TerrainSnapshot {
         if(!covered(start) || !covered(end))return null;
         Hit hit=raycast(start,end,true);return hit==null?null:grid(map,hit.point).y;
     }
+    /** Highest typed floor/slope below the feet, within known local coverage. */
+    public Double supportHeight(ControllerMapping map,double x,double z,double top,double bottom){
+        Point start=nativePoint(map,new Point(x,top,z));
+        // Clip the search to the snapshot, without treating unobserved space as air.
+        double lowest=grid(map,new Point(center.x,center.y-radius,center.z)).y;
+        Point end=nativePoint(map,new Point(x,Math.max(bottom,lowest),z));
+        if(!covered(start) || !covered(end) || end.y>=start.y)return null;
+        Hit hit=raycast(start,end,true);return hit==null?null:grid(map,hit.point).y;
+    }
+
     public static Point grid(ControllerMapping map,Point p){var q=map.toMinecraft(new Re4Sample(p.x,p.y,p.z,0,0));return new Point(q.x(),q.y(),q.z());}
     public static Point nativePoint(ControllerMapping map,Point p){var q=map.toNative(p.x,p.y,p.z);return new Point(q.x(),q.y(),q.z());}
 }

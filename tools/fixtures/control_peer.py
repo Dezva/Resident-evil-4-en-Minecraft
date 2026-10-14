@@ -56,7 +56,7 @@ class Health:
 class Runtime:
     def __init__(self):self.last=None;self.actions=0;self.skips=0;self.last_vertical=None
     def publish(self,generation,action_id,vertical=None,action_kind=0):
-        if vertical and self.last_vertical!=vertical:self.last_vertical=vertical;print(f"VERTICAL generation={generation} token={vertical['token']} lift={vertical['lift']}",flush=True)
+        if vertical and self.last_vertical!=vertical:self.last_vertical=vertical;print(f"VERTICAL generation={generation} token={vertical['token']} lift={vertical['lift']} feet_y={vertical['feet_y']}",flush=True)
         if action_id and self.last!=(generation,action_id):
             self.last=(generation,action_id)
             if action_kind:self.skips+=1

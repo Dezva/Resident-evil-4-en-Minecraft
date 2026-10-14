@@ -1,10 +1,12 @@
 #include "block_collision.h"
+#include "vertical_actor.h"
 /* Existing pad/camera/projection callbacks; one small geometry snapshot, no atlas copies. */
 static uint32_t collision_player,collision_generation,collision_stamp;
 static float collision_previous[3],collision_origin[4],collision_raw_y;
 static SRWLOCK collision_tick_lock=SRWLOCK_INIT;
 static CubeCommand collision_command; /* protected by collision_tick_lock; no 96KB stack frame */
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now) {
+    runtime_vertical_actor(control,complete,now);
     unsigned active=0,reason=1,contact=0,correction=0,rejected=0;
     uint32_t player=0;
     CubeCommand *command=&collision_command;
@@ -17,7 +19,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     if(!block_collision_scene_valid(command)){reason=3;goto disabled;}
     player=current_player();
     if(!player || !writable((void*)(uintptr_t)(player+0x94),12)){reason=3;goto disabled;}
-    float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);observed[1]+=runtime_physics_lift;
+    float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);if(runtime_actor_active)observed[1]=runtime_physics_y;
     for(unsigned i=0;i<3;++i)if(!isfinite(observed[i]) || fabsf(observed[i])>20000000.f){reason=3;goto disabled;}
     active=1;reason=0;
     float before[3];memcpy(before,observed,12);
@@ -29,7 +31,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     // A menu/GUI initialization gap must not be interpreted as a player teleport.
     if((uint32_t)(now-collision_stamp)>=500 && (control->flags&8u) && !control->buttons){reason=2;goto reference;}
     if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
-    float distance=0;for(unsigned i=0;i<3;++i){float d=i==1?raw[1]-collision_raw_y:observed[i]-collision_previous[i];distance+=d*d;}
+    float distance=0;for(unsigned i=0;i<3;++i){float d=i==1?(runtime_actor_active?0:raw[1]-collision_raw_y):observed[i]-collision_previous[i];distance+=d*d;}
     /* A valid graphics/input snapshot can be skipped while turning/building.
        Sprint was measured at ~4.16 units/ms; a fixed 500-unit limit falsely
        stopped ordinary movement accumulated over ~120ms. Keep a bounded
@@ -46,7 +48,7 @@ resolve:;
         if(*player_slot!=player || state->stop || !state->armed || (GetAsyncKeyState(VK_F8)&0x8000)
             || (uint32_t)(GetTickCount()-control->stamp)>=500
             || memcmp(raw,(void*)(uintptr_t)(player+0x94),12)){reason=5;goto disabled;}
-        /* Never replace native Y, velocity, animation, inventory or collision flags. */
+        /* Horizontal solver never replaces Y, velocity, animation or inventory. */
         memcpy((void*)(uintptr_t)(player+0x94),resolved,4);memcpy((void*)(uintptr_t)(player+0x9C),resolved+2,4);
         observed[0]=resolved[0];observed[2]=resolved[2];correction=1;
     }

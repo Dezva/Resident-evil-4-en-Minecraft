@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
@@ -47,6 +47,12 @@ try {
         Copy-Item -LiteralPath $SceneDll -Destination (Join-Path $game 'dinput8.dll')
         & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
         if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build443 upgrade removal failed'}
+    }
+    if($LatestDll){
+        if((Get-FileHash -LiteralPath $LatestDll).Hash.ToLowerInvariant() -ne '180a36ee6c696328bdfbf64ebadb5c3b9f85c1a22952b74df3cad9056b6a8c80'){throw 'Wrong published build448 fixture'}
+        Copy-Item -LiteralPath $LatestDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build448 upgrade removal failed'}
     }
     if($LastDll){
         if((Get-FileHash -LiteralPath $LastDll).Hash.ToLowerInvariant() -ne 'bc56062587aed707f7e1be1a6f3d675fc9fd83eb6e36de81628ca51b175e7be9'){throw 'Wrong published build447 fixture'}

@@ -1,3 +1,17 @@
+## 0.4.49 — altura absoluta y elevación real de León
+
+El video y el log de 0.4.48 muestran expulsiones sobre una pendiente: sumar el
+salto relativo al suelo nativo vuelve a introducir los pies en el apoyo entre
+paquetes. Se transmite la Y absoluta de la cuadrícula para cámara y colisión.
+A petición del usuario, la DLL también aplica esa Y a la posición real de León.
+La gravedad consulta suelos/plataformas nativas y no reutiliza el actor elevado
+como un suelo nuevo. Runtime v4/128 bytes añade solicitud feet_y y telemetría
+nativa de aplicación. F8/TTL/generación/actor/escenas acotan la escritura.
+Regresiones de pendiente, retorno del salto, columna a plataforma y salida del
+borde pasan. Instalación reconoce DLL448. Requiere actualizar DLL/host/JAR;
+prueba de juego y ataques desde abajo pendiente en Windows.
+Ver [guía 0.4.49](docs/RE4-BLOCK-0.4.49.md).
+
 ## 0.4.48 — apoyo físico independiente de la altura visual
 
 La cámara interpolada podía quedar dentro del bloque de apoyo al aterrizar;

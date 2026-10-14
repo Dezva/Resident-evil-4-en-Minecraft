@@ -68,27 +68,32 @@ int main(void){
     state->arm_id=7;state->stop=0;f8=0;control.flags=0;now=1000;report.request_sequence=2;report.generation=7;
     runtime_action_apply(&control,1,now);assert(runtime_actions==2);runtime_action_restore();
     flags=50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
-    control.flags=3;report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.request_stamp=control.stamp=now=1000;
-    runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_lift==1200 && runtime_support_skin==10);now=1025;runtime_vertical_tick(&control,1,now);assert(runtime_lift==600 && runtime_physics_lift==1200 && runtime_body_radius==300 && runtime_body_height==1800);
+    control.flags=3;report.lift=report.feet_y=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.request_stamp=control.stamp=now=1000;
+    runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_y==1200 && runtime_support_skin==10);now=1025;runtime_vertical_tick(&control,1,now);assert(runtime_lift==600 && runtime_physics_y==1200 && runtime_body_radius==300 && runtime_body_height==1800);
     now=1050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200);
-    control.flags=11;now=1060;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200 && runtime_physics_lift==1200);
+    control.flags=11;now=1060;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200 && runtime_physics_y==1200);
     control.flags=3;f8=1;runtime_vertical_tick(&control,1,now);assert(runtime_lift==0);f8=0;
-    for(unsigned failure=0;failure<8;failure++){
-        report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=2;report.generation=7;report.request_stamp=control.stamp=now=1000;control.flags=3;control.generation=7;
+    for(unsigned failure=0;failure<11;failure++){
+        report.request_sequence=2;
+        report.lift=report.feet_y=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=2;report.generation=7;report.request_stamp=control.stamp=now=1000;control.flags=3;control.generation=7;
         if(failure==0)report.scale=NAN;
         if(failure==1)report.lift=-1;
-        if(failure==2)report.lift=128001;
+        if(failure==2)report.lift=report.feet_y=128001;
         if(failure==3)report.vertical_enabled=2;
         if(failure==4)report.lift_token=0xFFFFFFFFu;
         if(failure==5)report.generation=8;
         if(failure==6)control.flags=0;
         if(failure==7)now=1500;
-        runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_lift==0 && runtime_support_skin==.1f && runtime_body_radius==250 && runtime_body_height==1600);
+        if(failure==8)report.feet_y=NAN;
+        if(failure==9)report.feet_y=20000100;
+        if(failure==10)report.request_sequence=1;
+        runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_y==0 && runtime_support_skin==.1f && runtime_body_radius==250 && runtime_body_height==1600);
     }
+    report.request_sequence=2;
     // Adjacent 20 Hz endpoints must finish without accumulating easing lag.
-    report.lift=420;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.generation=7;report.request_stamp=control.stamp=now=2000;control.flags=3;
+    report.lift=report.feet_y=420;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.generation=7;report.request_stamp=control.stamp=now=2000;control.flags=3;
     runtime_vertical_tick(&control,1,now);now=2033;runtime_vertical_tick(&control,1,now);assert(fabsf(runtime_lift-277.2f)<.01f);
-    report.lift=753.2f;report.lift_token=2;now=2050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==420);
+    report.lift=report.feet_y=753.2f;report.lift_token=2;now=2050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==420);
     now=2075;runtime_vertical_tick(&control,1,now);assert(fabsf(runtime_lift-586.6f)<.01f);
     report.action_id=3;report.action_kind=1;report.request_stamp=control.stamp=now;runtime_action_apply(&control,1,now);assert(!runtime_skips);
     flags=0x10000000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
@@ -108,10 +113,18 @@ int main(void){
     globals[0x20]=3;now+=16;assert(runtime_refresh()==0 && report.scene==0); // fresh preparation sees the real scene
     state->armed=1;state->stop=0;control.flags=3;control.generation=7;state->arm_id=7;
     report.generation=7;report.vertical_enabled=0;control.stamp=report.request_stamp=now;
-    runtime_vertical_tick(&control,1,now);assert(runtime_physics_lift==0);
-    report.vertical_enabled=1;report.lift_token=10;report.lift=1000;report.scale=1000;
+    runtime_vertical_tick(&control,1,now);assert(runtime_physics_y==0);
+    report.vertical_enabled=1;report.lift_token=10;report.lift=report.feet_y=1000;report.scale=1000;
     runtime_vertical_tick(&control,1,now);now+=25;control.stamp=report.request_stamp=now;runtime_vertical_tick(&control,1,now);
-    assert(runtime_lift==500 && runtime_physics_lift==1000);
-    control.flags=11;runtime_vertical_tick(&control,1,now);assert(runtime_lift==500 && runtime_physics_lift==1000); // pause never lowers physical support to the view
+    assert(runtime_lift==500 && runtime_physics_y==1000);
+    control.flags=11;runtime_vertical_tick(&control,1,now);assert(runtime_lift==500 && runtime_physics_y==1000); // pause never lowers physical support to the view
+    control.flags=3;f8=1;runtime_vertical_tick(&control,1,now);f8=0;
+    report.feet_y=-700;report.lift=300;report.lift_token=11;
+    runtime_vertical_tick(&control,1,now);assert(runtime_view_y==-1000 && runtime_physics_y==-700);
+    now+=50;control.stamp=report.request_stamp=now;runtime_vertical_tick(&control,1,now);assert(runtime_view_y==-700);
+    report.lift=360;report.lift_token=12;runtime_vertical_tick(&control,1,now);
+    now+=25;runtime_vertical_tick(&control,1,now);assert(runtime_view_y==-700 && runtime_physics_y==-700); // slope changes relative lift, never absolute feet
+    control.generation=state->arm_id=report.generation=8;control.flags=11;report.lift_token=1;
+    runtime_vertical_tick(&control,1,now);assert(!runtime_vertical_valid); // a new generation opening in a menu cannot apply an old actor endpoint
     puts("Runtime: native movie/event/death/door gates, bounded cache, one-shot actions and F8/TTL/menu/generation/torn guards passed");
 }

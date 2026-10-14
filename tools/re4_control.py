@@ -18,8 +18,8 @@ def validate_control(frame):
     if type(frame.get('action_kind',0)) is not int or frame.get('action_kind',0) not in (0,1) or frame.get('action_kind',0) and not frame.get('action_id',0):raise ProtocolError('Invalid action kind')
     vertical=frame.get('vertical')
     if vertical is not None:
-        if not isinstance(vertical,dict) or set(vertical)!={'lift','scale','token'} or type(vertical['token']) is not int or not 1<=vertical['token']<=2147483647:raise ProtocolError('Invalid vertical request')
-        if any(type(vertical[k]) not in (int,float) or not math.isfinite(vertical[k]) for k in ('lift','scale')) or not 40<=vertical['scale']<=2500 or not 0<=vertical['lift']<=128*vertical['scale']:raise ProtocolError('Invalid vertical position')
+        if not isinstance(vertical,dict) or set(vertical)!={'lift','scale','token','feet_y'} or type(vertical['token']) is not int or not 1<=vertical['token']<=2147483647:raise ProtocolError('Invalid vertical request')
+        if any(type(vertical[k]) not in (int,float) or not math.isfinite(vertical[k]) for k in ('lift','scale','feet_y')) or abs(vertical['feet_y'])>20000000 or not 40<=vertical['scale']<=2500 or not 0<=vertical['lift']<=128*vertical['scale']:raise ProtocolError('Invalid vertical position')
         if not frame.get('armed'):raise ProtocolError('Vertical request requires arm')
     validate_health(frame.get('health'))
     if type(frame.get('menu',False)) is not bool or frame.get('menu',False) and frame.get('buttons')!=0:raise ProtocolError('Menu requires zero movement')

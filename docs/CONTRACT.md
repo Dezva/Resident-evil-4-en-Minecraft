@@ -615,6 +615,39 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización 0.4.49
+
+Runtime v4/build449 tiene 128 bytes. Conserva offsets anteriores: petición
+48..83 bajo request_sequence@48; feet_y float absoluto@112 pertenece a esa
+misma publicación y se copia entre las mismas dos lecturas de request_sequence.
+Reporte bajo sequence@16 añade actor_y float@116, vertical_active u32@120 y
+vertical_writes u32@124. El host no escribe esos campos de reporte. Los demás
+canales mantienen sus versiones y aceptan build449; Runtime exige v4/build449.
+
+JSON vertical requiere exactamente lift,scale,token,feet_y; token entero positivo,
+scale40..2500, lift0..128*scale, feet_y finito y abs<=20000000. La Y absoluta viene
+del mismo ControllerMapping.gridHeight que los bloques. TerrainFeed centra la
+consulta en feet_y, sin volver a sumarle lift al actor ya elevado.
+
+Runtime conserva extremos absolutos de vista interpolados50ms y el último Y
+físico recibido. La nueva generación empieza la vista en feet_y-lift; una
+primera petición de menú no puede aplicar el extremo de una generación previa.
+Invalidación/F8/TTL limpia la validez. Pausa congela la vista y conserva el apoyo.
+
+El callback vertical escribe únicamente cCoord::pos_94.y (+0x98) del jugador
+validado, antes de la colisión X/Z, incluso sin bloques o pase gráfico válido.
+Revalida puntero/pose/arm/generación/F8/TTL y rechaza cambio de actor o un destino
+más allá de128*scale desde su altura inicial. No altera velocidad, pos_old,
+rutina ni actores enemigos. F8 detiene las escrituras sin restaurar posiciones
+anteriores. La colisión horizontal excluye de su detector de teleport la Y que
+controla esta simulación; mantiene los límites de desplazamiento X/Z.
+
+BridgeVertical conserva suelo independiente de las muestras del actor elevado.
+Usa rayos a suelos/pendientes tipados bajo los pies, paso máximo0.6bloques,
+apoyo de bloques colocados y límites de cobertura. El retorno de la altura real
+no acumula saltos ni crea un suelo flotante. Esta actualización sustituye la
+limitación de Y virtual descrita en las versiones históricas siguientes.
+
 ## Actualización0.4.48
 
 Runtimev3/112bytes y Scenev6 conservan sus layouts; el host exige DLL448.

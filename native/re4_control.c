@@ -308,7 +308,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     float frame[12], position[3], target[3];
     float feet[3], yaw;
     runtime_vertical_interpolate(GetTickCount());
-    memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));feet[1]+=runtime_lift;
+    memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));if(runtime_actor_active)feet[1]=runtime_view_y;
     yaw = view_yaw;
     float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
     if (!re4_eye_frame(feet,yaw,pitch,eye,frame,position,target) || *player_slot != player
@@ -363,7 +363,7 @@ static int refresh_render_frame(const ControlFrame *control,uint32_t player,floa
             || !re4_valid_look(control->total,control->pitch,control->eye,control->flags))return 0;
     float feet[3],frame[12],position[3],target[3];
     runtime_vertical_interpolate(GetTickCount());
-    memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));feet[1]+=runtime_lift;
+    memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));if(runtime_actor_active)feet[1]=runtime_view_y;
     if(!re4_eye_frame(feet,view_yaw,control->pitch,control->eye,frame,position,target) || *player_slot!=player)return 0;
     for(unsigned i=0;i<3;++i){render_point.position[i]=frame[4*i+3];render_point.target[i]=render_point.position[i]+target[i];}
     render_point.roll=0;render_point.fovy=isfinite(fovy) && fovy>0 && fovy<179?fovy:50.f;
@@ -687,7 +687,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=448; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=449; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

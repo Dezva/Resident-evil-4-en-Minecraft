@@ -90,6 +90,13 @@ class NativeCaptureTests(unittest.TestCase):
         fixture=(root/'native/test_runtime.c').read_text().replace('/* ACTUAL_RUNTIME */',prefix+action)
         self.compile_run('runtime.c',fixture)
 
+    def test_actual_melee_callback_damage_and_guards(self):
+        root=Path(__file__).resolve().parents[1]
+        enemies=(root/'native/enemy_collision.h').read_text();enemies=enemies[enemies.index('static uint32_t enemy_select_manager'):enemies.index('static void enemy_collision_tick')]
+        combat=(root/'native/combat_ipc.h').read_text();combat=combat[:combat.index('static void combat_ipc_open')].replace('static HANDLE combat_mapping;','')
+        fixture=(root/'native/test_combat.c').read_text().replace('/* ACTUAL_ENEMY_HELPERS */',enemies).replace('/* ACTUAL_COMBAT */',combat)
+        self.compile_run('combat.c',fixture)
+
     def test_enemy_pool_across_committed_regions(self):
         root=Path(__file__).resolve().parents[1]
         body=(root/'native/re4_control.c').read_text();body=body[body.index('static int readable_span'):body.index('/* Only readable committed memory;')]

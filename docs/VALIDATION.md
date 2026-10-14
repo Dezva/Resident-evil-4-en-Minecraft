@@ -1,3 +1,36 @@
+# Validación0.4.51 — combate de Minecraft
+
+Linux cloud,2026-10-14. Alcance confirmado por el usuario: clic izquierdo,
+daño según herramienta/espada, alcance y tiempo de recarga contra ganados.
+
+- Core Java:47pruebas sin fallos ni omitidas. Daño/cooldown, rayo3D/primer
+  enemigo, identidades, datos malformados y TCP autenticado Java/Python con
+  solicitud/confirmación de golpe real en el protocolo de control.
+- Minecraft/Fabric:85pruebas sin fallos ni omitidas. Atributos reales vanilla
+  de espadas madera/hierro/diamante y hacha de hierro, velocidades de ataque,
+  desgaste por tipo, pared nativa, bloque anterior/posterior, altura y mapa
+  desconocido. Crosshair vanilla accesible por AW, con indicador de recarga.
+- Python:173pruebas. Incluyen validación antes de escrituras, IPC separado,
+  catálogo de actores, menú/desarmado/escenas, geometría próxima independiente
+  y descarte de capturas cuyo radio cambió. Compilan y ejecutan el callback C
+  real de combate con20casos de invalidez/race, paredes rotadas, primer enemigo,
+  replay, ventana diferencial, slot reciclado, HP y transición fatal. Un buffer
+  completo verifica que el fatal solo cambia HP y los cuatro bytes de rutina.
+- JAR0.4.51 compilado/remapeado; remapSourcesJar opcional omitido por configuración.
+- DLL Win32 build451 compilada dos veces con SHA256 idéntico:
+  8ddee51be0483cb2bad06b7f966252b3abb669a78d98664ac515c349780f4e10.
+  Cinco fixtures del script nativo y la suite de callbacks pasan.
+- Instaladores/diagnóstico PowerShell simulados pasan, con retirada de DLL450
+  publicada, respaldo, rechazo de sobrescritura y comprobación de DLL propia.
+
+No se ejecutó RE4/GPU real en cloud. Lectura de ganados/colisiones y altura ya
+fueron confirmadas por el usuario en versiones previas; el nuevo camino de
+ataque/HP, reacción, muerte y eventos posteriores aún requiere prueba Windows.
+La muerte se entrega a la rutina SDK; no se ha comprobado su ejecución en juego.
+No se afirman barrido, críticos, daño por huesos, encantamientos ni escudos.
+
+La evidencia histórica de versiones anteriores continúa a continuación.
+
 # Validación 0.4.50 — escaleras con mapa incompleto
 
 Linux cloud, 2026-10-14. El video del usuario muestra retrocesos en una escalera

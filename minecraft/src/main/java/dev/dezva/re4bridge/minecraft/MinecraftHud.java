@@ -87,7 +87,7 @@ final class MinecraftHud implements AutoCloseable {
                         client.inGameHud.renderMainHud(context,ticks);
                         client.inGameHud.renderExperienceLevel(context,ticks);
                         client.inGameHud.renderStatusEffectOverlay(context,ticks);
-                        context.drawGuiTexture(Identifier.ofVanilla("hud/crosshair"),guiWidth/2-7,guiHeight/2-7,15,15);
+                        client.inGameHud.renderCrosshair(context,ticks); // vanilla reticle and configured attack cooldown indicator
                     }
                     context.draw();
                 }

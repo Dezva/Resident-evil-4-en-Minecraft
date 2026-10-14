@@ -1,5 +1,18 @@
 # Native RE4 bridge
 
+Build451 adds an independent Combat v1 IPC (5256 bytes). Existing pad callbacks
+publish up to128 nearby live whitelisted humanoids. One-shot requests revalidate
+session, first-person/menu/F8/TTL, closest ray target, pool/GUID/type/pose/HP and
+placed block occlusion before writing cEm::hp_324. Fatal hits enter SDK
+Routine0::Die (3) with zero substates; native routines retain cleanup/drop/event
+ownership. Nonfatal hits do not force a reaction animation. A500ms differential
+hurt ledger prevents repeated or weaker swings from stacking inside the window.
+Host/client resolve native static terrain from a separate short-range snapshot.
+[0.4.51 guide](../docs/RE4-BLOCK-0.4.51.md). Real Windows death/animation/event
+behavior is unverified. SDK field/enum references are from the pinned public
+revision documented below; no executable game code is bundled.
+Older notes follow.
+
 Build450 keeps Runtime v4/128 bytes and adds native-ground ownership (command
 mode2). That mode releases absolute Y/view control while retaining scaled X/Z
 colliders, so incomplete terrain snapshots cannot pin real native stairs.

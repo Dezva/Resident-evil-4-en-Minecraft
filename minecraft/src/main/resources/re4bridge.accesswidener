@@ -11,3 +11,4 @@ accessible field net/minecraft/client/gl/ShaderProgram activeProgram Lnet/minecr
 accessible field net/minecraft/client/gl/ShaderProgram activeProgramGlRef I
 accessible field net/minecraft/client/network/ClientPlayerInteractionManager currentBreakingPos Lnet/minecraft/util/math/BlockPos;
 accessible field net/minecraft/client/network/ClientPlayerInteractionManager currentBreakingProgress F
+accessible method net/minecraft/client/gui/hud/InGameHud renderCrosshair (Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V

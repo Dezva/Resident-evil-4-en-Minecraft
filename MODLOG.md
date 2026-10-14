@@ -1,3 +1,17 @@
+## 0.4.51 — cuerpo a cuerpo Minecraft contra ganados
+
+Implementa clic izquierdo, atributo de daño de la mano principal, recarga vanilla
+y alcance de entidades. Selección del primer ganado por rayo3D, oclusión de
+bloques/paredes y consulta local de geometría independiente de construcción.
+Catálogo nativo de128actores próximos, identidad slot/GUID y confirmaciones de
+impacto. Servidor Minecraft calcula daño/desgaste y solo cobra durabilidad tras
+confirmación. Módulo nativo aplica HP y entrega bajas a Routine0::Die; paquetes
+repetidos y ventana de daño no duplican golpes. No envía disparos de RE4.
+Canal Combatv1/5256bytes, Runtimev4 exige451 y desinstalador reconoce450.
+47pruebas core,85Minecraft y173Python pasan; DLL/JAR e instaladores simulados
+verificados. Reacción/muerte/eventos reales pendientes en Windows.
+Ver [guía0.4.51](docs/RE4-BLOCK-0.4.51.md).
+
 ## 0.4.50 — apoyo nativo para escaleras
 
 En el video nuevo, la escalera de RE4 devuelve al jugador mientras el mapa local

@@ -11,7 +11,8 @@
     "EditorPhysicsMixin",
     "BridgeMenuMixin",
     "BridgeKeyboardMixin",
-    "BridgeBreakMixin"
+    "BridgeBreakMixin",
+    "BridgeCombatMixin"
   ],
   "injectors": {
     "defaultRequire": 1

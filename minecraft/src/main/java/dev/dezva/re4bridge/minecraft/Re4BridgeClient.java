@@ -242,7 +242,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
                             var life=bridge.healthState();ctx.getSource().sendFeedback(Text.literal("Vida compartida: "+(life!=null && life.available()?"Leon="+life.hp()+"/"+life.maximum()+"; activa="+life.active()+"; motivo="+life.reason():"requiere DLL/host0.4.41")));
-                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; detector="+runtime.enemyReason()+"; revisados="+runtime.scanned()+"; ganados="+runtime.eligible()+"; pulsos R="+runtime.actions()+"; saltos F6="+runtime.skips():"requiere DLL/host0.4.50")));
+                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; detector="+runtime.enemyReason()+"; revisados="+runtime.scanned()+"; ganados="+runtime.eligible()+"; pulsos R="+runtime.actions()+"; saltos F6="+runtime.skips():"requiere DLL/host0.4.51")));
                             ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
@@ -430,7 +430,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
             if(current.healthState()==null || !current.healthState().available()){future.completeExceptionally(new IllegalStateException("Instala la DLL y host0.4.41 para vida compartida y pausa en movimiento."));prepareFuture=null;return;}
-            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.50 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
+            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.51 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
+            if(current.combatState()==null || !current.combatState().available()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.51 completos para combate."));prepareFuture=null;return;}
             synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
@@ -525,6 +526,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
     private void stopDriving() {
         healthSessionOpen=false;vertical.clear();particles.clear();brokenAt.clear();
+        BridgeCombat.clear();
         if(bridge!=null)bridge.clearVertical();
         if(bridge!=null)bridge.clearAction();
         healthLink.release(bridge);
@@ -682,10 +684,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
             boolean terrain=controlArming.active() && !current.scripted() && firstPersonEnabled && synchronizedMovement && controllerMapping!=null;
             current.terrainRequested(terrain);
             current.depthRequested(controlArming.active() && blockDepth);
+            BridgeCombat.tick(client);
             if(terrain){
+                current.combatReach(Math.min(6,client.player.getEntityInteractionRange()));
+                BridgeCombat.bind(current,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),client.player.getUuid(),dimension,placedScene.positions());
                 TerrainInteraction.bind(current,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),client.player.getUuid(),dimension,placedScene.positions(),nativeEyeHeight(client),client.player.getRotationVec(1));
                 TerrainInteraction.crosshair(client,1);
-            }else TerrainInteraction.clear();
+            }else {TerrainInteraction.clear();BridgeCombat.clear();}
             dev.dezva.re4bridge.HudFrame hud=null;
             if(controlArming.active() && (!current.scripted() || MinecraftHud.menu(client) && !(client.currentScreen instanceof net.minecraft.client.gui.screen.DeathScreen)) && firstPersonEnabled && hudEnabled && current.hudAvailable()){
                 try{hud=minecraftHud.snapshot(client,current.overlayWidth(),current.overlayHeight());
@@ -703,6 +708,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(
                 "RE4: " + controlArming.reason() + " | arm=" + (current.nativeArmed() ? "si" : "no")
                 + " | teclas=" + buttons + "/" + current.nativeButtons()
+                + (current.combatState()!=null && current.combatState().available()?" | golpes="+current.combatState().hits()+" | bajas="+current.combatState().kills():"")
                 + " | raton=" + (mouseEnabled ? Long.toString(current.nativeLookPackets()) : "off")
                 + " | FP=" + (current.cameraActive() ? "si" : "no")
                 + (firstPersonEnabled ? " | altura=" + Math.round(lastNativeEyeHeight) : "")

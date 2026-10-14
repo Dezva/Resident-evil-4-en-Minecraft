@@ -63,7 +63,14 @@ class Runtime:
             else:self.actions+=1
             print(f'ACTION generation={generation} id={action_id} kind={action_kind}',flush=True)
     def status(self):return dict(available=True,fresh=True,scene=0,flags=0,enemies_available=True,action_available=True,enemy_contacts=0,enemy_corrections=0,actions=self.actions,skips=self.skips)
-policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime())
+class Combat:
+    def __init__(self):self.enabled=False;self.ack=0;self.generation=0;self.hits=0
+    def publish(self,enabled,generation,scale=1000,request=None):
+        self.enabled=enabled;self.generation=generation
+        if enabled and request and request['id']!=self.ack:
+            self.ack=request['id'];self.hits+=1;print(f"MELEE generation={generation} id={self.ack} damage={request['damage']} slot={request['slot']}",flush=True)
+    def status(self):return dict(available=True,active=self.enabled,fresh=True,generation=self.generation,ack=self.ack,reason=0,hp_before=1000,hp_after=950,hits=self.hits,kills=0,enemies=[])
+policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime(),Combat())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)

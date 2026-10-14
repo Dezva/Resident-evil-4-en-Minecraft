@@ -20,6 +20,10 @@ class ControlTests {
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
             bridge.vertical(7,2,0,800,315.845642,true);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=2 lift=0.0 feet_y=315.845642 native_ground=True");}catch(Exception e){return false;}});
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
+            bridge.combatRequested(true,1000);bridge.combatRequest(new CombatRequest(7,1,0,10,50,1000,3,new TerrainSnapshot.Point(0,1000,0),new TerrainSnapshot.Point(3000,1000,0),System.nanoTime()));
+            await(()->bridge.combatState()!=null && bridge.combatState().acknowledgement()==1);
+            assertEquals(1,bridge.combatState().hits());assertTrue(Files.readString(log).contains("MELEE generation=7 id=1 damage=50 slot=0"));bridge.combatRequest(null);
+            bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
             bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
             assertTrue(Files.readString(log).contains("ACTION generation=7 id=1 kind=0"));
             bridge.requestSkip(7);await(()->bridge.runtimeState().skips()==1);assertTrue(Files.readString(log).contains("ACTION generation=7 id=2 kind=1"));

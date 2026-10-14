@@ -34,3 +34,19 @@ class TerrainFeedTests(unittest.TestCase):
         feed=None
         def extract(*args,**kwargs):feed.request=None;return {'complete':True,'triangles':[]}
         feed=TerrainFeed(None,1,2,extractor=extract);feed.request=((0,0,0),1);feed.capture(feed.request);self.assertIsNone(feed.latest)
+
+class CombatTerrainFeedTests(unittest.TestCase):
+    def test_short_range_geometry_has_its_own_revision_and_does_not_replace_building_map(self):
+        from re4_terrain_feed import CombatTerrainFeed
+        calls=[]
+        def extract(*args,**kwargs):calls.append(kwargs);return dict(complete=True,triangles=[])
+        feed=CombatTerrainFeed(None,1,2,extractor=extract,clock=lambda:0);feed.thread=object()
+        frame=dict(arm_id=7,combat_enabled=True,combat_scale=1000,combat_reach=3,look=dict(first_person=True))
+        sample=dict(state='player',position_raw=[0,0,0]);feed.observe(frame,sample,dict(armed=True));feed.capture(feed.request)
+        reply=feed.observe(frame,sample,dict(armed=True));self.assertIn('combat_terrain',reply);self.assertNotIn('terrain',reply);self.assertEqual(calls[0]['radius'],6500);self.assertEqual(reply['combat_terrain']['radius'],6500)
+        frame['combat_terrain_revision']=reply['combat_terrain']['revision'];self.assertNotIn('combat_terrain',feed.observe(frame,sample,dict(armed=True)))
+        frame['combat_enabled']=False;self.assertEqual(feed.observe(frame,sample,dict(armed=True))['combat_terrain_state'],'inactivo');self.assertIsNone(feed.request)
+    def test_radius_change_during_capture_cannot_mislabel_coverage(self):
+        feed=None
+        def extract(*args,**kwargs):feed.radius=6500;return dict(complete=True,triangles=[])
+        feed=TerrainFeed(None,1,2,extractor=extract);feed.request=((0,0,0),7);feed.capture(feed.request);self.assertIsNone(feed.latest)

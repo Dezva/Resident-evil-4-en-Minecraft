@@ -23,6 +23,17 @@ public final class BridgeConnection implements AutoCloseable {
     private volatile HealthRequest healthRequest;
     private volatile HealthState healthState;
     private volatile RuntimeState runtimeState;
+    private volatile TerrainSnapshot combatTerrain;private volatile String combatTerrainState="cargando";
+    public TerrainSnapshot combatTerrain(){return combatTerrain;}
+    public String combatTerrainState(){return combatTerrainState;}
+    private volatile double combatReach=3;
+    public void combatReach(double reach){if(!Double.isFinite(reach) || reach<=0 || reach>6)throw new IllegalArgumentException("Invalid combat reach");combatReach=reach;}
+    private volatile CombatState combatState;private volatile CombatRequest combatRequest;private volatile boolean combatEnabled;private volatile double combatScale=1000;
+    public CombatState combatState(){return combatState;}
+    public void combatRequested(boolean enabled,double scale){if(!Double.isFinite(scale) || scale<40 || scale>2500)throw new IllegalArgumentException("Invalid combat scale");combatScale=scale;combatEnabled=enabled;if(!enabled)combatRequest=null;}
+    public void combatRequest(CombatRequest request){combatRequest=request;}
+    public void clearCombat(){combatRequest=null;combatEnabled=false;}
+
     private record Vertical(int generation,int token,double lift,double scale,double feetY,boolean nativeGround,long stamp){}
     private volatile Vertical vertical;
     public void vertical(int generation,int token,double lift,double scale,double feetY,boolean nativeGround){if(!Double.isFinite(feetY) || Math.abs(feetY)>20000000 || !Double.isFinite(lift+scale) || scale<40 || scale>2500 || lift<0 || lift>128*scale || token<1 || generation<1 || nativeGround && lift!=0)throw new IllegalArgumentException("Invalid vertical movement");vertical=new Vertical(generation,token,lift,scale,feetY,nativeGround,System.nanoTime());}
@@ -213,6 +224,8 @@ public final class BridgeConnection implements AutoCloseable {
                             var action=actionRequest;
                             if(action!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean()
                                 && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L){frame.addProperty("action_id",action.id());frame.addProperty("action_kind",action.skip()?1:0);}
+                            frame.addProperty("combat_enabled",combatEnabled);frame.addProperty("combat_scale",combatScale);frame.addProperty("combat_reach",combatReach);frame.addProperty("combat_terrain_revision",combatTerrain==null?0:combatTerrain.revision());
+                            var swing=combatRequest;if(combatEnabled && swing!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean() && swing.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-swing.createdNs()<200_000_000L)frame.add("combat",swing.toJson());
                             var health=healthRequest;
                             if(health!=null && frame.get("armed").getAsBoolean() && health.generation()==frame.get("arm_id").getAsInt()
                                 && (System.nanoTime()-health.createdNs()<500_000_000L || frame.get("menu").getAsBoolean()))frame.add("health",health.toJson());
@@ -265,6 +278,9 @@ public final class BridgeConnection implements AutoCloseable {
                         if(state.has("health_state"))healthState=HealthState.parse(state.getAsJsonObject("health_state"));
                         if(state.has("terrain"))terrain=TerrainSnapshot.parse(state.getAsJsonObject("terrain"),System.nanoTime());
                         if(state.has("terrain_state")){var value=state.getAsJsonPrimitive("terrain_state");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid terrain state");terrainState=value.getAsString();}
+                        if(state.has("combat_terrain"))combatTerrain=TerrainSnapshot.parse(state.getAsJsonObject("combat_terrain"),System.nanoTime());
+                        if(state.has("combat_terrain_state")){var text=state.getAsJsonPrimitive("combat_terrain_state");if(!text.isString() || text.getAsString().length()>160)throw new IOException("Invalid combat terrain state");combatTerrainState=text.getAsString();}
+                        if(state.has("combat_state"))combatState=CombatState.parse(state.getAsJsonObject("combat_state"),System.nanoTime());
                         nativeStop = state.get("stop").getAsInt();
                         nativeTicks = state.get("hook_ticks").getAsLong();
                         if (nativeStop < 0 || nativeStop > 2 || nativeTicks < 0 || nativeTicks > 0xFFFFFFFFL)

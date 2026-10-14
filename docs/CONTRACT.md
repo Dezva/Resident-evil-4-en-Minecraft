@@ -615,6 +615,51 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización 0.4.51 — melee
+
+Runtime v4 mantiene128bytes y el host exige build451. Los canales existentes
+aceptan451; un canal nuevo Local\\RE4Bridge-Combat-PID usa magic0x52453446,
+version1/build451 y5256bytes. Header0..15:magic,version,build,pid. Petición:
+seqlock16; stamp20,enabled24,generation28,id32,damage36; scale float40,
+reach float44; slot48,guid52; start[3]float56,end[3]float68. Snapshot20..79
+bajo la misma secuencia. Reporte:seqlock80,stamp84,generation88,ack92,reason96,
+target_guid100,target_slot104,hp_before108,hp_after112,hits116,kills120,
+attempts124,active128,count132; hasta128 CombatActor de40bytes desde136.
+Actor:slot,guid,kind,hp,max (u32),position[3],radius,height (float).
+
+JSON control añade combat_enabled booleano, combat_scale40..2500 y combat_reach
+positivo<=6, combat_terrain_revision entero0..INTMAX y combat opcional. Ataque
+requiere sesión armada en primera persona sin menú, con id1..INTMAX, slot0..4095,
+guid u32, damage1..50000 HPnativos, scale coherente, reach<=6, start/end finitos
+<=20M y longitud positiva<=scale*reach+1. JVM caduca el ataque a200ms; native
+control/petición requieren frescura<500ms y la misma generación. Sin ataque,
+watch publica id0: un catálogo no escribe HP. Datos de reporte solo los escribe
+la DLL, nunca el host. Id consumido no se vuelve a ejecutar, incluso en fallo.
+
+Minecraft usa atributo real GENERIC_ATTACK_DAMAGE y cooldown del servidor
+integrado: base*(.2+.8*carga²), redondeado a50HP/punto. Identidad del objeto/ranura
+coincide al solicitar; desgaste/exhaustión solo tras ack confirmado del mismo
+golpe. Un token de cancelación impide liberar una solicitud posterior desde una
+sesión cancelada. Menú/desconexión/F8/escena no admiten ataques nuevos.
+
+Nativo recoge actores vivos Move/Damage del pool SDK con límites4096slots/64MiB;
+catálogo próximo máximo128 y rechazo de desbordamiento. Caja corporal:radio250 y altura1800.
+Repite raycast contra actores actuales y valida slot/GUID, máscara viva/tipo,
+pose/HP/max/rutina, puntero de jugador y pool antes de escribir HP(+0x324).
+Un fatal escribe r_no_0..3(+0xFC)=3,0,0,0. No hay llamadas a funciones de firma
+no descubierta, despawn forzado ni escrituras a misión/botín/HPmax. Ventana
+500ms por identidad: rechaza daño menor/igual y aplica solo diferencia si mayor.
+Corrección de posiciones de enemigos y apoyo vertical conservan sus canales.
+
+Geometría de combate usa otra TerrainFeed con el mismo límite1024triángulos y
+radio(reach+1)*scale+2500 (6500 con alcance3/scale1000). Mantiene caché/hilo,
+generación y revisión propios; la lectura continúa fuera del hilo de entrada.
+Cambio de radio durante lectura descarta el resultado. JSON combat_terrain y
+combat_terrain_state se parsean aparte y no sustituyen terrain de construcción.
+Se requiere cobertura completa del rayo; desconocido no autoriza daño.
+Rayos de bloques usan sus formas actuales y la DLL vuelve a comprobar la
+escena física vigente. Un bloque anterior al enemigo mantiene la minería.
+
 ## Actualización 0.4.50
 
 Runtime v4/build450 conserva 128 bytes y sus offsets. JSON vertical requiere

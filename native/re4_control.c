@@ -71,6 +71,7 @@ static void block_camera_begin(void){block_camera_epoch++;block_camera_scene=1;}
 static void block_camera_end(void){block_camera_scene=0;}
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now);
 static void enemy_collision_tick(const ControlFrame *control,int complete,uint32_t now);
+static void combat_tick(const ControlFrame *control,int complete,uint32_t now);
 static ControlFrame cached_frame;
 static int have_cached_frame;
 static int read_control_frame(ControlFrame *out) {
@@ -564,6 +565,7 @@ static void __cdecl pad_hook(void) {
     runtime_vertical_tick(&control,complete,now);
     cube_collision_tick(&control,complete,now);
     health_tick(&control,complete,now);
+    combat_tick(&control,complete,now);
     enemy_collision_tick(&control,complete,now);
     runtime_action_apply(&control,complete,now);
     runtime_publish(runtime_last_scene,runtime_cache_flags);
@@ -662,6 +664,7 @@ static int cube_collision_graphics_ready(void) {
 }
 #include "collision_tick.h"
 #include "enemy_collision.h"
+#include "combat_ipc.h"
 
 static void install_hook(void) {
     wchar_t name[80];
@@ -676,6 +679,7 @@ static void install_hook(void) {
     capture_ensure_mapping();
     health_ipc_open();
     runtime_ipc_open();
+    combat_ipc_open();
     swprintf(name,80,L"Local\\RE4Bridge-CameraDiagnostics-%lu",(unsigned long)GetCurrentProcessId());
     HANDLE telemetry = CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CameraDiagnostics),name);
     if (telemetry) {
@@ -687,7 +691,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=450; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=451; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

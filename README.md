@@ -5,17 +5,17 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.50: escaleras nativas](docs/RE4-BLOCK-0.4.50.md).
-RE4 controla la altura al caminar por su terreno, incluso con mapa local
-incompleto. El puente mantiene la altura real durante saltos y sobre bloques
-colocados. Requiere DLL 450 y host/JAR nuevos. Regresiones y compilaciones pasan;
-comprobación de esta entrega en RE4/Windows pendiente.
+**Estado actual:** [0.4.51: combate de Minecraft](docs/RE4-BLOCK-0.4.51.md).
+Clic izquierdo contra ganados con daño del objeto, alcance y recarga de Minecraft.
+La DLL confirma impactos sobre su HP real; paredes y bloques obstruyen el golpe.
+Mantiene altura real y apoyo nativo de escaleras. Requiere DLL451 y host/JAR nuevos.
+Pruebas automatizadas pasan; combate y bajas en RE4/Windows pendientes de confirmar.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.50 |
+| RE4 Bridge | paquete/mod 0.4.51 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |
@@ -41,8 +41,8 @@ py -3 -m unittest discover -s tools -p "test_*.py" -v
 Para la prueba Java/Python en Windows, si no existe `python3` en PATH, configurar
 `$env:RE4BRIDGE_PYTHON` con la ruta de `python.exe` (sin argumentos).
 En Linux, usar `./gradlew` y `python3` en los mismos comandos.
-El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.50.jar`.
-Para control y construcción visual reales, sigue [la guía actual](docs/RE4-BLOCK-0.4.50.md).
+El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.51.jar`.
+Para control y construcción visual reales, sigue [la guía actual](docs/RE4-BLOCK-0.4.51.md).
 Compilar/probar el modulo y los instaladores:
 
 ```bash
@@ -57,7 +57,7 @@ El JAR `-sources` no se instala. El núcleo del puente se incluye en el JAR fina
 
 1. Crear una instancia/perfil de Minecraft separado, con Fabric 1.21.1. Usar un
    **mundo nuevo de prueba**, modo Creativo y terreno superplano.
-2. Copiar `re4bridge-0.4.50.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
+2. Copiar `re4bridge-0.4.51.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
    Retirar el JAR anterior para que quede una sola version de RE4 Bridge.
 3. Abrir Minecraft una vez. El mod crea `config/re4bridge.json` con un token local.
 4. Abrir PowerShell en la carpeta del proyecto/paquete y arrancar el simulador,

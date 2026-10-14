@@ -9,11 +9,14 @@ from re4_reader import ReaderError
 from re4_block_preview import validate_preview
 from re4_hud import validate_hud
 from re4_health import validate_health
+from re4_combat import validate_combat
 
 MAGIC = 0x52453443
 
 
 def validate_control(frame):
+    validate_combat(frame)
+    if type(frame.get("combat_terrain_revision",0)) is not int or not 0<=frame.get("combat_terrain_revision",0)<=2147483647:raise ProtocolError("Invalid combat terrain revision")
     if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
     if type(frame.get('action_kind',0)) is not int or frame.get('action_kind',0) not in (0,1) or frame.get('action_kind',0) and not frame.get('action_id',0):raise ProtocolError('Invalid action kind')
     vertical=frame.get('vertical')
@@ -57,12 +60,13 @@ def validate_control(frame):
 
 class ControlPolicy:
     """New explicit arm generation required after a stop. Tested with fake IPC."""
-    def __init__(self, writer, preview=None, hud=None, health=None, runtime=None):
+    def __init__(self, writer, preview=None, hud=None, health=None, runtime=None, combat=None):
         self.writer = writer
         self.preview = preview
         self.hud = hud
         self.health = health
         self.runtime = runtime
+        self.combat = combat
         self.generation = 0
         self.armed = False
 
@@ -154,9 +158,14 @@ class ControlPolicy:
         if self.runtime is not None:
             self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0,frame.get('vertical') if self.armed and not scripted else None,frame.get('action_kind',0) if self.armed else 0)
             result['runtime_state']=activity
+        if self.combat is not None:
+            fighting=self.armed and not scripted and not frame.get('menu',False) and bool(frame.get('combat_enabled'))
+            self.combat.publish(fighting,frame['arm_id'],frame.get('combat_scale',1000),frame.get('combat') if fighting else None)
+            result['combat_state']=self.combat.status()
         return result
 
     def stop(self):
+        if self.combat is not None:self.combat.publish(False,0)
         if self.runtime is not None:self.runtime.publish(0,0)
         if self.health is not None:self.health.publish(False,0)
         if self.preview is not None and getattr(self.preview,'depth',None) is not None:self.preview.depth.publish(False,0)

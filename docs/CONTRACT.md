@@ -615,6 +615,18 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización0.4.48
+
+Runtimev3/112bytes y Scenev6 conservan sus layouts; el host exige DLL448.
+El comando lift conserva su significado relativo. El último lift validado
+alimenta `runtime_physics_lift`; `runtime_lift` sigue siendo solo la altura
+visual interpolada. Menú no sustituye el extremo físico por el valor visual.
+Datos inválidos/F8/caducidad/generación eliminan ambas alturas mediante las
+guardas de vertical existentes. La telemetría view_lift sigue siendo visual.
+La colisión del jugador usa un margen de apoyo superior0.01*scale, sin modificar
+el límite de cabeza, la geometría compartida ni la Y nativa. Los enemigos
+conservan sus dimensiones y tolerancia anteriores.
+
 ## Actualización0.4.47
 
 Runtime v3 conserva offsets112bytes y requiere build447 en el host. La acción

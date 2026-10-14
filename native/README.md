@@ -1,5 +1,9 @@
 # Native RE4 bridge
 
+Build448 separates validated physical jump lift from interpolated view lift and
+uses a scaled support contact margin for player sweep/depenetration. See
+[0.4.48](../docs/RE4-BLOCK-0.4.48.md). Older notes follow.
+
 Build447 uses the observed E mask0x80400, selects the unique SDK cEm-compatible
 pool among distinct manager operands, resolves connected-block penetration and
 keeps debris motion timestamps across repeated lease packets. See

@@ -28,7 +28,7 @@ static int writable(const void *p,size_t n){assert(p==(void*)(player_data+0x94) 
 static int GetAsyncKeyState(int key){assert(key==VK_F8);async_calls++;return(f8 || (late_f8 && async_calls==2))?0x8000:0;}
 static uint32_t GetTickCount(void){if(late_change) {float value;memcpy(&value,player_data+0x94,4);value+=3;memcpy(player_data+0x94,&value,4);}return now;}
 static int cube_collision_command_read(CubeCommand *out){memcpy(out,&published,3168);return !torn;}
-static float runtime_lift,runtime_body_radius=250,runtime_body_height=1600;
+static float runtime_lift,runtime_physics_lift,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
 #include "collision_tick.h"
 static void pose(float x,float y,float z){float p[3]={x,y,z};memcpy(player_data+0x94,p,12);}
 static float coordinate(unsigned i){float v;memcpy(&v,player_data+0x94+4*i,4);return v;}
@@ -36,12 +36,25 @@ static ControlFrame reset(void){
     memset(&report,0,sizeof(report));state->armed=1;state->stop=0;collision_shared=&report;
     player_value=(uint32_t)(uintptr_t)player_data;assert((uintptr_t)player_data<=UINT32_MAX);
     collision_player=collision_generation=0;collision_tick_lock.held=0;now=1000;
-    runtime_lift=0;graphics_ready=1;f8=async_calls=late_f8=late_change=bad_writable=late_slot=torn=0;
+    runtime_lift=runtime_physics_lift=0;runtime_support_skin=.1f;graphics_ready=1;f8=async_calls=late_f8=late_change=bad_writable=late_slot=torn=0;
     published=(CubeCommand){.enabled=1,.stamp=1000,.epoch=7,.mode=2,.count=1,.collisions=1,.arm_generation=1};
     float box[6]={0,0,-500,1000,1000,500};memcpy(published.boxes[0],box,sizeof(box));pose(-300,0,0);
     return(ControlFrame){.generation=1,.armed=1,.stamp=1000};
 }
 int main(void) {
+    ControlFrame landing=reset();pose(500,0,0);runtime_physics_lift=1000;runtime_lift=900;runtime_support_skin=10;
+    cube_collision_tick(&landing,1,now);assert(!report.corrections && coordinate(0)==500 && coordinate(2)==0);
+    for(unsigned frame=0;frame<20;frame++){
+        now+=16;landing.stamp=published.stamp=now;
+        pose(500+(frame%2)*30,-3,0); // movement/native push on a sloping floor while the visual camera catches up
+        cube_collision_tick(&landing,1,now);
+        assert(!report.corrections && !state->stop && coordinate(2)==0 && coordinate(1)==-3);
+    }
+    published.count=2;float raised_wall[6]={1000,1000,-500,2000,2000,500};memcpy(published.boxes[1],raised_wall,24);
+    now+=16;landing.stamp=published.stamp=now;pose(800,0,0);cube_collision_tick(&landing,1,now);
+    assert(report.corrections==1 && coordinate(0)<750 && coordinate(1)==0); // a real wall still blocks at the elevated feet
+    landing=reset();pose(1400,0,0);runtime_physics_lift=800;runtime_lift=1000;runtime_support_skin=10;
+    cube_collision_tick(&landing,1,now);assert(!report.corrections && coordinate(0)==1400); // stepping off the edge is not pinned to the support
     ControlFrame embedded=reset();pose(500,8,0);
     cube_collision_tick(&embedded,1,now);
     assert(report.corrections==1 && (coordinate(0)<-250 || coordinate(0)>1250 || fabsf(coordinate(2))>750));
@@ -101,7 +114,7 @@ int main(void) {
     assert(report.corrections>1800);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);torn=1;cube_collision_tick(&c,1,now);
     assert(coordinate(0)==100 && collision_player);torn=0;cube_collision_tick(&c,1,now);assert(coordinate(0)<-250);
-    c=reset();cube_collision_tick(&c,1,now);runtime_lift=6000;now+=16;c.stamp=published.stamp=now;cube_collision_tick(&c,1,now);
+    c=reset();cube_collision_tick(&c,1,now);runtime_lift=runtime_physics_lift=6000;now+=16;c.stamp=published.stamp=now;cube_collision_tick(&c,1,now);
     assert(!state->stop && coordinate(1)==0);pose(100,0,0);now+=16;c.stamp=published.stamp=now;cube_collision_tick(&c,1,now);
     assert(!state->stop && coordinate(0)==100 && coordinate(1)==0); // stand above block: native Y unchanged, virtual feet avoid horizontal contact
     c=reset();collision_shared=NULL;cube_collision_tick(&c,1,now);assert(coordinate(0)==-300);

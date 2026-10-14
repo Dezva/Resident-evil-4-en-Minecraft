@@ -35,7 +35,7 @@ static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon 
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
 static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
 #include "runtime_policy.h"
-static float runtime_lift,runtime_body_radius=250,runtime_body_height=1600;
+static float runtime_lift,runtime_physics_lift,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
 static void runtime_vertical_interpolate(uint32_t stamp){(void)stamp;}
 static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}

@@ -1076,6 +1076,29 @@ como fallidos en el juego: no se dan por corregidos por los fixtures sintéticos
 Animación/Y de salto de Leon, vuelo creativo, combate y objetos sueltos RE4
 siguen pendientes. Se necesita prueba de gameplay y Win32/D3D9 en Windows.
 
+## 0.4.48 — 2026-10-14
+
+- Log aportado: puente armado, stop0 y misma generación11; las correcciones
+  de Leon aumentan938..969 mientras la elevación visual cae. No demuestra una
+  desconexión. En código se reproduce el bloque de apoyo interpretado como
+  pared cuando la altura visual900 va detrás de los pies físicos1000.
+- La regresión del callback falla antes y pasa después de usar la altura
+  física independiente. Se verifican movimiento y pequeñas variaciones de
+  suelo, bloqueo ante una pared elevada, salida del borde y conservación de Y.
+  El callback vertical prueba extremo físico inmediato, vista interpolada,
+  pausa a media interpolación y borrado por datos inválidos/F8/generación.
+- 163 pruebas Python pasan. JDK21/Gradle8.11.1:43 core y72 Minecraft pasan,
+  sin fallos, errores ni tests saltados; build/remap del JAR448 y access widener
+  pasan. Remap sources permanece SKIPPED y no es parte del instalable.
+- DLL448 PE32, MinGW14.2, warnings como errores; SHA256 reproducido:
+  `180a36ee6c696328bdfbf64ebadb5c3b9f85c1a22952b74df3cad9056b6a8c80`.
+  Cinco fixtures C e instaladores/backup/actualización desde447 y anteriores,
+  rechazo de DLL ajena y diagnósticos PowerShell pasan.
+- Windows confirma R/ganados/partículas de447 según la prueba del usuario;
+  no se ha ejecutado448 con RE4/Direct3D9 real en esta máquina Linux. Falta
+  confirmar el apoyo de448 en la partida. Ataques nativos desde abajo siguen
+  pendientes y no se altera el daño para ocultarlos.
+
 ## 0.4.47 — 2026-10-14
 
 - Evidencia Windows aportada: E activa on/trg0x80400; tres destinos para19

@@ -1,3 +1,13 @@
+## 0.4.48 — apoyo físico independiente de la altura visual
+
+La cámara interpolada podía quedar dentro del bloque de apoyo al aterrizar;
+la separación horizontal lo trataba como pared y expulsaba al jugador. Física
+usa ahora el último extremo vertical validado, independiente de la cámara,
+con margen superior0.01bloques para variaciones nativas entre paquetes.
+Regresión reproduce el fallo y valida movimiento, pared elevada, borde,
+menú e invalidación. Requiere host/JAR y DLL448; confirmación Windows pendiente.
+Ver [guía0.4.48](docs/RE4-BLOCK-0.4.48.md).
+
 ## 0.4.47 — señal E real, pool cEm, colisiones y relojes de partículas
 
 El diagnóstico Windows mostró E=0x80400 (CK|A) y19 firmas para tres gestores;

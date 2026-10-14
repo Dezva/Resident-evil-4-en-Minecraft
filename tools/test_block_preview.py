@@ -10,7 +10,7 @@ from re4_reader import ReaderError
 class PreviewTests(unittest.TestCase):
     bounds=[-500,0,-3500,500,1000,-2500]
     def test_release441_and_legacy439_connect_all_graphics_channels(self):
-        for build in (439,441,442,443,444,445,446,447):
+        for build in (439,441,442,443,444,445,446,447,448):
             import struct
             from test_cube_test import Kernel,Function
             kernel=Kernel(version=6,build=build)

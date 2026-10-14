@@ -69,9 +69,9 @@ int main(void){
     runtime_action_apply(&control,1,now);assert(runtime_actions==2);runtime_action_restore();
     flags=50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     control.flags=3;report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.request_stamp=control.stamp=now=1000;
-    runtime_vertical_tick(&control,1,now);assert(runtime_lift==0);now=1025;runtime_vertical_tick(&control,1,now);assert(runtime_lift==600 && runtime_body_radius==300 && runtime_body_height==1800);
+    runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_lift==1200 && runtime_support_skin==10);now=1025;runtime_vertical_tick(&control,1,now);assert(runtime_lift==600 && runtime_physics_lift==1200 && runtime_body_radius==300 && runtime_body_height==1800);
     now=1050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200);
-    control.flags=11;now=1060;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200);
+    control.flags=11;now=1060;runtime_vertical_tick(&control,1,now);assert(runtime_lift==1200 && runtime_physics_lift==1200);
     control.flags=3;f8=1;runtime_vertical_tick(&control,1,now);assert(runtime_lift==0);f8=0;
     for(unsigned failure=0;failure<8;failure++){
         report.lift=1200;report.scale=1000;report.vertical_enabled=1;report.lift_token=2;report.generation=7;report.request_stamp=control.stamp=now=1000;control.flags=3;control.generation=7;
@@ -83,7 +83,7 @@ int main(void){
         if(failure==5)report.generation=8;
         if(failure==6)control.flags=0;
         if(failure==7)now=1500;
-        runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_body_radius==250 && runtime_body_height==1600);
+        runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_physics_lift==0 && runtime_support_skin==.1f && runtime_body_radius==250 && runtime_body_height==1600);
     }
     // Adjacent 20 Hz endpoints must finish without accumulating easing lag.
     report.lift=420;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.generation=7;report.request_stamp=control.stamp=now=2000;control.flags=3;
@@ -106,5 +106,12 @@ int main(void){
     assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8
     state->stop=1;globals[0x20]=4;now+=16;assert(runtime_refresh()==1 && report.scene==1);
     globals[0x20]=3;now+=16;assert(runtime_refresh()==0 && report.scene==0); // fresh preparation sees the real scene
+    state->armed=1;state->stop=0;control.flags=3;control.generation=7;state->arm_id=7;
+    report.generation=7;report.vertical_enabled=0;control.stamp=report.request_stamp=now;
+    runtime_vertical_tick(&control,1,now);assert(runtime_physics_lift==0);
+    report.vertical_enabled=1;report.lift_token=10;report.lift=1000;report.scale=1000;
+    runtime_vertical_tick(&control,1,now);now+=25;control.stamp=report.request_stamp=now;runtime_vertical_tick(&control,1,now);
+    assert(runtime_lift==500 && runtime_physics_lift==1000);
+    control.flags=11;runtime_vertical_tick(&control,1,now);assert(runtime_lift==500 && runtime_physics_lift==1000); // pause never lowers physical support to the view
     puts("Runtime: native movie/event/death/door gates, bounded cache, one-shot actions and F8/TTL/menu/generation/torn guards passed");
 }

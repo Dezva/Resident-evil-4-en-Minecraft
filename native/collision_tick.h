@@ -17,7 +17,7 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     if(!block_collision_scene_valid(command)){reason=3;goto disabled;}
     player=current_player();
     if(!player || !writable((void*)(uintptr_t)(player+0x94),12)){reason=3;goto disabled;}
-    float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);observed[1]+=runtime_lift;
+    float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);observed[1]+=runtime_physics_lift;
     for(unsigned i=0;i<3;++i)if(!isfinite(observed[i]) || fabsf(observed[i])>20000000.f){reason=3;goto disabled;}
     active=1;reason=0;
     float before[3];memcpy(before,observed,12);
@@ -37,8 +37,8 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     float limit=500.f+5.f*(uint32_t)(now-collision_stamp);
     if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
 resolve:;
-    int hit=block_resolve_horizontal_actor_validated(command,before,observed,resolved,runtime_body_radius,runtime_body_height);
-    if(hit>=0)hit+=block_depenetrate_horizontal(command,resolved,runtime_body_radius,runtime_body_height);
+    int hit=block_resolve_horizontal_actor_skin(command,before,observed,resolved,runtime_body_radius,runtime_body_height,runtime_support_skin);
+    if(hit>=0)hit+=block_depenetrate_horizontal_skin(command,resolved,runtime_body_radius,runtime_body_height,runtime_support_skin);
     if(hit<0){reason=3;goto disabled;}
     contact=(unsigned)hit;
     if(hit) {

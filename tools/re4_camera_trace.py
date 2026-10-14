@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "180a36ee6c696328bdfbf64ebadb5c3b9f85c1a22952b74df3cad9056b6a8c80": "0.4.48 (independent physical jump height and support contact margin)",
     "bc56062587aed707f7e1be1a6f3d675fc9fd83eb6e36de81628ca51b175e7be9": "0.4.47 (measured E input, typed enemy pool, connected collision and stable debris clocks)",
     "fed0452d496f5078c16b602c2225293ff21afe236cbe618947837f633b2910bb": "0.4.46 (held interaction, shared enemy manager and smooth debris)",
     "268138899971f1d3d5879ca6aec12334f846c8f2f5d1fbf0db41a6e9c527e476": "0.4.45 (enemy pools, contextual/skip input and vertical interpolation)",

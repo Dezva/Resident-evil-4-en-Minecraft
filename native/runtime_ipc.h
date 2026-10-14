@@ -18,6 +18,7 @@ static uint64_t action_saved_on,action_saved_trigger;static unsigned action_inje
 static unsigned runtime_cache_valid;static uint32_t runtime_cache_stamp,runtime_cache_epoch,runtime_cache_generation,runtime_cache_flags;
 static float runtime_body_radius=250,runtime_body_height=1600;
 static float runtime_lift,runtime_lift_from,runtime_lift_target;static uint32_t runtime_lift_generation,runtime_lift_token,runtime_lift_stamp;
+static float runtime_physics_lift,runtime_support_skin=.1f;
 static void runtime_vertical_interpolate(uint32_t now){
     float t=fminf(1.f,(now-runtime_lift_stamp)/50.f);runtime_lift=runtime_lift_from+(runtime_lift_target-runtime_lift_from)*t;
 }
@@ -28,13 +29,17 @@ static void runtime_vertical_tick(const ControlFrame *control,int complete,uint3
         || (control->flags&3u)!=3u || control->generation!=state->arm_id || request.generation!=control->generation || request.vertical_enabled!=1u
         || now-control->stamp>=500 || now-request.request_stamp>=500 || (GetAsyncKeyState(VK_F8)&0x8000)
         || !request.lift_token || request.lift_token>2147483647u || !isfinite(request.lift+request.scale) || request.scale<40 || request.scale>2500 || request.lift<0 || request.lift>128*request.scale){
-        runtime_lift=runtime_lift_from=runtime_lift_target=0;runtime_lift_generation=runtime_lift_token=0;runtime_body_radius=250;runtime_body_height=1600;return;
+        runtime_lift=runtime_lift_from=runtime_lift_target=runtime_physics_lift=0;runtime_support_skin=.1f;runtime_lift_generation=runtime_lift_token=0;runtime_body_radius=250;runtime_body_height=1600;return;
     }
     runtime_body_radius=fmaxf(100,fminf(1000,.3f*request.scale));runtime_body_height=fmaxf(300,fminf(3000,1.8f*request.scale));
+    /* Collision owns the latest simulated feet, never the interpolated view.
+       A small support skin absorbs native ground rounding between packets. */
+    runtime_support_skin=.01f*request.scale;
     if(runtime_lift_generation!=control->generation){runtime_lift_generation=control->generation;runtime_lift_token=0;runtime_lift=0;}
     if(control->flags&8u){runtime_lift_from=runtime_lift_target=runtime_lift;runtime_lift_stamp=now;return;}
     runtime_vertical_interpolate(now);
     if(runtime_lift_token!=request.lift_token){
+        runtime_physics_lift=request.lift;
         /* Finish the previous 20 Hz endpoint instead of restarting an easing
            curve from a lagging pad sample on every packet. */
         runtime_lift_from=runtime_lift_target;runtime_lift_target=request.lift;runtime_lift_token=request.lift_token;runtime_lift_stamp=now;
@@ -79,7 +84,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=3;p->build=447;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=3;p->build=448;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){

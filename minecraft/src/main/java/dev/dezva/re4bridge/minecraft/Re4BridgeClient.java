@@ -242,7 +242,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                         if(bridge.controllerMode()) {
                             ctx.getSource().sendFeedback(Text.literal(minecraftHud.status()));
                             var life=bridge.healthState();ctx.getSource().sendFeedback(Text.literal("Vida compartida: "+(life!=null && life.available()?"Leon="+life.hp()+"/"+life.maximum()+"; activa="+life.active()+"; motivo="+life.reason():"requiere DLL/host0.4.41")));
-                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; acciones R="+runtime.actions():"requiere DLL/host0.4.44")));
+                            var runtime=bridge.runtimeState();ctx.getSource().sendFeedback(Text.literal("Escena: "+(runtime!=null && runtime.available()?runtime.scene()+"; contactos enemigos="+runtime.contacts()+"; correcciones="+runtime.corrections()+"; detector="+runtime.enemyReason()+"; revisados="+runtime.scanned()+"; ganados="+runtime.eligible()+"; acciones R="+runtime.actions()+"; saltos F6="+runtime.skips():"requiere DLL/host0.4.45")));
                             ctx.getSource().sendFeedback(Text.literal("Mapa RE4: "+bridge.terrainState()+"; profundidad: "+bridge.depthReason()+"; dibujos="+bridge.depthDraws()+"; dibujos sin profundidad="+bridge.depthFallbackDraws()));
                         }
                         var sample = bridge.re4Sample();
@@ -267,7 +267,8 @@ public final class Re4BridgeClient implements ClientModInitializer {
         BridgeKeys.mode=()->bridge!=null && bridge.status().connected() && bridge.controllerMode() && controlArming.active() && firstPersonEnabled;
         BridgeKeys.toggle=()->toggleMode(MinecraftClient.getInstance());
         BridgeKeys.scripted=()->bridge!=null && bridge.scripted();
-        BridgeKeys.interact=()->{var current=bridge;if(current!=null && controlArming.active())current.requestAction(controlArming.generation());};
+        BridgeKeys.interact=()->{var current=bridge;if(current!=null && controlArming.active()){current.requestAction(controlArming.generation());say(MinecraftClient.getInstance(),"Accion R enviada a RE4.");}};
+        BridgeKeys.skip=()->{var current=bridge;if(current!=null && controlArming.active() && current.scripted())current.requestSkip(controlArming.generation());};
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> minecraftHud.close());
         ClientTickEvents.START_CLIENT_TICK.register(this::beforeTick);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
@@ -348,10 +349,11 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 var supportBoxes=new java.util.ArrayList<Box>();
                 for(var p:placedScene.positions())if(client.world.isChunkLoaded(p))for(var b:sceneShapes(client,p))supportBoxes.add(b.offset(p));
                 var mesh=current.terrain();if(mesh!=null && (!mesh.fresh(System.nanoTime()) || mesh.generation()!=controlArming.generation()))mesh=null;
-                var elevated=vertical.step(point,controlArming.generation(),controlArming.active() && client.options.jumpKey.isPressed() && !MinecraftHud.menu(client),client.options.sprintKey.isPressed(),MinecraftHud.menu(client),supportBoxes,mesh,controllerMapping.gridHeight(placedScene.height()));
+                vertical.step(point,controlArming.generation(),controlArming.active() && client.options.jumpKey.isPressed() && !MinecraftHud.menu(client),client.options.sprintKey.isPressed(),MinecraftHud.menu(client),supportBoxes,mesh,controllerMapping.gridHeight(placedScene.height()));
                 if(controlArming.active())current.vertical(controlArming.generation(),vertical.token(),vertical.lift(point,controllerMapping.scale()),controllerMapping.scale());
-                controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),point.y());if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
-            }catch(IllegalArgumentException error){stopDriving();say(client,"Sincronizacion detenida: salto de zona. Usa blocks on para fijar otra referencia.");}
+                /* Commit position only at END tick: vanilla must retain last tick's render position for interpolation. */
+                if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
+            }catch(IllegalArgumentException error){recordStop("seguimiento",error);stopDriving();say(client,"Sincronizacion detenida: "+error.getMessage()+". Revisa latest.log.");}
         }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
         // even on the tick that closes arm's chat; publishing remains arm-gated.
@@ -428,7 +430,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             if(current.re4Sample()==null || !current.re4Sample().fresh(System.nanoTime()) || current.nativeTicks()==0)return;
             if((current.nativeCapabilities()&3)!=3 || !current.overlayAvailable() || !current.depthAvailable() || !current.sceneAvailable() || !current.materialsAvailable() || !current.collisionAvailable()){future.completeExceptionally(new IllegalStateException("Instala el paquete nuevo completo; primera persona/interfaz/profundidad no disponibles."));prepareFuture=null;return;}
             if(current.healthState()==null || !current.healthState().available()){future.completeExceptionally(new IllegalStateException("Instala la DLL y host0.4.41 para vida compartida y pausa en movimiento."));prepareFuture=null;return;}
-            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.44 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
+            if(current.runtimeState()==null || !current.runtimeState().available() || !current.runtimeState().actionAvailable()){future.completeExceptionally(new IllegalStateException("Instala DLL/host0.4.45 completos: escenas e interaccion no disponibles."));prepareFuture=null;return;}
             synchronizedMovement=true;mouseEnabled=true;firstPersonEnabled=true;hudEnabled=true;mapEditing=false;blockDepth=true;automaticEyeHeight=true;
             if(!blocksEnabled)enableBlocks(client,BlockPreview.DEFAULT_SIZE);
             placedScene.style(3);placedScene.collisions(true);
@@ -518,6 +520,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
         return 1;
     }
 
+    private void recordStop(String phase,RuntimeException error){
+        org.slf4j.LoggerFactory.getLogger("RE4Bridge").error("Puente detenido en {}; altura={}; motivo={}",phase,vertical.point(),error.getMessage(),error);
+    }
     private void stopDriving() {
         healthSessionOpen=false;vertical.clear();particles.clear();brokenAt.clear();
         if(bridge!=null)bridge.clearVertical();
@@ -640,7 +645,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && !current.scripted() && synchronizedMovement && controllerMapping!=null){
-                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),base.y());}catch(IllegalArgumentException error){stopDriving();buttons=0;}
+                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),base.y());}catch(IllegalArgumentException error){recordStop("seguimiento final",error);stopDriving();buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
@@ -691,7 +696,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             var p=hit.getBlockPos();var bounds=shape.getBoundingBox();var origin=controllerMapping.toNative(p.getX(),p.getY(),p.getZ());double scale=controllerMapping.scale();
                             hud=hud.selection(new double[]{origin.x(),origin.y()+placedScene.height(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
                         }
-                    }}catch(IllegalArgumentException | IllegalStateException error){hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
+                    }}catch(IllegalArgumentException | IllegalStateException error){recordStop("interfaz",error);hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
             }
             if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);

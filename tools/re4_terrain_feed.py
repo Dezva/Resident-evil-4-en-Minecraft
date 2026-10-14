@@ -14,7 +14,9 @@ class TerrainFeed:
     def observe(self,frame,sample,state):
         requested=frame.get('terrain',False) and state['armed'] and bool(frame.get('look',{}).get('first_person')) and sample.get('state')=='player'
         with self.lock:
-            self.request=(tuple(sample['position_raw']),frame['arm_id']) if requested else None
+            position=list(sample.get('position_raw',()))
+            if requested and frame.get('vertical') is not None:position[1]+=frame['vertical']['lift']
+            self.request=(tuple(position),frame['arm_id']) if requested else None
             latest=self.latest
             if requested and self.thread is None:
                 self.thread=threading.Thread(target=self.run,name='re4bridge-terrain',daemon=True);self.thread.start()

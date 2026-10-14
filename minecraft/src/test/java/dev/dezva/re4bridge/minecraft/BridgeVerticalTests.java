@@ -28,6 +28,27 @@ class BridgeVerticalTests {
   for(int i=0;i<20;i++)assertTrue(v.step(BASE,1,false,false,false,ceiling,null,null).y()<=.200001);
   v.step(BASE,2,false,false,false,List.of(),null,null);assertEquals(0,v.point().y());assertEquals(0,v.exhaustion());
  }
+ @Test void unknownHeadCoverageWaitsInsteadOfThrowing() throws Exception {
+  var map=new ControllerMapping(new dev.dezva.re4bridge.Re4Sample(0,0,0,0,0),0,0,0,0,1000);
+  var j=com.google.gson.JsonParser.parseString("{\"revision\":1,\"generation\":1,\"age_ms\":0,\"complete\":true,\"position\":[0,0,0],\"radius\":12000,\"triangles\":[]}").getAsJsonObject();
+  var mesh=dev.dezva.re4bridge.TerrainSnapshot.parse(j,0);var v=new BridgeVertical();var boxes=new ArrayList<Box>();int built=0;
+  for(int i=0;i<1000;i++){
+   var p=v.step(BASE,1,true,false,false,boxes,mesh,map);
+   if(p.y()>built+1.0001){boxes.add(new Box(0,built,0,1,built+1,1));built++;}
+  }
+  assertTrue(v.point().y()<=10.200001);assertTrue(built>=9);
+ }
+ @Test void climbingPastTheOldTerrainVolumeWaitsForANewMapWithoutStopping() throws Exception {
+  var map=new ControllerMapping(new dev.dezva.re4bridge.Re4Sample(0,0,0,0,0),0,0,0,0,1000);
+  var j=com.google.gson.JsonParser.parseString("{\"revision\":1,\"generation\":1,\"age_ms\":0,\"complete\":true,\"position\":[0,0,0],\"radius\":12000,\"triangles\":[]}").getAsJsonObject();
+  var mesh=dev.dezva.re4bridge.TerrainSnapshot.parse(j,0);var v=new BridgeVertical();var boxes=new ArrayList<Box>();int built=0;
+  for(int i=0;i<1500 && built<24;i++){
+   var p=v.step(BASE,1,true,false,false,boxes,mesh,map);
+   if(p.y()>built+1.0001){boxes.add(new Box(0,built,0,1,built+1,1));built++;}
+   if(i%10==0){var pos=new com.google.gson.JsonArray();pos.add(0);pos.add(p.y()*1000);pos.add(0);j.add("position",pos);mesh=dev.dezva.re4bridge.TerrainSnapshot.parse(j,0);}
+  }
+  assertEquals(24,built);assertTrue(v.point().y()>24);
+ }
  @Test void nativeCeilingLimitsTheSameStandingBody() throws Exception {
   var map=new ControllerMapping(new dev.dezva.re4bridge.Re4Sample(0,0,0,0,0),0,0,0,0,1000);
   var json=com.google.gson.JsonParser.parseString("{\"revision\":1,\"generation\":1,\"age_ms\":0,\"complete\":true,\"position\":[0,0,0],\"radius\":12000,\"triangles\":[[-5000,2000,-5000,10000,2000,-5000,-5000,2000,10000]]}").getAsJsonObject();

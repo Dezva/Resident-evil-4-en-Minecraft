@@ -121,6 +121,21 @@ static int writable(const void *pointer, SIZE_T length) {
         && length <= m.RegionSize - ((uintptr_t)pointer - (uintptr_t)m.BaseAddress);
 }
 
+/* A cManager pool can span several committed VirtualQuery regions. */
+static int readable_span(const void *pointer,SIZE_T length){
+    uintptr_t cursor=(uintptr_t)pointer;
+    if(!cursor || !length || cursor>UINTPTR_MAX-length)return 0;
+    uintptr_t end=cursor+length;
+    for(unsigned i=0;i<64 && cursor<end;i++){
+        MEMORY_BASIC_INFORMATION m;
+        if(!VirtualQuery((void*)cursor,&m,sizeof(m)) || m.State!=MEM_COMMIT || (m.Protect&(PAGE_GUARD|PAGE_NOACCESS))
+            || !(m.Protect&(PAGE_READONLY|PAGE_READWRITE|PAGE_WRITECOPY|PAGE_EXECUTE_READ|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY)))return 0;
+        uintptr_t base=(uintptr_t)m.BaseAddress;
+        if(cursor<base || m.RegionSize>UINTPTR_MAX-base || base+m.RegionSize<=cursor)return 0;
+        cursor=base+m.RegionSize;
+    }
+    return cursor>=end;
+}
 /* Only readable committed memory; never infer fallback addresses. */
 static int readable(const void *pointer, SIZE_T length) {
     MEMORY_BASIC_INFORMATION m;
@@ -292,6 +307,7 @@ static void __attribute__((fastcall)) camera_hook(void *self, void *unused,
     }
     float frame[12], position[3], target[3];
     float feet[3], yaw;
+    runtime_vertical_interpolate(GetTickCount());
     memcpy(feet, (void *)(uintptr_t)(player + 0x94), sizeof(feet));feet[1]+=runtime_lift;
     yaw = view_yaw;
     float fovy; memcpy(&fovy,(unsigned char *)offset+0x28,4);
@@ -346,6 +362,7 @@ static int refresh_render_frame(const ControlFrame *control,uint32_t player,floa
             || (control->flags&3u)!=3u || !(state->capabilities&2u)
             || !re4_valid_look(control->total,control->pitch,control->eye,control->flags))return 0;
     float feet[3],frame[12],position[3],target[3];
+    runtime_vertical_interpolate(GetTickCount());
     memcpy(feet,(void *)(uintptr_t)(player+0x94),sizeof(feet));feet[1]+=runtime_lift;
     if(!re4_eye_frame(feet,view_yaw,control->pitch,control->eye,frame,position,target) || *player_slot!=player)return 0;
     for(unsigned i=0;i<3;++i){render_point.position[i]=frame[4*i+3];render_point.target[i]=render_point.position[i]+target[i];}
@@ -408,6 +425,7 @@ static void __cdecl projection_hook(void) {
     /* Never query actor/camera memory or poll keys on dormant projection calls.
        The observed E9 entry serves callers beyond the six recognized call sites. */
     if(!state || !state->armed || state->stop){
+        runtime_action_restore();
         projection_cache.valid=0;
         restore_first_person();
         if(state)state->camera_active=0;
@@ -418,7 +436,7 @@ static void __cdecl projection_hook(void) {
         }
         original_projection();return;
     }
-    if(runtime_scripted()){projection_cache.valid=0;restore_first_person();state->camera_active=0;original_projection();return;}
+    if(runtime_scripted()){projection_cache.valid=0;restore_first_person();state->camera_active=0;runtime_action_projection();original_projection();return;}
     if(projection_reuse(GetTickCount())){original_projection();return;}
     projection_cache.valid=0;
     ControlFrame control = {0};
@@ -429,6 +447,7 @@ static void __cdecl projection_hook(void) {
     int applied = 0;
     if(GetAsyncKeyState(VK_F8)&0x8000)InterlockedExchange(&state->stop,1);
     cube_collision_tick(&control,complete,GetTickCount());
+    if(!block_camera_scene || !block_camera_frame.valid || block_camera_frame.epoch!=block_camera_epoch)enemy_collision_tick(&control,complete,GetTickCount());
     uint32_t player=current_player();
     float fovy=50.f;
     if(global>=0x10000 && global<=0xFFFFFE00 && readable(camera+0xC0,4))memcpy(&fovy,camera+0xC0,4);
@@ -481,6 +500,7 @@ static void __cdecl projection_hook(void) {
 #include "health_ipc.h"
 
 static void __cdecl pad_hook(void) {
+    runtime_pad_stamp=GetTickCount();
     runtime_action_restore();
     restore_rendered_camera();
     state->camera_active = 0;
@@ -656,7 +676,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=444; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=445; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

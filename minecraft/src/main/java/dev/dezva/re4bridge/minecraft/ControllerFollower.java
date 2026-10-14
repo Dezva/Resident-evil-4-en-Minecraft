@@ -44,7 +44,8 @@ final class ControllerFollower {
         };}
         var feet=BlockPos.ofFloored(current.point().x(),current.groundY(),current.point().z());
         var mesh=current.terrain();var map=current.mapping();
-        if(mesh==null || map==null || mesh.generation()!=current.generation() || !mesh.fresh(System.nanoTime())){floor.update(floorSlot,feet);floorMesh=null;return;}
+        if(mesh==null || map==null || mesh.generation()!=current.generation() || !mesh.fresh(System.nanoTime())
+            || !mesh.covered(dev.dezva.re4bridge.TerrainSnapshot.nativePoint(map,new dev.dezva.re4bridge.TerrainSnapshot.Point(current.point().x(),current.groundY()+3,current.point().z())))){floor.update(floorSlot,feet);floorMesh=null;return;}
         if(mesh!=floorMesh || !map.equals(floorMap) || !feet.equals(floorFeet)){
             var heights=new java.util.HashMap<Long,Integer>();
             for(int x=feet.getX()-EditorFloor.RADIUS;x<=feet.getX()+EditorFloor.RADIUS;x++)for(int z=feet.getZ()-EditorFloor.RADIUS;z<=feet.getZ()+EditorFloor.RADIUS;z++){

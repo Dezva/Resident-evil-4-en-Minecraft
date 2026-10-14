@@ -9,10 +9,10 @@ from re4_reader import ReaderError
 
 class Kernel:
     def __init__(self):
-        self.buffer=ctypes.create_string_buffer(80);self.words=(ctypes.c_uint32*20).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,2,444,42);self.closed=[]
+        self.buffer=ctypes.create_string_buffer(112);self.words=(ctypes.c_uint32*28).from_buffer(self.buffer)
+        self.words[:4]=(MAGIC,3,445,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
-        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==80 else 0)
+        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==112 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);self.assertEqual(writer.writes[-1],(True,65));native.close()
     def test_old_broken_dll_rejected_with_update_message(self):
         k=Kernel();k.words[2]=442
-        with self.assertRaisesRegex(ReaderError,'DLL0.4.44'):NativeRuntime(42,k)
+        with self.assertRaisesRegex(ReaderError,'DLL0.4.45'):NativeRuntime(42,k)
         self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])
@@ -62,6 +62,14 @@ class RuntimeTests(unittest.TestCase):
             writer=Writer();frame=dict(base,vertical=dict(base['vertical'],**change))
             with self.assertRaises(ProtocolError):ControlPolicy(writer).apply(frame,{'state':'player'})
             self.assertEqual(writer.writes,[])
+    def test_skip_kind_and_enemy_diagnostics_are_separate_from_commands(self):
+        k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5]
+        k.words[21:28]=[0,300,3,2,0,300,0x408]
+        native.publish(7,3,None,1);self.assertEqual(k.words[20],1);self.assertEqual(k.words[21],0)
+        state=native.status();self.assertEqual(state['enemy_scanned'],300);self.assertEqual(state['enemy_eligible'],3);self.assertEqual(state['skips'],2)
+        for frame in (dict(action_id=1,action_kind=True),dict(action_id=1,action_kind=2),dict(action_kind=1)):
+            with self.assertRaises(ProtocolError):validate_control(dict(type='re4_control',armed=True,buttons=0,arm_id=7,**frame))
+        native.close()
     def test_action_validation_never_sends_in_menus_or_disarmed(self):
         base=dict(type='re4_control',armed=True,buttons=0,arm_id=1,action_id=1)
         validate_control(base)

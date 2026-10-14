@@ -54,13 +54,15 @@ class Health:
     def status(self):
         return dict(available=True,active=self.enabled,fresh=True,reason=0,generation=self.generation,player=4096,hp=800,maximum=1000,damage=200000,healing=0,dead=False,mode=self.request['mode'] if self.request else 0)
 class Runtime:
-    def __init__(self):self.last=None;self.actions=0;self.last_vertical=None
-    def publish(self,generation,action_id,vertical=None):
+    def __init__(self):self.last=None;self.actions=0;self.skips=0;self.last_vertical=None
+    def publish(self,generation,action_id,vertical=None,action_kind=0):
         if vertical and self.last_vertical!=vertical:self.last_vertical=vertical;print(f"VERTICAL generation={generation} token={vertical['token']} lift={vertical['lift']}",flush=True)
         if action_id and self.last!=(generation,action_id):
-            self.last=(generation,action_id);self.actions+=1
-            print(f'ACTION generation={generation} id={action_id}',flush=True)
-    def status(self):return dict(available=True,fresh=True,scene=0,flags=0,enemies_available=True,action_available=True,enemy_contacts=0,enemy_corrections=0,actions=self.actions)
+            self.last=(generation,action_id)
+            if action_kind:self.skips+=1
+            else:self.actions+=1
+            print(f'ACTION generation={generation} id={action_id} kind={action_kind}',flush=True)
+    def status(self):return dict(available=True,fresh=True,scene=0,flags=0,enemies_available=True,action_available=True,enemy_contacts=0,enemy_corrections=0,actions=self.actions,skips=self.skips)
 policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))

@@ -613,3 +613,29 @@ La física/vida Minecraft es del executor local; extenuación y daño de caída
 acumulados por generación evitan duplicación al coalescer tareas del seguidor.
 EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
+
+
+## Altura/acciones/enemigos0.4.45
+
+Runtimev3/build445:112bytes. Reporte0..47 y comando48..79 mantienen offsets.
+action_kind80 pertenece al host y comparte request seqlock48. Solo0(contexto)
+o1(skip) con token positivo; nativo copia48..83 de forma estable. Reporte nativo
+agrega enemy_reason84/scanned88/eligible92/skips96, float view_lift100,
+enemy_capacity104/stride108 bajo report seqlock16. Host escribe48..83 solamente.
+R presta CK/PICK_UP/ACT_A/OK; F6 EV_CANCEL solo en movie/event, nunca death.
+Pad restaura los bits prestados antes del input original. En proyección de escena
+nativa, si pad lleva80ms inactivo, se entrega un pulso de50ms con los mismos
+checks/token único. Stop/foco/menú/generación caducada nunca se rearman.
+
+Pools enemigos admiten4096slots y64MiB, comprobando hasta64regiones comprometidas.
+Flags Alive sin Dead/Destruct son físicos aunque Trans esté apagado.128actores
+vivos Move/Damage, whitelist humanoide, lectura/revalidación de identidad y
+pose antes de X/Z; proyección reconcilia después del movimiento. Separación
+horizontal inicial limitada a8pasadas; no altera Y/IA/HP/rutina/velocidad.
+
+TerrainFeed centra la extracción local en Y nativa+lift publicado, sin ampliar
+radio12000 ni límite1024triángulos. Un techo fuera de cobertura aplaza la subida;
+no transforma geometría desconocida en espacio libre. La posición cliente del
+seguidor se escribe solo END tick, para preservar interpolación vanilla. El
+suelo temporal mantiene groundY. El salto nativo conserva sus pies virtuales y
+límite128bloques; no escribe la Y real de Leon.

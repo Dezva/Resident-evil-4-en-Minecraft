@@ -15,6 +15,7 @@ MAGIC = 0x52453443
 
 def validate_control(frame):
     if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
+    if type(frame.get('action_kind',0)) is not int or frame.get('action_kind',0) not in (0,1) or frame.get('action_kind',0) and not frame.get('action_id',0):raise ProtocolError('Invalid action kind')
     vertical=frame.get('vertical')
     if vertical is not None:
         if not isinstance(vertical,dict) or set(vertical)!={'lift','scale','token'} or type(vertical['token']) is not int or not 1<=vertical['token']<=2147483647:raise ProtocolError('Invalid vertical request')
@@ -150,7 +151,7 @@ class ControlPolicy:
             self.health.publish(self.armed,frame['arm_id'],frame.get('health'))
             result['health_state']=self.health.status()
         if self.runtime is not None:
-            self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0,frame.get('vertical') if self.armed and not scripted else None)
+            self.runtime.publish(frame['arm_id'],frame.get('action_id',0) if self.armed else 0,frame.get('vertical') if self.armed and not scripted else None,frame.get('action_kind',0) if self.armed else 0)
             result['runtime_state']=activity
         return result
 

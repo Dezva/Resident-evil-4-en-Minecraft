@@ -1075,3 +1075,32 @@ Los límites de input/F8/foco/dispositivo se mantienen. Ganados siguen reportado
 como fallidos en el juego: no se dan por corregidos por los fixtures sintéticos.
 Animación/Y de salto de Leon, vuelo creativo, combate y objetos sueltos RE4
 siguen pendientes. Se necesita prueba de gameplay y Win32/D3D9 en Windows.
+
+## 0.4.45 — 2026-10-14
+
+- JDK21/Gradle8.11.1 offline: bridge-core43 y Minecraft72 pruebas, cero fallos,
+  errores u omitidas. JAR Fabric remapeado y Access Widener validados.
+- Python157 pruebas, incluyendo21 fixtures C del código nativo real sobre APIs
+  simuladas. Validadores/lectores incluyen445 sin retirar compatibilidad previa.
+- Ocho fixtures de cámara, Runtime, enemigos, memoria, colisión, command reader,
+  geometría y overlay también pasan con AddressSanitizer/UBSan.
+- MinGW32 compila DLL PE32 con warnings como errores y cinco ejecutables de
+  política/branch/mirada/geometría/vida. SHA256 de DLL445:
+  `268138899971f1d3d5879ca6aec12334f846c8f2f5d1fbf0db41a6e9c527e476`.
+- VIEW y preparación autenticada pasan fixtures C#/PowerShell. Instalador prueba
+  copia de seguridad, instalación sin sobrescritura, retiro de DLL propia y las
+  builds publicadas439/441/442/443/444; conserva DLL ajenas y partidas.
+- Regresión de altura reproduce consulta de cabeza fuera de radio12000 y prueba
+  espera sin excepción; con centro móvil permite columna de24bloques. Cliente
+  conserva interpolación al seguir solo END tick. Pool enemigo de300slots,
+  actor al final del pool sin bit Trans, barrido repetido y colocación ocupada.
+- R/F6 viajan por TCP como tokens separados; menú/generación/TTL cancelan su
+  entrega. Fixture nativo verifica pulsos, restauración, skip solo movie/event,
+  muerte excluida y entrega breve en proyección con pad inactivo.
+
+El registro del usuario mostraba primero cliente desarmado/stop0 y detector de
+enemigos no disponible; no establecía un crash del host. El cliente presentaba
+«salto de zona» para cualquier excepción de seguimiento. La regresión de
+cobertura reproduce esa causa por altura. No se ejecutaron RE4 ni driver D3D9 ni
+las ventanas reales de Windows; ganados, interacción contextual, tipos de
+cinemática y cambios de zona necesitan validación en la partida del usuario.

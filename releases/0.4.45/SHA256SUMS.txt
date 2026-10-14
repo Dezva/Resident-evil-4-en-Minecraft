@@ -1,0 +1,2 @@
+9fafea27c155ffd53da06dd3252728039146abbec7fdc8917a7bdcb454d6e82b  re4bridge-0.4.45-windows.zip
+64b979f1c433ac0cd01e24416cb25ac2dccd99addf0cad68502f1d4434c0e02c  re4bridge-0.4.45-source.zip

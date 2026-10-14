@@ -45,6 +45,21 @@ static inline int block_resolve_horizontal_actor_validated(const CubeCommand *co
     float c=cosf(command->origin[3]),s=sinf(command->origin[3]);
     result[0]=command->origin[0]+c*start[0]-s*start[2];result[2]=command->origin[2]+s*start[0]+c*start[2];result[1]=after[1];return contacts;
 }
+static inline int block_depenetrate_horizontal(const CubeCommand *command,float *world,float radius,float height){
+    float p[3];block_local_point(command->origin,world,p);int contacts=0;
+    for(unsigned iteration=0;iteration<8;iteration++){
+        int found=0;float smallest=INFINITY,shift=0;unsigned axis=0;
+        for(unsigned i=0;i<block_collision_count(command);i++){
+            const float *b=command->boxes[i];
+            if(p[1]<=b[1]-height+.1f || p[1]>=b[4]-.1f || p[0]<=b[0]-radius || p[0]>=b[3]+radius || p[2]<=b[2]-radius || p[2]>=b[5]+radius)continue;
+            const float steps[4]={b[0]-radius-p[0]-.5f,b[3]+radius-p[0]+.5f,b[2]-radius-p[2]-.5f,b[5]+radius-p[2]+.5f};
+            for(unsigned j=0;j<4;j++)if(fabsf(steps[j])<smallest){smallest=fabsf(steps[j]);shift=steps[j];axis=j<2?0:2;found=1;}
+        }
+        if(!found)break;
+        p[axis]+=shift;contacts++;
+    }
+    float c=cosf(command->origin[3]),s=sinf(command->origin[3]);world[0]=command->origin[0]+c*p[0]-s*p[2];world[2]=command->origin[2]+s*p[0]+c*p[2];return contacts;
+}
 static inline int block_resolve_horizontal_validated(const CubeCommand *command,const float *before,const float *after,float *result){return block_resolve_horizontal_actor_validated(command,before,after,result,250,1600);}
 static inline int block_resolve_horizontal(const CubeCommand *command,const float *before,const float *after,float *result) {
     return block_collision_scene_valid(command)?block_resolve_horizontal_validated(command,before,after,result):-1;

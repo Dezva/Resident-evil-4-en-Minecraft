@@ -15,12 +15,14 @@ with zipfile.ZipFile('releases/0.4.39/re4bridge-0.4.39-windows.zip') as archive:
     (root/'legacy.dll').write_bytes(archive.read('native/dinput8.dll'))
 with zipfile.ZipFile('releases/0.4.41/re4bridge-0.4.41-windows.zip') as archive:
     (root/'health.dll').write_bytes(archive.read('native/dinput8.dll'))
+with zipfile.ZipFile('releases/0.4.44/re4bridge-0.4.44-windows.zip') as archive:
+    (root/'vertical.dll').write_bytes(archive.read('native/dinput8.dll'))
 with zipfile.ZipFile('releases/0.4.43/re4bridge-0.4.43-windows.zip') as archive:
     (root/'scene.dll').write_bytes(archive.read('native/dinput8.dll'))
 with zipfile.ZipFile('releases/0.4.42/re4bridge-0.4.42-windows.zip') as archive:
     (root/'runtime.dll').write_bytes(archive.read('native/dinput8.dll'))
 PY
 XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
-  /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_install.ps1 -PackageDir "$installer_stage" -LegacyDll "$installer_stage/legacy.dll" -HealthDll "$installer_stage/health.dll" -RuntimeDll "$installer_stage/runtime.dll" -SceneDll "$installer_stage/scene.dll"
+  /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_install.ps1 -PackageDir "$installer_stage" -LegacyDll "$installer_stage/legacy.dll" -HealthDll "$installer_stage/health.dll" -RuntimeDll "$installer_stage/runtime.dll" -SceneDll "$installer_stage/scene.dll" -VerticalDll "$installer_stage/vertical.dll"
 XDG_CACHE_HOME=/workspace/.cache XDG_CONFIG_HOME=/workspace/.config XDG_DATA_HOME=/workspace/.local/share \
   /workspace/tools/powershell-7.4.7/pwsh -NoLogo -NoProfile -File tools/test_diagnostic.ps1

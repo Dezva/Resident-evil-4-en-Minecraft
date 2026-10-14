@@ -1,3 +1,12 @@
+## 0.4.45 — altura, acciones y detector de ganados
+
+- Corrige el error de cobertura de techos que se presentaba como «salto de zona» al subir columnas. Mapa local centrado a la altura virtual; espera segura durante actualización.
+- Posición Minecraft al final del tick e interpolación nativa entre extremos sucesivos; conserva suelo, extenuación y caída.
+- R añade recogida/confirmación a la acción contextual. F6 envía cancelación nativa de movie/event; Esc conserva pausa Minecraft. Canal Runtimev3 y entrega acotada en proyección cuando el pad está inactivo.
+- Pools enemigos de hasta4096slots/64MiB y varias regiones; física independiente del bit de dibujo, revisión después del movimiento y separación horizontal de colocaciones ocupadas.
+- Diagnósticos de gestor, slots, elegibles y acciones en host/status; excepciones de seguimiento conservan causa/altura en latest.log.
+- Nueva DLL445 y paquete completo. Combate y transición continua/separación de construcciones por zona pendientes. Pruebas automatizadas; sin ejecución de RE4/GPU reales en cloud.
+
 # Registro de desarrollo
 
 ## 0.4.44 — construcción por caras, salto del controlador y efectos de rotura

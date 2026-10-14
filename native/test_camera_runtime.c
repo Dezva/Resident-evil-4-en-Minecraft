@@ -36,10 +36,13 @@ static uint32_t now=1000;static int f8;static unsigned native_camera_calls,proje
 static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
 #include "runtime_policy.h"
 static float runtime_lift,runtime_body_radius=250,runtime_body_height=1600;
+static void runtime_vertical_interpolate(uint32_t stamp){(void)stamp;}
 static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}
 static int runtime_scripted(void){return state->armed && !state->stop && runtime_refresh()!=0;}
+static uint32_t runtime_pad_stamp;
 static void runtime_action_restore(void){}
+static void runtime_action_projection(void){}
 static void enemy_collision_tick(const ControlFrame *c,int complete,uint32_t now){(void)c;(void)complete;(void)now;}
 static void runtime_action_apply(const ControlFrame *c,int complete,uint32_t now){(void)c;(void)complete;(void)now;}
 static void runtime_publish(unsigned scene,uint32_t flags){(void)scene;(void)flags;}

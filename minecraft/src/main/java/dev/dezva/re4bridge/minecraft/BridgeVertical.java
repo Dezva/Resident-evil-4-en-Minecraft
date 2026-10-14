@@ -20,13 +20,18 @@ final class BridgeVertical {
         if(!initialized){y=base.y();velocity=fallen=0;grounded=true;initialized=true;}
         if(!paused){
             if(grounded && jump){velocity=.42;grounded=false;exhaustion+=sprint?.2:.05;}
-            double next=y+velocity;boolean landed=false;
+            double next=y+velocity;boolean landed=false,waiting=false;
+            if(next>base.y()+128){next=base.y()+128;velocity=0;}
             if(velocity>0){
                 for(var b:boxes)if(footprint(base,b) && y+1.8<=b.minY+.00001 && next+1.8>b.minY){next=Math.min(next,b.minY-1.8);velocity=0;}
                 if(terrain!=null && map!=null){
                     for(double dx:new double[]{-.29,0,.29})for(double dz:new double[]{-.29,0,.29}){
                         var a=map.toNative(base.x()+dx,y+1.8,base.z()+dz);var b=map.toNative(base.x()+dx,next+1.8,base.z()+dz);
-                        if(next>y){var hit=terrain.raycast(new TerrainSnapshot.Point(a.x(),a.y(),a.z()),new TerrainSnapshot.Point(b.x(),b.y(),b.z()));if(hit!=null){next=Math.min(next,TerrainSnapshot.grid(map,hit.point()).y()-1.8001);velocity=0;}}
+                        if(next>y){
+                            var start=new TerrainSnapshot.Point(a.x(),a.y(),a.z());var end=new TerrainSnapshot.Point(b.x(),b.y(),b.z());
+                            if(!terrain.covered(start) || !terrain.covered(end)){next=y;waiting=true;break;}
+                            var hit=terrain.raycast(start,end);if(hit!=null){next=Math.min(next,TerrainSnapshot.grid(map,hit.point()).y()-1.8001);velocity=0;}
+                        }
                     }
                 }
             }else{
@@ -36,7 +41,7 @@ final class BridgeVertical {
             }
             if(next<y)fallen+=y-next;
             if(landed){if(!grounded)fallHarm+=Math.max(0,(int)Math.ceil(fallen-3-1e-7));fallen=0;velocity=0;grounded=true;}
-            else{grounded=false;velocity=(velocity-.08)*.98;}
+            else{grounded=false;if(!waiting)velocity=(velocity-.08)*.98;}
             y=Math.max(base.y(),next);
         }
         if(!Double.isFinite(y) || y-base.y()>128)throw new IllegalArgumentException("Vertical bridge range");

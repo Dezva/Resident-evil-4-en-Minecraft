@@ -18,7 +18,8 @@ class ControlTests {
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==65);
             bridge.vertical(7,1,420,1000);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=1 lift=420.0");}catch(Exception e){return false;}});
             bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
-            assertTrue(Files.readString(log).contains("ACTION generation=7 id=1"));
+            assertTrue(Files.readString(log).contains("ACTION generation=7 id=1 kind=0"));
+            bridge.requestSkip(7);await(()->bridge.runtimeState().skips()==1);assertTrue(Files.readString(log).contains("ACTION generation=7 id=2 kind=1"));
             bridge.suspendForMenu();await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);
             long seq=bridge.status().acknowledgedSequence();Thread.sleep(350);assertTrue(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());assertTrue(bridge.status().acknowledgedSequence()>seq);
             bridge.healthRequest(new HealthRequest(7,1,.8f,200000,0,System.nanoTime()));

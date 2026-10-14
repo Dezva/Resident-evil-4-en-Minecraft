@@ -84,4 +84,12 @@ class SurvivalTests {
             assertEquals(1,checks);
         }
     }
+ @Test void contextualAndSkipKeysProduceOneRequestPerPressAndKeepEscFree(){
+        var action=new java.util.concurrent.atomic.AtomicInteger();var skip=new java.util.concurrent.atomic.AtomicInteger();
+        for(int phase:new int[]{1,2,2,0}){
+            assertTrue(BridgeKeys.consumeActionKey(82,phase,action::incrementAndGet,skip::incrementAndGet));
+            assertTrue(BridgeKeys.consumeActionKey(295,phase,action::incrementAndGet,skip::incrementAndGet));
+        }
+        assertEquals(1,action.get());assertEquals(1,skip.get());assertFalse(BridgeKeys.consumeActionKey(256,1,action::incrementAndGet,skip::incrementAndGet));
+    }
 }

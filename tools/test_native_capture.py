@@ -84,6 +84,31 @@ class NativeCaptureTests(unittest.TestCase):
         fixture=(root/'native/test_runtime.c').read_text().replace('/* ACTUAL_RUNTIME */',prefix+action)
         self.compile_run('runtime.c',fixture)
 
+    def test_enemy_pool_across_committed_regions(self):
+        root=Path(__file__).resolve().parents[1]
+        body=(root/'native/re4_control.c').read_text();body=body[body.index('static int readable_span'):body.index('/* Only readable committed memory;')]
+        fixture="""
+#include <assert.h>
+#include <stdint.h>
+#include <stddef.h>
+typedef size_t SIZE_T;
+typedef struct {void *BaseAddress;SIZE_T RegionSize;unsigned State,Protect;} MEMORY_BASIC_INFORMATION;
+#define MEM_COMMIT 1
+#define PAGE_GUARD 2
+#define PAGE_NOACCESS 4
+#define PAGE_READONLY 8
+#define PAGE_READWRITE 16
+#define PAGE_WRITECOPY 32
+#define PAGE_EXECUTE_READ 64
+#define PAGE_EXECUTE_READWRITE 128
+#define PAGE_EXECUTE_WRITECOPY 256
+static unsigned deny,queries;
+static int VirtualQuery(void *p,MEMORY_BASIC_INFORMATION *m,SIZE_T size){(void)size;queries++;uintptr_t n=(uintptr_t)p;m->BaseAddress=(void*)(n&~(uintptr_t)4095);m->RegionSize=4096;m->State=MEM_COMMIT;m->Protect=deny && n>=8192?PAGE_NOACCESS:PAGE_READWRITE;return 1;}
+"""+body+"""
+int main(void){assert(readable_span((void*)5000,8000));assert(queries==3);deny=1;assert(!readable_span((void*)5000,8000));assert(!readable_span((void*)(UINTPTR_MAX-5),10));assert(!readable_span((void*)5000,4096*66));}
+"""
+        self.compile_run('enemy-memory.c',fixture)
+
     def test_native_enemy_callback_and_repeated_walls(self):
         self.compile_run('test_enemy_collision.c')
 

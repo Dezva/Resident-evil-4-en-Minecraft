@@ -1,23 +1,21 @@
 # Native RE4 bridge
 
-Current build444 adds virtual vertical feet/view from Runtimev2 (80bytes),
-90-degree pitch and a collision prefix for render-only block fragments. Native
-actor Y/velocity/routines are untouched. Offset interpolation runs in pad;
-camera and construction sweeps consume it, while discontinuity tests retain
-the actor's raw Y. Scene v6 uses material_reserved=count+1 (0=all colliders).
-Actual game enemy collision failure remains unresolved; no combat is added.
-It retains the build443 gameplay fix: CINESCO
-alone is no longer a scripted-scene signal, and pad refreshes telemetry while
-disarmed. Regression uses the user's actual0x03000110 flags. It preserves the
-separate64-byte scene/action channel, yields camera,
-model/HUD/world overlays during native movies/events/death/loading, and publishes
-bounded enemy collision metrics. R requests borrow only CK/ACT_A64-bit input
-flags for one native pad pulse and restore them before the next original pad.
-Humanoid enemy sweeps run from the existing pad callback: maximum256 slots,
-64active actors, X/Z only, identity/lease/F8 validation. No AI/pathfinding,
-attack occlusion, vertical support or boss collision is implemented.
-See [0.4.44](../docs/RE4-BLOCK-0.4.44.md) and [IPC contract](../docs/CONTRACT.md).
-Gameplay/driver validation still requires Windows; native fixtures are synthetic.
+Current build445 uses Runtimev3 (112bytes) for contextual check/pickup/confirm,
+separate native event cancellation and enemy diagnostics. Pad owns input;
+scripted projection can deliver a bounded50ms action pulse when pad is idle80ms.
+Menu/F8/TTL/generation/death guards remain. Enemy pools up to4096slots/64MiB are
+validated across64committed regions; at most128humanoids are corrected. Pad and
+post-update projection reconcile X/Z, including already occupied placements.
+No enemy Y/AI/HP/routine/animation writes and no combat/pathfinding are added.
+
+Vertical view now interpolates between consecutive20Hz endpoints rather than
+restarting an easing curve from each lagging pad sample. Native actor Y remains
+unchanged; raw-Y discontinuity checks exclude virtual lift. Minecraft terrain
+queries follow virtual height with unchanged local geometry budget. Unknown
+ceiling coverage waits instead of disarming. Scene v6 retains its collision
+prefix for render-only fragments. Gameplay CINESCO classification remains fixed.
+See [0.4.45](../docs/RE4-BLOCK-0.4.45.md) and [IPC contract](../docs/CONTRACT.md).
+Native fixtures are synthetic; gameplay/driver validation requires Windows.
 
 ## Historical creation facade and explicit cube test, 0.4.18
 

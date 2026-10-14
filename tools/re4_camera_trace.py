@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "268138899971f1d3d5879ca6aec12334f846c8f2f5d1fbf0db41a6e9c527e476": "0.4.45 (enemy pools, contextual/skip input and vertical interpolation)",
     "71a40ff4d5a1299ae9df470dcd9ba0e03646d532bc13fed63a0c1959fbddc289": "0.4.44 (vertical controller, mining effects and live aim)",
     "935ffd79897f5ec8e93754db21b63d77725b888efeda32dd94a9b435661a7ae8": "0.4.43 (gameplay scene classification fix)",
     "205bc8cd630616ec0d8f71f1468bd3f6615ef388aed280eb1901289c6ef68715": "0.4.42 (native scenes/actions/enemy collisions)",

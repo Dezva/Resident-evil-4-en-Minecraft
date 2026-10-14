@@ -183,3 +183,5 @@ en construcciones y colocar debajo; no fuerza una animación nativa de Leon.
 E/Esc/F5/R/F8 conservan sus funciones, en VIEW y en ventana. Mira90°, grietas y
 fragmentos se añaden en el controlador/renderer, sin nuevos mensajes de ratón
 ni cambios de foco de VIEW. Guía: RE4-BLOCK-0.4.44.md.
+
+Desde0.4.45, R entrega acción contextual de RE4 y F6 solicita saltar su cinemática con el menú Minecraft cerrado. Esc sigue siendo pausa Minecraft, E inventario y F8 retorno normal. El mapa no está limitado a la zona inicial; las transiciones entre zonas todavía pueden necesitar otra referencia.

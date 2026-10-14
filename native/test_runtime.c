@@ -22,6 +22,7 @@ static int readable(const void *p,size_t n){queries++;return p && n;}
 static uint32_t GetTickCount(void){return now;}
 static int GetAsyncKeyState(int key){(void)key;return f8?0x8000:0;}
 #define VK_F8 119
+static int read_control_frame(ControlFrame *c){*c=(ControlFrame){.armed=1,.generation=7,.stamp=now};return 1;}
 static int runtime_scripted(void);
 /* ACTUAL_RUNTIME */
 int main(void){
@@ -39,6 +40,7 @@ int main(void){
     flags=0x100000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     assert(runtime_death());
     ControlFrame control={.armed=1,.generation=7,.stamp=1000};
+    flags=50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     report.request_stamp=1000;report.action_id=1;report.generation=7;
     runtime_action_apply(&control,1,now);assert(runtime_actions==1 && (on&RE4_ACTION_BITS)==RE4_ACTION_BITS && (trigger&RE4_ACTION_BITS)==RE4_ACTION_BITS);
     runtime_action_restore();assert(on==0x80 && trigger==0x20); // only borrowed action bits restored before original input
@@ -74,6 +76,22 @@ int main(void){
         if(failure==7)now=1500;
         runtime_vertical_tick(&control,1,now);assert(runtime_lift==0 && runtime_body_radius==250 && runtime_body_height==1600);
     }
+    // Adjacent 20 Hz endpoints must finish without accumulating easing lag.
+    report.lift=420;report.scale=1000;report.vertical_enabled=1;report.lift_token=1;report.generation=7;report.request_stamp=control.stamp=now=2000;control.flags=3;
+    runtime_vertical_tick(&control,1,now);now=2033;runtime_vertical_tick(&control,1,now);assert(fabsf(runtime_lift-277.2f)<.01f);
+    report.lift=753.2f;report.lift_token=2;now=2050;runtime_vertical_tick(&control,1,now);assert(runtime_lift==420);
+    now=2075;runtime_vertical_tick(&control,1,now);assert(fabsf(runtime_lift-586.6f)<.01f);
+    report.action_id=3;report.action_kind=1;report.request_stamp=control.stamp=now;runtime_action_apply(&control,1,now);assert(!runtime_skips);
+    flags=0x10000000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
+    runtime_action_apply(&control,1,now);assert(runtime_skips==1 && (on&RE4_SKIP_BITS) && !(on&RE4_ACTION_BITS));runtime_action_restore();
+    runtime_action_apply(&control,1,now);assert(runtime_skips==1); // no replay
+    report.action_id=4;control.flags=11;runtime_action_apply(&control,1,now);assert(runtime_skips==1);control.flags=3;
+    flags=0x100000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;runtime_action_apply(&control,1,now);assert(runtime_skips==1); // death is not skippable
+    flags=0x10000000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
+    report.action_id=5;report.request_stamp=control.stamp=now=2100;runtime_pad_stamp=now;
+    runtime_action_projection();assert(runtime_skips==1); // active pad owns input
+    now=2200;report.request_stamp=now;runtime_action_projection();assert(runtime_skips==2 && (on&RE4_SKIP_BITS));
+    now+=60;runtime_action_projection();assert(runtime_skips==2 && !(on&RE4_SKIP_BITS)); // bounded pulse even without pad
     state->armed=0;queries=0;assert(!runtime_scripted() && !queries);
     flags=50331920;memcpy(globals+0x501C,&flags,4);now+=16;
     assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8

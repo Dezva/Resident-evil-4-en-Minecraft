@@ -13,11 +13,11 @@ def main():
     parser.add_argument("--fabric-api", required=True, type=Path, help="Original Fabric API 0.116.6+1.21.1 JAR")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    version = "0.4.44"
-    mod_version = "0.4.44"
+    version = "0.4.45"
+    mod_version = "0.4.45"
     native_hash = hashlib.sha256((root / "native/build/dinput8.dll").read_bytes()).hexdigest()
-    if native_hash != "71a40ff4d5a1299ae9df470dcd9ba0e03646d532bc13fed63a0c1959fbddc289":
-        raise SystemExit("0.4.44 requires verified build444 native DLL for vertical control, 90-degree look and render-only scene shapes")
+    if native_hash != "268138899971f1d3d5879ca6aec12334f846c8f2f5d1fbf0db41a6e9c527e476":
+        raise SystemExit("0.4.45 requires verified build445 native DLL for enemy pools, contextual/skip actions and smooth vertical control")
     jar = root / f"minecraft/build/libs/re4bridge-{mod_version}.jar"
     api = args.fabric_api
     expected = urllib.request.urlopen(
@@ -86,7 +86,7 @@ def main():
                            (root / "tools/re4_movement_measure.py", "tools/re4_movement_measure.py"),
                            (root / "tools/re4_camera_trace.py", "tools/re4_camera_trace.py"),
                            (root / "docs/RE4-CAMERA-TRACE.md", "README-TRACE.md"),
-                           (root / "docs/RE4-BLOCK-0.4.44.md", "README.md"),
+                           (root / "docs/RE4-BLOCK-0.4.45.md", "README.md"),
                            (root / "docs/RE4-RECOVERY-0.4.14.md", "docs/RE4-RECOVERY-0.4.14.md"),
                            (root / "COLLECT-RE4-CRASH.bat", "COLLECT-RE4-CRASH.bat"),
                            (root / "COLLECT-RE4-CRASH.ps1", "COLLECT-RE4-CRASH.ps1"),

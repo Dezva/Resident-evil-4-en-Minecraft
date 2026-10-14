@@ -20,9 +20,11 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     float observed[3],raw[3],resolved[3];memcpy(raw,(void*)(uintptr_t)(player+0x94),12);memcpy(observed,raw,12);observed[1]+=runtime_lift;
     for(unsigned i=0;i<3;++i)if(!isfinite(observed[i]) || fabsf(observed[i])>20000000.f){reason=3;goto disabled;}
     active=1;reason=0;
+    float before[3];memcpy(before,observed,12);
     if(collision_player!=player || collision_generation!=control->generation || memcmp(collision_origin,command->origin,16)){
-        reason=2;goto reference;
+        reason=2;goto resolve;
     }
+    memcpy(before,collision_previous,12);
     // Opening a menu intentionally drops movement before its render/server pause.
     // A menu/GUI initialization gap must not be interpreted as a player teleport.
     if((uint32_t)(now-collision_stamp)>=500 && (control->flags&8u) && !control->buttons){reason=2;goto reference;}
@@ -34,8 +36,9 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
        sweep budget, the 500ms lease and instant-teleport rejection. */
     float limit=500.f+5.f*(uint32_t)(now-collision_stamp);
     if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
-    if(!distance)goto reference; // still refresh lease/position; no sweep when the engine did not move
-    int hit=block_resolve_horizontal_actor_validated(command,collision_previous,observed,resolved,runtime_body_radius,runtime_body_height);
+resolve:;
+    int hit=block_resolve_horizontal_actor_validated(command,before,observed,resolved,runtime_body_radius,runtime_body_height);
+    if(hit>=0)hit+=block_depenetrate_horizontal(command,resolved,runtime_body_radius,runtime_body_height);
     if(hit<0){reason=3;goto disabled;}
     contact=(unsigned)hit;
     if(hit) {

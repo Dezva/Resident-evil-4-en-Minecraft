@@ -6,9 +6,10 @@
    neither it nor a contextual action prompt proves an active cutscene. */
 #define RE4_SCRIPTED_MASK (0x10000000u|0x08000000u|0x04000000u|0x00100000u|0x00001000u)
 static inline unsigned re4_scene_code(unsigned routine,uint32_t flags){return routine==3 && !(flags&RE4_SCRIPTED_MASK)?0u:1u;}
-/* UHD primary contextual input: check, pickup, action and confirmation.
+/* Actual E capture from UHD1.1.0: Key_btn_on/trg=0x80400 (KEY_CK|KEY_A).
+   The old synthetic combination omitted KEY_A and was not equivalent to E.
    No fire/aim; skip is separately gated to native movies/events. */
-#define RE4_ACTION_BITS (UINT64_C(0x400)|UINT64_C(0x4000000000)|UINT64_C(0x10000000000)|UINT64_C(0x80000000))
+#define RE4_ACTION_BITS (UINT64_C(0x400)|UINT64_C(0x80000))
 #define RE4_SKIP_BITS UINT64_C(0x20000000) /* KEY_EV_CANCEL */
 #define RE4_BORROWED_BITS (RE4_ACTION_BITS|RE4_SKIP_BITS)
 #define RE4_ACTION_HOLD_MS 120u

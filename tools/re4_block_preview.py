@@ -58,7 +58,7 @@ class NativePreview:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23; conserva los controles desactivados.')
             self.baseline=initial_snapshot(read_cube_status,kernel,pid)
             self.last_snapshot=self.baseline
-            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434),(6,435),(6,436),(6,437),(6,438),(6,439),(6,441),(6,442),(6,443),(6,444),(6,445),(6,446)) or not self.baseline['live_devices']:
+            if (self.session.version,self.baseline['build']) not in ((2,419),(3,421),(4,422),(5,423),(6,424),(6,426),(6,427),(6,428),(6,429),(6,430),(6,432),(6,433),(6,434),(6,435),(6,436),(6,437),(6,438),(6,439),(6,441),(6,442),(6,443),(6,444),(6,445),(6,446),(6,447)) or not self.baseline['live_devices']:
                 raise ReaderError('Bloques requieren DLL0.4.19/0.4.21/0.4.22/0.4.23 y dispositivo grafico activo.')
             if self.session.version==6:
                 from re4_cube_test import read_collision_status
@@ -102,7 +102,13 @@ class NativePreview:
                 try:self.baseline=read_cube_status(self.session.k,self.session.pid);self.last_snapshot=self.baseline
                 except SnapshotBusy:self.baseline=self.last_snapshot
                 self.generation=generation
-            key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes']),scene.get('style',0),scene.get('collisions',False),scene.get('collider_count',len(scene['boxes'])),tuple(scene.get('tiles',[])),tuple(tuple(tuple(f) for f in group) for group in scene.get('faces',[]))) if scene is not None else (generation,tuple(bounds))
+            if scene is not None:
+                colliders=scene.get('collider_count',len(scene['boxes']))
+                # Moving/expiring render fragments are not a new placement.
+                # Re-arming every 20 Hz snapshot reset native interpolation.
+                key=(generation,tuple(scene['origin']),tuple(tuple(box) for box in scene['boxes'][:colliders]),
+                    scene.get('style',0),scene.get('collisions',False),colliders)
+            else:key=(generation,tuple(bounds))
             if key!=self.key:
                 import secrets
                 self.session.epoch=secrets.randbits(32) or 1

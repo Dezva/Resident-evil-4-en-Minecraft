@@ -1076,6 +1076,28 @@ como fallidos en el juego: no se dan por corregidos por los fixtures sintéticos
 Animación/Y de salto de Leon, vuelo creativo, combate y objetos sueltos RE4
 siguen pendientes. Se necesita prueba de gameplay y Win32/D3D9 en Windows.
 
+## 0.4.47 — 2026-10-14
+
+- Evidencia Windows aportada: E activa on/trg0x80400; tres destinos para19
+  firmas. Pools60/3592,100/468 y380/988; solo60/3592 cumple tamaño cEm0x408.
+  Ese pool contiene11 ids0x12 y42 entradas con flag de validez0x1. Estos datos
+  justifican la señal y la selección por estructura, sin fijar direcciones.
+- Regresiones fallan antes y pasan después: movimiento de fragmentos cambia
+  la época; duplicados de lease60Hz borran velocidad20Hz; Leon inicialmente
+  dentro no se separa; una cuadrícula3x3 oscila entre salidas por caja. Se
+  prueba la selección/colisión real con los tres tamaños observados y rechazo
+  de dos pools compatibles. El callback de acción exige el mask real0x80400.
+- 163 tests Python pasan. Gradle/JDK21:43 bridge-core y72 Minecraft pasan,
+  sin fallos, errores ni tests saltados; JAR447 compilado, remapeado y access
+  widener validado. Remap sources continúa SKIPPED y no es artefacto instalable.
+- DLL447 PE32, MinGW14.2, warnings como errores; build repetido reproduce
+  SHA256 `bc56062587aed707f7e1be1a6f3d675fc9fd83eb6e36de81628ca51b175e7be9`.
+  Cinco fixtures C adicionales pasan. PowerShell prueba instalación/backup,
+  rechazo de archivos ajenos, actualización desde446 y anteriores y diagnóstico.
+- No se ejecutan RE4 ni Direct3D9 real en Linux. Falta la confirmación funcional
+  y visual de447 en Windows; no se infiere de los tests ni de los contadores.
+  Golpes desde abajo con elevación virtual siguen pendientes.
+
 ## 0.4.46 — 2026-10-14
 
 - Gradle8.11.1/JDK21:43 tests bridge-core y72 Minecraft, sin fallos/errores/skips.

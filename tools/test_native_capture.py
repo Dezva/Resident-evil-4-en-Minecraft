@@ -11,7 +11,7 @@ class NativeCaptureTests(unittest.TestCase):
     def test_render_debris_between_snapshots_preserves_colliders(self):
         self.compile_run('test_block_debris.c')
 
-    def test_enemy_manager_discovery_accepts_one_shared_target(self):
+    def test_enemy_manager_discovery_collects_distinct_targets_and_checks_cem_layout(self):
         self.compile_run('test_runtime_discovery.c')
 
     def compile_run(self,name,extra=None):

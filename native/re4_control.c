@@ -613,12 +613,13 @@ static unsigned char *unique_pattern(unsigned char *base, DWORD image_size,
 }
 
 #include "runtime_discovery.h"
-static uint32_t shared_pattern_operand(unsigned char *base,DWORD size,IMAGE_NT_HEADERS32 *nt,
-        const int *pattern,SIZE_T length,SIZE_T offset,SIZE_T bytes){
+static unsigned collect_pattern_operands(unsigned char *base,DWORD size,IMAGE_NT_HEADERS32 *nt,
+        const int *pattern,SIZE_T length,SIZE_T offset,SIZE_T bytes,uint32_t *targets,unsigned capacity){
     unsigned char *sites[64];
     unsigned count=find_patterns(base,size,nt,pattern,length,sites,64);
-    uint32_t address=re4_shared_operand(sites,count,offset,(uintptr_t)base,size,bytes);
-    return address && readable((void*)(uintptr_t)address,bytes)?address:0;
+    unsigned used=re4_distinct_operands(sites,count,offset,(uintptr_t)base,size,bytes,targets,capacity);
+    for(unsigned i=0;i<used;i++)if(!readable((void*)(uintptr_t)targets[i],bytes))return 0;
+    return used;
 }
 
 static int cube_camera(float *view,float *fov,uint32_t *player) {
@@ -686,7 +687,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=446; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=447; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }
@@ -731,8 +732,8 @@ static void install_hook(void) {
     key_on = (volatile uint64_t *)(uintptr_t)keys_address;
     unsigned char *trigger=unique_pattern(base,size,nt,trigger_pattern,sizeof(trigger_pattern)/sizeof(int));
     if(trigger){uint32_t address;memcpy(&address,trigger+1,4);if(!(address&3u) && address>=(uintptr_t)base && address<=(uintptr_t)base+size-8 && writable((void*)(uintptr_t)address,8))key_trigger=(volatile uint64_t*)(uintptr_t)address;}
-    enemy_manager=shared_pattern_operand(base,size,nt,enemy_pattern,sizeof(enemy_pattern)/sizeof(int),13,32);
-    runtime_enemy_available=enemy_manager!=0;
+    enemy_candidate_count=collect_pattern_operands(base,size,nt,enemy_pattern,sizeof(enemy_pattern)/sizeof(int),13,32,enemy_candidates,64);
+    enemy_manager=0;runtime_enemy_available=0; // choose the typed pool after game initialization
 
     DWORD old_protect;
     state->status = 3;

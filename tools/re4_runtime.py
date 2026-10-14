@@ -18,7 +18,7 @@ class NativeRuntime:
         self.address=k.MapViewOfFile(self.handle,6,0,0,112)
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
         self.words=(ctypes.c_uint32*28).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,3,446,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.46')
+        if tuple(self.words[:4])!=(MAGIC,3,447,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.47')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')

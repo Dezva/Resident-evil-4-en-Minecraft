@@ -1,3 +1,15 @@
+## 0.4.47 — señal E real, pool cEm, colisiones y relojes de partículas
+
+El diagnóstico Windows mostró E=0x80400 (CK|A) y19 firmas para tres gestores;
+solo el pool60/3592 cabe en cEm, frente a100/468 y380/988. Se usa la señal
+observada y selección única por estructura/legibilidad de los operandos del SDK.
+Leon ahora se separa al iniciar dentro de un bloque, y la separación resuelve
+el conjunto conectado sin oscilar entre vecinos. Movimiento de partículas no
+rearma la escena y los paquetes repetidos60Hz no anulan su velocidad20Hz.
+Fixtures reproducen los fallos antes de las correcciones. Requiere DLL447 y
+host/JAR nuevos; confirmación visual/funcional en RE4 pendiente.
+Ver [guía0.4.47](docs/RE4-BLOCK-0.4.47.md).
+
 ## 0.4.46 — interacción sostenida, referencias compartidas y partículas entre paquetes
 
 Corrección reconstruida desde 0.4.45 tras los registros del usuario: R solicita

@@ -1,5 +1,10 @@
 # Native RE4 bridge
 
+Build447 uses the observed E mask0x80400, selects the unique SDK cEm-compatible
+pool among distinct manager operands, resolves connected-block penetration and
+keeps debris motion timestamps across repeated lease packets. See
+[0.4.47](../docs/RE4-BLOCK-0.4.47.md). Older notes follow.
+
 Build446 adds bounded120ms contextual holds, shared-operand enemy discovery
 and render-only debris prediction between20Hz packets. See
 [0.4.46](../docs/RE4-BLOCK-0.4.46.md) for tested scope and Windows checks.

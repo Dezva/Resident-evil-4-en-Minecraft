@@ -42,6 +42,16 @@ static ControlFrame reset(void){
     return(ControlFrame){.generation=1,.armed=1,.stamp=1000};
 }
 int main(void) {
+    ControlFrame embedded=reset();pose(500,8,0);
+    cube_collision_tick(&embedded,1,now);
+    assert(report.corrections==1 && (coordinate(0)<-250 || coordinate(0)>1250 || fabsf(coordinate(2))>750));
+    assert(coordinate(1)==8 && !state->stop); // first reference starts inside a placed block
+    embedded=reset();published.count=0;published.enabled=0;cube_collision_tick(&embedded,1,now);
+    published.count=1;published.enabled=1;pose(500,8,0);now+=16;embedded.stamp=published.stamp=now;
+    cube_collision_tick(&embedded,1,now);assert(report.corrections==1 && coordinate(1)==8);
+    embedded=reset();cube_collision_tick(&embedded,1,now);
+    pose(500,8,0);collision_previous[0]=500;collision_previous[1]=8; // block newly encloses stationary player
+    cube_collision_tick(&embedded,1,now);assert(report.corrections==1 && coordinate(1)==8);
     ControlFrame paused=reset();cube_collision_tick(&paused,1,now);
     graphics_ready=0;paused.flags=11;paused.buttons=0;now+=1000;paused.stamp=published.stamp=now;
     cube_collision_tick(&paused,1,now);assert(!state->stop && collision_stamp==now);
@@ -73,7 +83,8 @@ int main(void) {
     c=reset();cube_collision_tick(&c,1,now);now+=150;c.stamp=published.stamp=now;pose(5000,0,0);cube_collision_tick(&c,1,now);
     assert(state->stop && report.reason==4 && !report.corrections && coordinate(0)==5000); // genuine teleport is not swept back
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);now=1101;cube_collision_tick(&c,1,now);assert(report.corrections==1 && coordinate(0)<-250);
-    c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);published.origin[0]=1;cube_collision_tick(&c,1,now);assert(report.reason==2 && coordinate(0)==100);
+    c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);published.origin[0]=1;cube_collision_tick(&c,1,now);
+    assert(report.reason==2 && report.corrections==1 && coordinate(0)<-249 && coordinate(1)==0); // new transform cannot adopt an embedded pose
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);collision_tick_lock.held=1;cube_collision_tick(&c,1,now);assert(coordinate(0)==100 && !report.corrections);collision_tick_lock.held=0;
     c=reset();cube_collision_tick(&c,1,now);pose(NAN,0,0);cube_collision_tick(&c,1,now);assert(!report.active && report.reason==3 && !report.corrections);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);graphics_ready=0;cube_collision_tick(&c,1,now);assert(!report.active && !report.corrections && coordinate(0)==100);

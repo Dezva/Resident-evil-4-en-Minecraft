@@ -615,6 +615,25 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización0.4.47
+
+Runtime v3 conserva offsets112bytes y requiere build447 en el host. La acción
+contextual usa la captura real E=`0x80400` (KEY_CK|KEY_A), no la combinación
+sintética de0.4.46. Se conserva una arista y una pulsación de duración limitada.
+
+Las coincidencias de EmMgr se deduplican por operando dentro del módulo. La
+selección ocurre durante la ejecución, cuando el pool está inicializado: un
+solo candidato debe cumplir los límites de cManager y stride>=sizeof(cEm)=0x408,
+con array legible. Dos candidatos compatibles o ninguno rechazan la selección.
+No se fija el RVA del diagnóstico ni se elige por orden de coincidencias.
+
+Scene v6 mantiene el mismo ABI. La época identifica generación, origen,
+colisionadores y modo. Movimiento/expiración de fragmentos, texturas y UV de
+minado renuevan el snapshot sin rearmar la época. La DLL distingue stamp de
+lease (60Hz) de stamp de geometría (20Hz); duplicados no anulan velocidad.
+La separación horizontal usa una salida de la unión conectada de cajas,
+incluido un actor inicialmente dentro, conservando Y y las guardas de escritura.
+
 ## Actualización0.4.46
 
 Runtime v3 conserva sus112bytes y offsets; el host0.4.46 exige build446 para

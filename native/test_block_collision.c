@@ -22,5 +22,10 @@ int main(void) {
     memcpy(command.boxes[1],wall,sizeof(wall));command.boxes[1][0]=-2000;command.boxes[1][3]=-1000;
     float particle_start[3]={-2400,0,0},particle_end[3]={-800,0,0};assert(run(particle_start,particle_end,out)==0 && out[0]==-800);
     command.material_reserved=0;assert(run(particle_start,particle_end,out)==1); // the same geometry would block if marked solid
+    command.count=9;
+    for(unsigned i=0;i<9;i++){float cell[6]={(i%3)*1000.f,0,(i/3)*1000.f,(i%3+1)*1000.f,1000,(i/3+1)*1000.f};memcpy(command.boxes[i],cell,24);}
+    float enclosed[3]={1500,8,1500};assert(block_depenetrate_horizontal(&command,enclosed,250,1600)>0);
+    assert(enclosed[0]<-250 || enclosed[0]>3250 || enclosed[2]<-250 || enclosed[2]>3250);
+    assert(enclosed[1]==8); // connected blocks must not bounce the resolution between their overlapping footprints
     puts("Horizontal collision: swept walls, sliding, corners, body height, spawn escape, rigid grid and bounded cases passed");
 }

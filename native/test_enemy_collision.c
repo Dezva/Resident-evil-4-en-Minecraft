@@ -13,6 +13,7 @@ static Shared storage={1,0},*state=&storage;
 static CubeCommand collision_command,command;
 static uint32_t manager[4],enemy_manager,runtime_enemy_available,runtime_enemy_contacts,runtime_enemy_corrections,runtime_enemy_reason,runtime_enemy_scanned,runtime_enemy_eligible,runtime_enemy_capacity,runtime_enemy_stride,now=1000;
 static unsigned char actors[300][0x408];
+static unsigned char observed_pool[60][3592];static uint32_t other_managers[2][4];
 static unsigned char *image_base=(unsigned char*)(uintptr_t)0x1000;static uint32_t image_size=0x10000;
 static unsigned scripted,f8,bad,race;
 static int runtime_scripted(void){return scripted;}
@@ -28,6 +29,7 @@ static int cube_collision_command_read(CubeCommand *out){memcpy(out,&command,316
 static void position(unsigned i,float x,float y,float z){float p[3]={x,y,z};memcpy(actors[i]+0x94,p,12);}
 static float x(unsigned i){float value;memcpy(&value,actors[i]+0x94,4);return value;}
 static ControlFrame reset(void){
+    enemy_candidate_count=0;memset(enemy_candidates,0,sizeof(enemy_candidates));
     memset(actors,0,sizeof(actors));memset(enemy_references,0,sizeof(enemy_references));enemy_array=0;runtime_enemy_contacts=runtime_enemy_corrections=0;
     enemy_manager=(uint32_t)(uintptr_t)manager;assert((uintptr_t)manager<=UINT32_MAX && (uintptr_t)actors<=UINT32_MAX);
     manager[0]=0x1234;manager[1]=(uint32_t)(uintptr_t)actors;manager[2]=300;manager[3]=0x408;
@@ -62,5 +64,20 @@ int main(void){
     c=reset();actors[299][0x100]=0x12;actors[299][0xFC]=1;uint32_t flags=1,vt=0x1234;int16_t hp=100;memcpy(actors[299],&vt,4);memcpy(actors[299]+4,&flags,4);memcpy(actors[299]+0x324,&hp,2);position(299,-300,8,0);enemy_collision_tick(&c,1,now);position(299,100,8,0);enemy_collision_tick(&c,1,now);assert(x(299)<-250 && runtime_enemy_capacity==300 && runtime_enemy_scanned==300);
     c=reset();position(0,500,8,0);enemy_collision_tick(&c,1,now);assert(x(0)<-250 || x(0)>1250); // placed around an enemy
     c=reset();enemy_collision_tick(&c,1,now);position(0,5000,8,0);enemy_collision_tick(&c,1,now);assert(x(0)==5000 && !state->stop);
+    c=reset();memset(observed_pool,0,sizeof(observed_pool));
+    manager[1]=(uint32_t)(uintptr_t)observed_pool;manager[2]=60;manager[3]=3592;
+    for(unsigned i=0;i<2;i++){
+        memcpy(other_managers[i],manager,16);other_managers[i][2]=i?380:100;other_managers[i][3]=i?988:468;
+        enemy_candidates[i]=(uint32_t)(uintptr_t)other_managers[i];
+    }
+    enemy_candidates[2]=(uint32_t)(uintptr_t)manager;enemy_candidate_count=3;enemy_manager=0;
+    uint32_t actor_vt=0x1234,actor_flags=1,actor_guid=99;int16_t actor_hp=100;float p[3]={-300,8,0};
+    memcpy(observed_pool[0],&actor_vt,4);memcpy(observed_pool[0]+4,&actor_flags,4);memcpy(observed_pool[0]+0xf8,&actor_guid,4);
+    observed_pool[0][0xfc]=1;observed_pool[0][0x100]=0x12;memcpy(observed_pool[0]+0x324,&actor_hp,2);memcpy(observed_pool[0]+0x94,p,12);
+    enemy_collision_tick(&c,1,now);assert(enemy_manager==(uint32_t)(uintptr_t)manager && runtime_enemy_scanned==60 && runtime_enemy_eligible==1);
+    p[0]=-240;memcpy(observed_pool[0]+0x94,p,12);now+=16;c.stamp=command.stamp=now;
+    enemy_collision_tick(&c,1,now);memcpy(p,observed_pool[0]+0x94,12);assert(p[0]<-250 && p[1]==8 && runtime_enemy_corrections==1);
+    memcpy(other_managers[0],manager,16);enemy_collision_tick(&c,1,now);
+    assert(!enemy_manager && !runtime_enemy_available && runtime_enemy_reason==6 && runtime_enemy_corrections==1); // genuine typed ambiguity never chooses first
     puts("Enemy callback: repeated humanoid sweeps, merchant/dead/script/teleport exclusion, bounded manager, F8/lease/generation/race and Y preservation passed");
 }

@@ -26,6 +26,7 @@ static int read_control_frame(ControlFrame *c){*c=(ControlFrame){.armed=1,.gener
 static int runtime_scripted(void);
 /* ACTUAL_RUNTIME */
 int main(void){
+    assert(RE4_ACTION_BITS==UINT64_C(0x80400)); // user's actual E trace: CK and A, no synthetic high-bit actions
     RuntimeShared report={0};runtime_shared=&report;global=(uint32_t)(uintptr_t)globals;assert((uintptr_t)globals<=UINT32_MAX);
     globals[0x20]=3;uint32_t flags=50331920;memcpy(globals+0x501C,&flags,4); // user's normal widescreen gameplay: 0x03000110
     assert(!runtime_scripted() && !report.scene);unsigned prior=queries;

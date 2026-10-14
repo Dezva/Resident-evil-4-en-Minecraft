@@ -7,7 +7,7 @@
    shared memory are never modified. A fresh snapshot owns fragment lifetime. */
 typedef struct {
     unsigned valid,count,colliders;
-    uint32_t stamp,epoch,generation,identity[CUBE_MAX_BOXES];
+    uint32_t stamp,packet_stamp,epoch,generation,identity[CUBE_MAX_BOXES];
     float origin[4],boxes[CUBE_MAX_BOXES][6],velocity[CUBE_MAX_BOXES][3];
 } BlockDebris;
 static inline uint32_t block_debris_identity(const CubeCommand *c,unsigned i){
@@ -24,30 +24,41 @@ static inline uint32_t block_debris_identity(const CubeCommand *c,unsigned i){
 static inline void block_debris_predict(BlockDebris *d,CubeCommand *c,uint32_t now){
     unsigned colliders=block_collision_count(c);
     if(c->mode!=2 || c->style!=3 || c->count>CUBE_MAX_BOXES || colliders>=c->count){d->valid=0;return;}
-    if(!d->valid || d->stamp!=c->stamp || d->epoch!=c->epoch || d->generation!=c->arm_generation){
-        uint32_t interval=c->stamp-d->stamp;
-        int compatible=d->valid && interval>=10 && interval<=100 && d->count==c->count
-            && d->colliders==colliders && d->epoch==c->epoch && d->generation==c->arm_generation
-            && !memcmp(d->origin,c->origin,sizeof(d->origin));
+    if(!d->valid || d->packet_stamp!=c->stamp || d->epoch!=c->epoch || d->generation!=c->arm_generation){
+        uint32_t identity[CUBE_MAX_BOXES];
+        int structure=d->valid && d->count==c->count && d->colliders==colliders
+            && d->epoch==c->epoch && d->generation==c->arm_generation && !memcmp(d->origin,c->origin,sizeof(d->origin));
+        int changed=!structure;
         for(unsigned i=colliders;i<c->count;i++){
-            uint32_t identity=block_debris_identity(c,i);
-            int same=compatible && identity && identity==d->identity[i];
-            for(unsigned a=0;a<3;a++){
-                float size=c->boxes[i][a+3]-c->boxes[i][a];
-                float previous_size=d->boxes[i][a+3]-d->boxes[i][a];
-                float delta=c->boxes[i][a]-d->boxes[i][a];
-                if(!isfinite(delta+size) || size<=0 || fabsf(size-previous_size)>.001f
-                    || fabsf(delta)>4*size)same=0;
-            }
-            for(unsigned a=0;a<3;a++)d->velocity[i][a]=same?(c->boxes[i][a]-d->boxes[i][a])/interval:0;
-            memcpy(d->boxes[i],c->boxes[i],sizeof(d->boxes[i]));d->identity[i]=identity;
+            identity[i]=block_debris_identity(c,i);
+            if(identity[i]!=d->identity[i] || memcmp(d->boxes[i],c->boxes[i],sizeof(d->boxes[i])))changed=1;
         }
-        d->valid=1;d->count=c->count;d->colliders=colliders;d->epoch=c->epoch;
-        d->generation=c->arm_generation;d->stamp=c->stamp;memcpy(d->origin,c->origin,sizeof(d->origin));
+        d->packet_stamp=c->stamp;
+        /* The bridge refreshes leases at60Hz, while Minecraft advances debris
+           at20Hz. Duplicate packets must not replace the motion timestamp. */
+        if(changed){
+            uint32_t interval=c->stamp-d->stamp;
+            int compatible=structure && interval>=10 && interval<=100;
+            for(unsigned i=colliders;i<c->count;i++){
+                int same=compatible && identity[i] && identity[i]==d->identity[i];
+                for(unsigned a=0;a<3;a++){
+                    float size=c->boxes[i][a+3]-c->boxes[i][a];
+                    float previous_size=d->boxes[i][a+3]-d->boxes[i][a];
+                    float delta=c->boxes[i][a]-d->boxes[i][a];
+                    if(!isfinite(delta+size) || size<=0 || fabsf(size-previous_size)>.001f
+                        || fabsf(delta)>4*size)same=0;
+                }
+                for(unsigned a=0;a<3;a++)d->velocity[i][a]=same?(c->boxes[i][a]-d->boxes[i][a])/interval:0;
+                memcpy(d->boxes[i],c->boxes[i],sizeof(d->boxes[i]));d->identity[i]=identity[i];
+            }
+            d->valid=1;d->count=c->count;d->colliders=colliders;d->epoch=c->epoch;
+            d->generation=c->arm_generation;d->stamp=c->stamp;memcpy(d->origin,c->origin,sizeof(d->origin));
+        }
     }
     uint32_t age=now-c->stamp;
     /* Do not let a delayed packet keep debris flying or extend its lease. */
-    float elapsed=age<100?(float)(age>50?50:age):0;
+    uint32_t motion_age=now-d->stamp;
+    float elapsed=age<100?(float)(motion_age>50?50:motion_age):0;
     for(unsigned i=colliders;i<c->count;i++)for(unsigned a=0;a<3;a++){
         float delta=d->velocity[i][a]*elapsed;
         c->boxes[i][a]+=delta;c->boxes[i][a+3]+=delta;

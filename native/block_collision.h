@@ -46,18 +46,32 @@ static inline int block_resolve_horizontal_actor_validated(const CubeCommand *co
     result[0]=command->origin[0]+c*start[0]-s*start[2];result[2]=command->origin[2]+s*start[0]+c*start[2];result[1]=after[1];return contacts;
 }
 static inline int block_depenetrate_horizontal(const CubeCommand *command,float *world,float radius,float height){
-    float p[3];block_local_point(command->origin,world,p);int contacts=0;
-    for(unsigned iteration=0;iteration<8;iteration++){
-        int found=0;float smallest=INFINITY,shift=0;unsigned axis=0;
-        for(unsigned i=0;i<block_collision_count(command);i++){
-            const float *b=command->boxes[i];
-            if(p[1]<=b[1]-height+.1f || p[1]>=b[4]-.1f || p[0]<=b[0]-radius || p[0]>=b[3]+radius || p[2]<=b[2]-radius || p[2]>=b[5]+radius)continue;
-            const float steps[4]={b[0]-radius-p[0]-.5f,b[3]+radius-p[0]+.5f,b[2]-radius-p[2]-.5f,b[5]+radius-p[2]+.5f};
-            for(unsigned j=0;j<4;j++)if(fabsf(steps[j])<smallest){smallest=fabsf(steps[j]);shift=steps[j];axis=j<2?0:2;found=1;}
-        }
-        if(!found)break;
-        p[axis]+=shift;contacts++;
+    float p[3];block_local_point(command->origin,world,p);
+    unsigned count=block_collision_count(command);int inside=0;
+    for(unsigned i=0;i<count;i++){
+        const float *b=command->boxes[i];
+        if(p[1]>b[1]-height+.1f && p[1]<b[4]-.1f && p[0]>b[0]-radius && p[0]<b[3]+radius && p[2]>b[2]-radius && p[2]<b[5]+radius){inside=1;break;}
     }
+    if(!inside)return 0;
+    float best=INFINITY,endpoint=0;unsigned best_axis=0;int contacts=0;
+    /* Find the nearest exit from the connected union along four horizontal
+       rays. A per-box minimum can oscillate forever between adjacent blocks. */
+    for(unsigned direction=0;direction<4;direction++){
+        unsigned axis=direction<2?0:2,other=axis==0?2:0;float candidate=p[axis];int hits=0;
+        for(unsigned pass=0;pass<=count;pass++){
+            int changed=0;
+            for(unsigned i=0;i<count;i++){
+                const float *b=command->boxes[i];
+                if(p[1]<=b[1]-height+.1f || p[1]>=b[4]-.1f || p[other]<=b[other]-radius || p[other]>=b[other+3]+radius
+                    || candidate<=b[axis]-radius || candidate>=b[axis+3]+radius)continue;
+                candidate=direction&1?b[axis+3]+radius+.5f:b[axis]-radius-.5f;hits++;changed=1;
+            }
+            if(!changed)break;
+        }
+        float distance=fabsf(candidate-p[axis]);
+        if(distance<best){best=distance;endpoint=candidate;best_axis=axis;contacts=hits;}
+    }
+    p[best_axis]=endpoint;
     float c=cosf(command->origin[3]),s=sinf(command->origin[3]);world[0]=command->origin[0]+c*p[0]-s*p[2];world[2]=command->origin[2]+s*p[0]+c*p[2];return contacts;
 }
 static inline int block_resolve_horizontal_validated(const CubeCommand *command,const float *before,const float *after,float *result){return block_resolve_horizontal_actor_validated(command,before,after,result,250,1600);}

@@ -1,17 +1,37 @@
 /* Bounded humanoid enemy sweep; no AI/routines, Y, velocity, HP or animation writes. */
+#include "runtime_discovery.h"
 typedef struct {unsigned valid;uint32_t actor,vtable,guid,stamp;float position[3];} EnemyReference;
 static EnemyReference enemy_references[4096];
 static uint32_t enemy_array,enemy_generation;static float enemy_origin[4];
+static uint32_t enemy_candidates[64];static unsigned enemy_candidate_count;
+static uint32_t enemy_select_manager(void){
+    if(!enemy_candidate_count)return enemy_manager;
+    uint32_t selected=0;
+    for(unsigned i=0;i<enemy_candidate_count;i++){
+        uint32_t header[4],address=enemy_candidates[i];
+        if(!readable((void*)(uintptr_t)address,16))continue;
+        memcpy(header,(void*)(uintptr_t)address,16);
+        if(!re4_cem_pool_header_valid(header,(uintptr_t)image_base,image_size)
+            || !readable_span((void*)(uintptr_t)header[1],(size_t)header[2]*header[3]))continue;
+        if(selected && selected!=address)return 0; // two cEm-compatible pools remain ambiguous
+        selected=address;
+    }
+    return selected;
+}
 static int enemy_kind(unsigned id){
     return (id>=6 && id<=11) || id==13 || id==0x11 || id==0x12 || (id>=0x15 && id<=0x17)
         || id==0x19 || id==0x1a || id==0x1f || id==0x20 || id==0x42 || id==0x43 || id==0x44;
 }
 static void enemy_collision_tick(const ControlFrame *control,int complete,uint32_t now){
     if(!complete || !control->armed || !state->armed || state->stop || now-control->stamp>=500
-        || runtime_scripted() || !enemy_manager || (GetAsyncKeyState(VK_F8)&0x8000)){
+        || runtime_scripted() || (GetAsyncKeyState(VK_F8)&0x8000)){
         runtime_enemy_reason=enemy_manager?1:6;enemy_array=0;memset(enemy_references,0,sizeof(enemy_references));return;
     }
     if(!TryAcquireSRWLockExclusive(&collision_tick_lock))return;
+    uint32_t selected=enemy_select_manager();
+    if(selected!=enemy_manager){enemy_array=0;memset(enemy_references,0,sizeof(enemy_references));}
+    enemy_manager=selected;runtime_enemy_available=selected!=0;
+    if(!selected){runtime_enemy_reason=6;runtime_enemy_scanned=runtime_enemy_eligible=runtime_enemy_capacity=runtime_enemy_stride=0;goto done;}
     CubeCommand *command=&collision_command;
     runtime_enemy_reason=2;runtime_enemy_scanned=runtime_enemy_eligible=0;
     if(!cube_collision_command_read(command))goto done;

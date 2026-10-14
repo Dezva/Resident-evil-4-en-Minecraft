@@ -18,6 +18,21 @@ def material_scene(collisions=False):
                 faces=[[list(face) for _ in range(6)],[[1]+face[1:] for _ in range(6)]],collisions=collisions)
 
 class MaterialsTests(unittest.TestCase):
+    def test_debris_motion_and_expiry_keep_epoch_but_solid_changes_rearm(self):
+        k=Kernel(version=6,build=424);v=NativePreview(42,k,user=k)
+        scene=material_scene(True);scene['collider_count']=1
+        v.publish(True,7,scene);epoch=v.session.epoch
+        for step in range(1,21):
+            frame=copy.deepcopy(scene);frame['boxes'][1]=[500+step*20,1000,-500,590+step*20,1090,-410]
+            v.publish(True,7,frame)
+            self.assertEqual(v.session.epoch,epoch)
+            self.assertEqual(struct.unpack_from('<f',k.command,104)[0],500+step*20)
+        expired=dict(scene,boxes=scene['boxes'][:1],faces=scene['faces'][:1],tiles=scene['tiles'][:1])
+        v.publish(True,7,expired);self.assertEqual(v.session.epoch,epoch)
+        changed=copy.deepcopy(expired);changed['boxes'][0][3]+=100
+        with patch('secrets.randbits',return_value=epoch+1):v.publish(True,7,changed)
+        self.assertEqual(v.session.epoch,epoch+1);v.close()
+
     def test_complete_v6_palette_faces_cropped_uv_and_cleanup(self):
         k=Kernel(version=6,build=424);v=NativePreview(42,k,user=k);scene=material_scene(True)
         self.assertTrue(v.materials_available);self.assertTrue(v.collision_available)
@@ -53,11 +68,14 @@ class MaterialsTests(unittest.TestCase):
             state=policy.apply(dict(type='re4_control',armed=True,arm_id=1,buttons=1,preview=material_scene(True)),{'state':'player'})
             self.assertFalse(state['armed']);self.assertEqual(writer.writes[-1],(False,0));v.close()
 
-    def test_palette_change_rearms_visual_epoch_without_moving_grid(self):
+    def test_palette_and_mining_uv_updates_keep_epoch_without_moving_grid(self):
         k=Kernel(version=6,build=424);v=NativePreview(42,k,user=k);scene=material_scene();v.publish(True,1,scene);epoch=v.session.epoch
         origin=k.command.raw[56:72];scene['tiles']=scene['tiles'][::-1]
         with patch('secrets.randbits',return_value=epoch+1):v.publish(True,1,scene)
-        self.assertEqual(v.session.epoch,epoch+1);self.assertEqual(k.command.raw[56:72],origin);v.close()
+        self.assertEqual(v.session.epoch,epoch);self.assertEqual(k.command.raw[56:72],origin)
+        self.assertEqual(struct.unpack_from('<I',k.command,30816)[0],0x80445566)
+        scene['faces'][0][0][1]=.25;v.publish(True,1,scene)
+        self.assertEqual(v.session.epoch,epoch);self.assertEqual(struct.unpack_from('<f',k.command,3172)[0],.25);v.close()
 
     def test_collision_readonly_snapshot_and_current_generation_fail_stop(self):
         k=Kernel(version=6,build=424);v=NativePreview(42,k,user=k);before=k.collision.raw

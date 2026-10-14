@@ -11,12 +11,15 @@ int main(void){
     memcpy(raw.boxes[0],solid,sizeof(solid));memcpy(raw.boxes[1],particle,sizeof(particle));
     for(unsigned j=0;j<256;j++)raw.pixels[0][j]=0xff887766;
     BlockDebris d={0};CubeCommand c=snapshot(1000,0);block_debris_predict(&d,&c,1000);
+    c=snapshot(1017,0);block_debris_predict(&d,&c,1017);
+    c=snapshot(1034,0);block_debris_predict(&d,&c,1034); // 60 Hz lease refresh, same Minecraft tick
     c=snapshot(1050,50);block_debris_predict(&d,&c,1050);assert(c.boxes[1][0]==50);
     for(unsigned age=1;age<50;age++){
         c=snapshot(1050,50);block_debris_predict(&d,&c,1050+age);
         assert(c.boxes[1][0]==50+age && c.boxes[1][3]==140+age);
         assert(!memcmp(c.boxes[0],solid,sizeof(solid)));assert(raw.boxes[1][0]==0);
     }
+    c=snapshot(1067,50);block_debris_predict(&d,&c,1075);assert(c.boxes[1][0]==75); // duplicate packet must not zero velocity
     c=snapshot(1100,100);block_debris_predict(&d,&c,1100);assert(c.boxes[1][0]==100); // continuous at next snapshot
     c=snapshot(1100,100);block_debris_predict(&d,&c,1160);assert(c.boxes[1][0]==150); // bounded prediction
     c=snapshot(1100,100);block_debris_predict(&d,&c,1250);assert(c.boxes[1][0]==100); // stale command not animated

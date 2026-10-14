@@ -101,4 +101,30 @@ class BridgeVerticalTests {
   for(int i=0;i<40;i++)assertEquals(.42,v.step(BASE,1,false,false,false,List.of(),null,map).y(),1e-8);
   assertEquals(.7532,v.step(BASE,1,false,false,false,List.of(),terrain,map).y(),1e-8);
  }
+ @Test void nativeStairsKeepTheirHeightWhenLocalMeshIsUnavailable(){
+  var v=new BridgeVertical();var map=grid();
+  for(double height:new double[]{.315845642,.455845642,.605845642,.805845642,.505845642,.14078}){
+   var base=new ControllerMapping.Point(.5,height,.5);
+   assertEquals(height,v.step(base,1,false,false,false,List.of(),null,map).y(),1e-8);assertTrue(v.nativeGround());assertEquals(0,v.lift(1000));
+  }
+ }
+ @Test void missingMapAbovePlacedSupportKeepsAbsoluteHeightAndCannotBecomeNativeGround(){
+  var v=new BridgeVertical();var boxes=new ArrayList<Box>();
+  for(int i=0;i<60;i++){
+   var p=v.step(BASE,1,i==0,false,false,boxes,null,null);if(p.y()>1.0001 && boxes.isEmpty())boxes.add(new Box(0,0,0,1,1,1));
+  }
+  assertEquals(1,v.point().y());assertFalse(v.nativeGround());
+  for(double height:new double[]{-.18,.09,-.06,.3}){
+   assertEquals(1,v.step(new ControllerMapping.Point(.5,height,.5),1,false,false,false,boxes,null,grid()).y());assertFalse(v.nativeGround());
+  }
+ }
+ @Test void nativeGroundRoundingAndUncoveredStairsNeverBecomeAnAbsoluteHeight() throws Exception {
+  var v=new BridgeVertical();var terrain=village();var map=grid();
+  for(double height:new double[]{.05,-.001,.15,0}){
+   assertEquals(height,v.step(new ControllerMapping.Point(.5,height,.5),1,false,false,false,List.of(),terrain,map).y(),1e-8);assertTrue(v.nativeGround());
+  }
+  for(double height:new double[]{.315845642,.455845642,.605845642}){
+   assertEquals(height,v.step(new ControllerMapping.Point(20,height,.5),1,false,false,false,List.of(),terrain,map).y(),1e-8);assertTrue(v.nativeGround());
+  }
+ }
 }

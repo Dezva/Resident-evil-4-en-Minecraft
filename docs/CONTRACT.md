@@ -615,6 +615,28 @@ EditorPhysics grounded distingue penalización aérea de minería, manteniendo
 lease exacto y restauración en F8. Ganados/combate/animación nativa pendientes.
 
 
+## Actualización 0.4.50
+
+Runtime v4/build450 conserva 128 bytes y sus offsets. JSON vertical requiere
+además native_ground booleano. true exige lift=0 y publica vertical_enabled=2
+@76; false mantiene modo1 absoluto. El host exige build450 para distinguir estas
+semánticas. Los lectores de otros canales aceptan build450 sin cambiar sus ABI.
+
+Con apoyo nativo, BridgeVertical sigue la Y observada de RE4 y vuelve a referir
+su rango al suelo actual. El mapa ausente/incompleto no impide caminar por
+escaleras; pequeñas discrepancias del suelo conocido y cobertura ausente no
+imponen una altura distinta a la del actor. Salto y apoyo en bloques conservan
+el extremo absoluto; el retorno del actor elevado no se adopta como nuevo suelo.
+
+Modo2 libera runtime_vertical_valid/actor_active y los extremos de vista,
+conservando radio/altura/skin de colisiones según scale. No escribe Y del actor.
+La cámara usa sus pies nativos. Se solicita nueva referencia de rango para el
+siguiente salto, después de comprobar identidad del actor. No amplía la cesión
+a F8/TTL/datos inválidos: esas guardas siguen invalidando el control. actor_y y
+vertical_writes describen aplicaciones absolutas; no son un eco de feet_y ni
+un contador de pasos nativos. Una primera petición absoluta en menú no adopta
+un extremo anterior. El siguiente salto interpola desde su nuevo suelo.
+
 ## Actualización 0.4.49
 
 Runtime v4/build449 tiene 128 bytes. Conserva offsets anteriores: petición

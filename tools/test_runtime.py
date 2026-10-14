@@ -10,7 +10,7 @@ from re4_reader import ReaderError
 class Kernel:
     def __init__(self):
         self.buffer=ctypes.create_string_buffer(128);self.words=(ctypes.c_uint32*32).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,4,449,42);self.closed=[]
+        self.words[:4]=(MAGIC,4,450,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
         self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==128 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
@@ -27,9 +27,9 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(policy.apply(dict(frame,menu=True,buttons=0),{'state':'player'})['armed'])
         self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);self.assertEqual(writer.writes[-1],(True,65));native.close()
     def test_old_broken_dll_rejected_with_update_message(self):
-        for build in (442,445,446,447,448):
+        for build in (442,445,446,447,448,449):
             k=Kernel();k.words[2]=build
-            with self.assertRaisesRegex(ReaderError,'DLL0.4.49'):NativeRuntime(42,k)
+            with self.assertRaisesRegex(ReaderError,'DLL0.4.50'):NativeRuntime(42,k)
             self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])
@@ -52,20 +52,26 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse(policy.apply(frame,{'state':'waiting_player'})['armed'])
         runtime.fresh=True;self.assertFalse(policy.apply(frame,{'state':'player'})['armed']) # stopped session cannot resume itself
     def test_vertical_mapping_is_separate_from_native_report_and_stop_cancels_it(self):
-        k=Kernel();native=NativeRuntime(42,k);native.publish(7,0,dict(lift=1250,scale=1000,token=9,feet_y=-125))
+        k=Kernel();native=NativeRuntime(42,k);native.publish(7,0,dict(lift=1250,scale=1000,token=9,feet_y=-125,native_ground=False))
         self.assertEqual(ctypes.c_float.from_buffer(k.buffer,64).value,1250);self.assertEqual(k.words[17],9);self.assertEqual(ctypes.c_float.from_buffer(k.buffer,112).value,-125)
         self.assertEqual(ctypes.c_float.from_buffer(k.buffer,72).value,1000);self.assertEqual(k.words[19],1)
         # Applied actor height is native telemetry, never echoed from the request.
         self.assertEqual(native.status()['actor_y'],0);self.assertFalse(native.status()['vertical_active'])
         ctypes.c_float.from_buffer(k.buffer,116).value=-125;k.words[30:32]=[1,24]
         self.assertEqual(native.status()['actor_y'],-125);self.assertTrue(native.status()['vertical_active']);self.assertEqual(native.status()['vertical_writes'],24)
-        native.publish(7,0,dict(lift=1300,scale=1000,token=10,feet_y=-75))
+        native.publish(7,0,dict(lift=1300,scale=1000,token=10,feet_y=-75,native_ground=False))
         self.assertEqual(native.status()['actor_y'],-125)
         writer=Writer();policy=ControlPolicy(writer,runtime=native);policy.stop();self.assertEqual(k.words[19],0);native.close()
+    def test_native_ground_publishes_ownership_without_echoing_an_applied_height(self):
+        k=Kernel();native=NativeRuntime(42,k)
+        native.publish(7,0,dict(lift=0,scale=800,token=9,feet_y=315.845642,native_ground=True))
+        self.assertEqual(k.words[19],2);self.assertEqual(ctypes.c_float.from_buffer(k.buffer,72).value,800)
+        self.assertFalse(native.status()['vertical_active']);self.assertEqual(native.status()['vertical_writes'],0)
+        native.close();self.assertEqual(k.words[19],0)
     def test_invalid_vertical_requests_never_write_control(self):
-        base=dict(type='re4_control',armed=True,buttons=0,arm_id=7,vertical=dict(lift=1250,scale=1000,token=1,feet_y=-125))
+        base=dict(type='re4_control',armed=True,buttons=0,arm_id=7,vertical=dict(lift=1250,scale=1000,token=1,feet_y=-125,native_ground=False))
         validate_control(base)
-        for change in (dict(lift=float('nan')),dict(lift=-1),dict(lift=128001),dict(scale=0),dict(token=True),dict(token=0),dict(feet_y=True),dict(feet_y=float('nan')),dict(feet_y=20000001)):
+        for change in (dict(lift=float('nan')),dict(lift=-1),dict(lift=128001),dict(scale=0),dict(token=True),dict(token=0),dict(feet_y=True),dict(feet_y=float('nan')),dict(feet_y=20000001,native_ground=False)):
             writer=Writer();frame=dict(base,vertical=dict(base['vertical'],**change))
             with self.assertRaises(ProtocolError):ControlPolicy(writer).apply(frame,{'state':'player'})
             self.assertEqual(writer.writes,[])

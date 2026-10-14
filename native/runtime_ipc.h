@@ -20,7 +20,7 @@ static unsigned runtime_cache_valid;static uint32_t runtime_cache_stamp,runtime_
 static float runtime_body_radius=250,runtime_body_height=1600;
 static float runtime_lift,runtime_lift_from,runtime_lift_target;static uint32_t runtime_lift_generation,runtime_lift_token,runtime_lift_stamp;
 static float runtime_physics_y,runtime_view_y,runtime_base_y,runtime_support_skin=.1f;
-static uint32_t runtime_vertical_valid,runtime_request_stamp,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale;
+static uint32_t runtime_vertical_valid,runtime_request_stamp,runtime_actor_active,runtime_vertical_writes,runtime_vertical_rebase;static float runtime_actor_y,runtime_vertical_scale;
 static void runtime_vertical_interpolate(uint32_t now){
     float t=fminf(1.f,(now-runtime_lift_stamp)/50.f);runtime_view_y=runtime_lift_from+(runtime_lift_target-runtime_lift_from)*t;runtime_lift=runtime_vertical_valid?runtime_view_y-runtime_base_y:0;
 }
@@ -28,15 +28,22 @@ static void runtime_vertical_tick(const ControlFrame *control,int complete,uint3
     RuntimeShared request={0};int stable=0;
     if(runtime_shared)for(unsigned i=0;i<3;i++){LONG before=runtime_shared->request_sequence;if(before&1)continue;MemoryBarrier();memcpy((char*)&request+48,(const char*)runtime_shared+48,32);memcpy(&request.feet_y,&runtime_shared->feet_y,4);MemoryBarrier();if(before==runtime_shared->request_sequence){stable=1;break;}}
     if(!stable || !complete || !state->armed || !control->armed || state->stop || runtime_scripted()
-        || (control->flags&3u)!=3u || control->generation!=state->arm_id || request.generation!=control->generation || request.vertical_enabled!=1u
+        || (control->flags&3u)!=3u || control->generation!=state->arm_id || request.generation!=control->generation || (request.vertical_enabled!=1u && request.vertical_enabled!=2u)
         || now-control->stamp>=500 || now-request.request_stamp>=500 || (GetAsyncKeyState(VK_F8)&0x8000)
-        || !request.lift_token || request.lift_token>2147483647u || !isfinite(request.lift+request.scale) || !isfinite(request.feet_y) || fabsf(request.feet_y)>20000000.f || request.scale<40 || request.scale>2500 || request.lift<0 || request.lift>128*request.scale){
+        || !request.lift_token || request.lift_token>2147483647u || !isfinite(request.lift+request.scale) || !isfinite(request.feet_y) || fabsf(request.feet_y)>20000000.f || request.scale<40 || request.scale>2500 || request.lift<0 || request.lift>128*request.scale || (request.vertical_enabled==2u && request.lift!=0)){
         runtime_lift=runtime_lift_from=runtime_lift_target=runtime_physics_y=runtime_view_y=runtime_base_y=0;runtime_vertical_valid=runtime_actor_active=0;runtime_support_skin=.1f;runtime_lift_generation=runtime_lift_token=0;runtime_body_radius=250;runtime_body_height=1600;return;
     }
     runtime_body_radius=fmaxf(100,fminf(1000,.3f*request.scale));runtime_body_height=fmaxf(300,fminf(3000,1.8f*request.scale));
     /* Collision owns the latest simulated feet, never the interpolated view.
        A small support skin absorbs native ground rounding between packets. */
     runtime_support_skin=.01f*request.scale;
+    if(request.vertical_enabled==2u){
+        // Unknown terrain must not pin real stairs to the last bridge Y.
+        // Keep scaled X/Z colliders; give native RE4 full ownership of ground Y.
+        runtime_vertical_valid=runtime_actor_active=0;runtime_lift_generation=runtime_lift_token=0;
+        runtime_lift=runtime_view_y=runtime_lift_from=runtime_lift_target=runtime_physics_y=0;
+        runtime_vertical_rebase=1;return;
+    }
     if(runtime_lift_generation!=control->generation){runtime_lift_generation=control->generation;runtime_lift_token=0;runtime_vertical_valid=0;runtime_lift=0;runtime_base_y=request.feet_y-request.lift;runtime_view_y=runtime_lift_from=runtime_lift_target=runtime_base_y;}
     if((control->flags&8u) && !runtime_lift_token)return;
     runtime_vertical_valid=1;runtime_vertical_scale=request.scale;runtime_request_stamp=request.request_stamp;
@@ -89,7 +96,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=4;p->build=449;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=4;p->build=450;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){

@@ -7,20 +7,24 @@ import net.minecraft.util.math.Box;
 
 /** Minecraft's 20 Hz jump/gravity for the real RE4 actor, bridge view and editor. RE4 owns horizontal movement. */
 final class BridgeVertical {
-    private boolean initialized,grounded;private int generation,token,fallHarm;
+    private boolean initialized,grounded,nativeGround;private int generation,token,fallHarm;
     private double y,velocity,fallen,exhaustion,groundY,anchorY;
     private ControllerMapping.Point point;
-    void clear(){initialized=grounded=false;generation=token=fallHarm=0;y=velocity=fallen=exhaustion=groundY=anchorY=0;point=null;}
+    void clear(){initialized=grounded=nativeGround=false;generation=token=fallHarm=0;y=velocity=fallen=exhaustion=groundY=anchorY=0;point=null;}
     void hold(){velocity=0;}
     ControllerMapping.Point point(){return point;}
-    int token(){return token;}double groundY(){return groundY;}boolean grounded(){return grounded;}float exhaustion(){return (float)exhaustion;}int fallHarm(){return fallHarm;}
+    int token(){return token;}double groundY(){return groundY;}boolean grounded(){return grounded;}boolean nativeGround(){return nativeGround;}float exhaustion(){return (float)exhaustion;}int fallHarm(){return fallHarm;}
     double lift(double scale){return Math.max(0,y-groundY)*scale;}
     ControllerMapping.Point step(ControllerMapping.Point base,int gen,boolean jump,boolean sprint,boolean paused,List<Box> boxes,TerrainSnapshot terrain,ControllerMapping map){
         if(gen!=generation){clear();generation=gen;}
-        if(!initialized){y=groundY=anchorY=base.y();velocity=fallen=0;grounded=true;initialized=true;}
+        if(!initialized){y=groundY=anchorY=base.y();velocity=fallen=0;grounded=nativeGround=true;initialized=true;}
+        // Native stairs/floors remain RE4-owned. Its observed Y is ground only
+        // while supported there, never during a bridge jump or on placed blocks.
+        boolean wasNativeGround=nativeGround;
+        if(nativeGround && !paused)y=groundY=anchorY=base.y();
         if(!paused && !(map!=null && terrain==null)){
-            if(grounded && jump){velocity=.42;grounded=false;exhaustion+=sprint?.2:.05;}
-            double next=y+velocity;boolean landed=false,waiting=false;
+            if(grounded && jump){velocity=.42;grounded=nativeGround=false;exhaustion+=sprint?.2:.05;}
+            double next=y+velocity;boolean landed=false,waiting=false,blockSupport=false;
             if(next>anchorY+128){next=anchorY+128;velocity=0;}
             if(velocity>0){
                 for(var b:boxes)if(footprint(base,b) && y+1.8<=b.minY+.00001 && next+1.8>b.minY){next=Math.min(next,b.minY-1.8);velocity=0;}
@@ -49,13 +53,16 @@ final class BridgeVertical {
                     }
                     if(Double.isFinite(floor))groundY=floor;
                 }
-                for(var b:boxes)if(footprint(base,b) && y>=b.maxY-.00001 && next<=b.maxY+.00001)floor=Math.max(floor,b.maxY);
+                for(var b:boxes)if(footprint(base,b) && y>=b.maxY-.00001 && next<=b.maxY+.00001 && b.maxY>=floor){floor=b.maxY;blockSupport=true;}
+                // A native step or floor rounding is already resolved by RE4.
+                // Avoid predicting an elevated editor pose ahead of the real actor.
+                if(wasNativeGround && !blockSupport && (!coverage || Double.isFinite(floor) && Math.abs(y-floor)<=.6)){floor=groundY=y;}
                 if(next<=floor+.00001){next=floor;landed=true;}
                 else if(!coverage){next=y;waiting=true;}
             }
             if(next<y)fallen+=y-next;
-            if(landed){if(!grounded)fallHarm+=Math.max(0,(int)Math.ceil(fallen-3-1e-7));fallen=0;velocity=0;grounded=true;}
-            else{grounded=false;if(!waiting)velocity=(velocity-.08)*.98;}
+            if(landed){if(!grounded)fallHarm+=Math.max(0,(int)Math.ceil(fallen-3-1e-7));fallen=0;velocity=0;grounded=true;nativeGround=!blockSupport;}
+            else{grounded=nativeGround=false;if(!waiting)velocity=(velocity-.08)*.98;}
             y=next;
         }
         if(!Double.isFinite(y) || Math.abs(y-anchorY)>128)throw new IllegalArgumentException("Vertical bridge range");

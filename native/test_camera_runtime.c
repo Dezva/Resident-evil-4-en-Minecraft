@@ -36,7 +36,7 @@ static uint32_t now=1000;static int f8;static unsigned native_camera_calls,proje
 static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
 #include "runtime_policy.h"
 static float runtime_view_y,runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
-static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale=1000;
+static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes,runtime_vertical_rebase;static float runtime_actor_y,runtime_vertical_scale=1000;
 static void runtime_vertical_interpolate(uint32_t stamp){(void)stamp;}
 static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
 static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}

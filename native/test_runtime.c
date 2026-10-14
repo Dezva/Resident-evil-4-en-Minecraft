@@ -79,7 +79,7 @@ int main(void){
         if(failure==0)report.scale=NAN;
         if(failure==1)report.lift=-1;
         if(failure==2)report.lift=report.feet_y=128001;
-        if(failure==3)report.vertical_enabled=2;
+        if(failure==3)report.vertical_enabled=3;
         if(failure==4)report.lift_token=0xFFFFFFFFu;
         if(failure==5)report.generation=8;
         if(failure==6)control.flags=0;
@@ -126,5 +126,17 @@ int main(void){
     now+=25;runtime_vertical_tick(&control,1,now);assert(runtime_view_y==-700 && runtime_physics_y==-700); // slope changes relative lift, never absolute feet
     control.generation=state->arm_id=report.generation=8;control.flags=11;report.lift_token=1;
     runtime_vertical_tick(&control,1,now);assert(!runtime_vertical_valid); // a new generation opening in a menu cannot apply an old actor endpoint
+    control.flags=3;control.generation=state->arm_id=report.generation=9;
+    report.request_stamp=control.stamp=now;report.vertical_enabled=2;report.lift=0;report.feet_y=315.845642f;report.scale=800;
+    runtime_vertical_tick(&control,1,now);
+    assert(!runtime_vertical_valid && !runtime_actor_active && !runtime_lift && fabsf(runtime_body_radius-240)<.01f && fabsf(runtime_body_height-1440)<.01f && runtime_vertical_rebase);
+    for(unsigned stair=0;stair<20;stair++){
+        report.feet_y+=150;report.lift_token++;report.request_stamp=control.stamp=now+=16;
+        runtime_vertical_tick(&control,1,now);assert(!runtime_vertical_valid && fabsf(runtime_body_radius-240)<.01f); // stairs never acquire absolute Y ownership
+    }
+    report.vertical_enabled=1;report.lift=420;report.feet_y=-580;report.scale=1000;report.lift_token++;
+    runtime_vertical_tick(&control,1,now);assert(runtime_vertical_valid && runtime_physics_y==-580 && runtime_view_y==-1000); // jump starts from the new native ground, no old interpolation endpoint
+    report.vertical_enabled=2;report.lift=1;runtime_vertical_tick(&control,1,now);
+    assert(!runtime_vertical_valid && runtime_body_radius==250); // native ownership cannot carry a nonzero lift
     puts("Runtime: native movie/event/death/door gates, bounded cache, one-shot actions and F8/TTL/menu/generation/torn guards passed");
 }

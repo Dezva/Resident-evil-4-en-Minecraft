@@ -1,5 +1,13 @@
 # Native RE4 bridge
 
+Build450 keeps Runtime v4/128 bytes and adds native-ground ownership (command
+mode2). That mode releases absolute Y/view control while retaining scaled X/Z
+colliders, so incomplete terrain snapshots cannot pin real native stairs.
+Jump/block support remains mode1 with absolute real actor Y. Returning to native
+ground resets view endpoints and rebases the next jump's range, preserving actor
+identity checks. [0.4.50 guide](../docs/RE4-BLOCK-0.4.50.md).
+The following notes describe earlier versions.
+
 Build449 uses Runtime v4 (128 bytes): absolute feet Y drives the actual
 player position and horizontal block collision; the camera interpolates absolute
 endpoints separately. Native terrain supports landing without feeding actor Y

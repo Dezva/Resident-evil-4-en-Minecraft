@@ -1,3 +1,30 @@
+# Validación 0.4.50 — escaleras con mapa incompleto
+
+Linux cloud, 2026-10-14. El video del usuario muestra retrocesos en una escalera
+nativa. En su log: mapa incompleto, cero bloques transferidos, cero correcciones
+X/Z y altura aplicada constante315.845642. No se publican video ni log adjuntos.
+
+La regresión de escaleras sin mesh falla contra0.4.49 (altura fija) y pasa con
+la cesión al suelo nativo. La suite mantiene columnas, salto y aterrizaje.
+
+- Core Java:43 pruebas sin fallos/omisiones. TCP autenticado Java/Python verifica
+  ambos modos de altura y conserva pausa, acciones y caducidad de movimiento.
+- Minecraft/Fabric:80 pruebas sin fallos/omisiones. Nuevas regresiones cubren
+  escaleras con mapa ausente, redondeo/fuera de cobertura y bloque elevado con
+  mapa perdido que no puede devolver el actor al suelo inferior.
+- Python:164 pruebas. Callbacks C reales compilados contra APIs simuladas
+  verifican modo nativo sin pose absoluta, dimensiones de colisión conservadas,
+  reinicio de interpolación y referencia del siguiente salto en el nuevo suelo.
+- JAR0.4.50 compilado/remapeado; remapSourcesJar opcional omitido por configuración.
+- DLL450 Win32/MinGW y cinco fixtures nativos pasan. Dos compilaciones idénticas:
+  SHA2560c7e316b6e64cc57c2413abe8dce4e377ff62d3b418fba7b0eae87664dbc96ab.
+- Instaladores/diagnósticos PowerShell simulados comprueban instalación,
+  respaldos, no sobrescritura, retirada propia y actualización desde DLL449.
+
+El usuario confirmó colocación y menor alcance de ganados en altura en0.4.49;
+esto no valida la nueva entrega. Falta repetir la escalera en RE4/Windows real.
+El comportamiento anterior y la evidencia de otras versiones siguen debajo.
+
 # Validación 0.4.49 — altura absoluta y actor real
 
 Linux cloud, 2026-10-14. El video del usuario y las dos copias idénticas del log

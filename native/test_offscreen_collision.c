@@ -20,7 +20,7 @@ static int writable(const void *p,size_t n){assert(p==player_data+0x94 && n==12)
 static int cube_collision_command_read(CubeCommand *out){memcpy(out,&command,3168);return 1;}
 static int cube_collision_graphics_ready(void){return scene_active;}
 static float runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
-static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale=1000;
+static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes,runtime_vertical_rebase;static float runtime_actor_y,runtime_vertical_scale=1000;
 #include "collision_tick.h"
 static void pose(float x,float y,float z){float p[3]={x,y,z};memcpy(player_data+0x94,p,12);}
 static float coordinate(unsigned axis){float p;memcpy(&p,player_data+0x94+axis*4,4);return p;}

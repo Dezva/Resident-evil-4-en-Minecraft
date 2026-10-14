@@ -16,7 +16,10 @@ class ControlTests {
         try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
             await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));await(()->bridge.nativeButtons()==65);
-            bridge.vertical(7,1,420,1000,-80);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=1 lift=420.0 feet_y=-80.0");}catch(Exception e){return false;}});
+            bridge.vertical(7,1,420,1000,-80,false);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=1 lift=420.0 feet_y=-80.0 native_ground=False");}catch(Exception e){return false;}});
+            bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
+            bridge.vertical(7,2,0,800,315.845642,true);await(()->{try{return Files.readString(log).contains("VERTICAL generation=7 token=2 lift=0.0 feet_y=315.845642 native_ground=True");}catch(Exception e){return false;}});
+            bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
             bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
             assertTrue(Files.readString(log).contains("ACTION generation=7 id=1 kind=0"));
             bridge.requestSkip(7);await(()->bridge.runtimeState().skips()==1);assertTrue(Files.readString(log).contains("ACTION generation=7 id=2 kind=1"));

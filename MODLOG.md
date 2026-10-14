@@ -1,3 +1,16 @@
+## 0.4.50 — apoyo nativo para escaleras
+
+En el video nuevo, la escalera de RE4 devuelve al jugador mientras el mapa local
+está incompleto: 0.4.49 sigue escribiendo una Y fija aunque no haya bloques ni
+correcciones X/Z. Se separa el apoyo nativo del apoyo en bloques: RE4 conserva
+su altura al caminar; salto/columna mantienen Y absoluta. Suelo con redondeo o
+fuera de cobertura no adelanta una altura distinta en Minecraft. El siguiente
+salto se referencia al nuevo suelo sin perder las guardas de actor/generación.
+Runtime v4/build450 añade modo2 de altura nativa, sin cambiar offsets ni escala
+de colisionadores. Instaladores reconocen DLL449. Pasan pruebas de escalera,
+columna con mapa ausente, aterrizaje, salto y caducidad; juego Windows pendiente.
+Ver [guía 0.4.50](docs/RE4-BLOCK-0.4.50.md).
+
 ## 0.4.49 — altura absoluta y elevación real de León
 
 El video y el log de 0.4.48 muestran expulsiones sobre una pendiente: sumar el

@@ -29,7 +29,7 @@ static int GetAsyncKeyState(int key){assert(key==VK_F8);async_calls++;return(f8 
 static uint32_t GetTickCount(void){if(late_change) {float value;memcpy(&value,player_data+0x94,4);value+=3;memcpy(player_data+0x94,&value,4);}return now;}
 static int cube_collision_command_read(CubeCommand *out){memcpy(out,&published,3168);return !torn;}
 static float runtime_view_y,runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
-static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes;static float runtime_actor_y,runtime_vertical_scale=1000;
+static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes,runtime_vertical_rebase;static float runtime_actor_y,runtime_vertical_scale=1000;
 #include "collision_tick.h"
 static void pose(float x,float y,float z){float p[3]={x,y,z};memcpy(player_data+0x94,p,12);}
 static float coordinate(unsigned i){float v;memcpy(&v,player_data+0x94+4*i,4);return v;}
@@ -37,7 +37,7 @@ static ControlFrame reset(void){
     memset(&report,0,sizeof(report));state->armed=1;state->stop=0;state->arm_id=1;collision_shared=&report;
     player_value=(uint32_t)(uintptr_t)player_data;assert((uintptr_t)player_data<=UINT32_MAX);
     vertical_actor_player=vertical_actor_generation=0;collision_player=collision_generation=0;collision_tick_lock.held=0;now=1000;
-    runtime_view_y=runtime_physics_y=0;runtime_vertical_valid=runtime_actor_active=0;runtime_request_stamp=1000;runtime_support_skin=.1f;graphics_ready=1;f8=async_calls=late_f8=late_change=bad_writable=late_slot=torn=0;
+    runtime_view_y=runtime_physics_y=0;runtime_vertical_valid=runtime_actor_active=runtime_vertical_rebase=0;runtime_request_stamp=1000;runtime_support_skin=.1f;graphics_ready=1;f8=async_calls=late_f8=late_change=bad_writable=late_slot=torn=0;
     published=(CubeCommand){.enabled=1,.stamp=1000,.epoch=7,.mode=2,.count=1,.collisions=1,.arm_generation=1};
     float box[6]={0,0,-500,1000,1000,500};memcpy(published.boxes[0],box,sizeof(box));pose(-300,0,0);
     return(ControlFrame){.generation=1,.armed=1,.stamp=1000,.flags=3};
@@ -156,6 +156,12 @@ int main(void) {
     cube_collision_tick(&c,1,now);assert(!memcmp(player_data,expected,sizeof(expected)) && runtime_actor_active); // writes only actual Y, even without any placed blocks
     now+=500;c.stamp=now;pose(100,-100,80);cube_collision_tick(&c,1,now);
     assert(coordinate(1)==-100 && !runtime_actor_active); // fresh input cannot keep an expired vertical command alive
+    c=reset();collision_shared=NULL;runtime_vertical_valid=1;runtime_physics_y=420;pose(100,0,80);
+    cube_collision_tick(&c,1,now);assert(coordinate(1)==420);
+    runtime_vertical_valid=0;runtime_vertical_rebase=1;pose(100,500000,80);cube_collision_tick(&c,1,now);
+    assert(coordinate(1)==500000 && !runtime_actor_active); // RE4 owns native stairs between jumps
+    runtime_vertical_valid=1;runtime_physics_y=500420;cube_collision_tick(&c,1,now);
+    assert(coordinate(1)==500420 && runtime_actor_active && !state->stop); // next jump rebases its bounded range at new native ground
     c=reset();collision_shared=NULL;cube_collision_tick(&c,1,now);assert(coordinate(0)==-300);
     puts("Actual collision callback: arm/lease/F8/generation, pointer/pose race checks, absolute Y ownership, teleport rebaseline and reentrancy passed");
 }

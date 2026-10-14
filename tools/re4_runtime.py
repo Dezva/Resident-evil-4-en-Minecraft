@@ -18,7 +18,7 @@ class NativeRuntime:
         self.address=k.MapViewOfFile(self.handle,6,0,0,128)
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
         self.words=(ctypes.c_uint32*32).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,4,449,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.49')
+        if tuple(self.words[:4])!=(MAGIC,4,450,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.50')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')
@@ -29,7 +29,7 @@ class NativeRuntime:
         ctypes.c_float.from_address(self.address+64).value=vertical['lift'] if vertical else 0
         self.words[17]=vertical['token'] if vertical else 0
         ctypes.c_float.from_address(self.address+72).value=vertical['scale'] if vertical else 0
-        self.words[19]=int(vertical is not None);self.words[20]=action_kind
+        self.words[19]=(2 if vertical['native_ground'] else 1) if vertical else 0;self.words[20]=action_kind
         ctypes.c_float.from_address(self.address+112).value=vertical['feet_y'] if vertical else 0
         self.words[12]=(seq+1)&0xffffffff
     def status(self):

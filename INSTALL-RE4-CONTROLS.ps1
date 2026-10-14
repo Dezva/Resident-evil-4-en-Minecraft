@@ -31,7 +31,7 @@ foreach ($file in $originals) {
 $configCopy = Join-Path $backup 'Config'
 New-Item -ItemType Directory -Path $configCopy | Out-Null
 Get-ChildItem -LiteralPath $game -Filter '*.ini' -File -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $configCopy }
-@{ game_bin=$game; saves_dir=$saves; dll_sha256=$hash; version='0.4.49' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'manifest.json') -Encoding UTF8
+@{ game_bin=$game; saves_dir=$saves; dll_sha256=$hash; version='0.4.50' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'manifest.json') -Encoding UTF8
 if (Get-Process bio4 -ErrorAction SilentlyContinue) { throw 'RE4 se abrio durante la copia. Cierralo y repite.' }
 # CreateNew also refuses a DLL created after the initial existence check.
 $input = [IO.File]::OpenRead($source)

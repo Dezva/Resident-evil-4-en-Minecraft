@@ -15,8 +15,9 @@ def snapshot(read,base,size,slot):
     if len(globals)==1:
         address=u32(read(globals[0],4));result['global_routine']=read(address+0x20,1)[0];result['status_flags']=[hex(v) for v in struct.unpack('<4I',read(address+0x501C,16))]
     for manager in operands(ENEMY,13):
+        row=dict(manager_rva=hex(manager-base),actors=[]);result['pools'].append(row)
         try:
-            vt,array,count,stride=struct.unpack('<4I',read(manager,16));row=dict(manager_rva=hex(manager-base),count=count,stride=stride,actors=[]);result['pools'].append(row)
+            vt,array,count,stride=struct.unpack('<4I',read(manager,16));row.update(count=count,stride=stride)
             if not base<=vt<base+size or not 0<count<=4096 or not 0x104<=stride<=65536 or count*stride>32*1024*1024:continue
             for i in range(count):
                 actor=read(array+i*stride,min(stride,0x408));flags=u32(actor,4);vt=u32(actor)

@@ -12,6 +12,7 @@ from re4_health import validate_health
 from re4_combat import validate_combat
 
 MAGIC = 0x52453443
+STOP_REASONS={1:'F8 nativo',2:'lease nativo caducado',3:'colision: referencia sin actualizar durante 500 ms',4:'colision: desplazamiento horizontal fuera de rango',5:'altura: cambio de personaje',6:'altura: fuera de rango',7:'interfaz: reinicio o fallo del dispositivo grafico',8:'VIEW: retorno o perdida del foco'}
 
 
 def validate_control(frame):
@@ -130,7 +131,7 @@ class ControlPolicy:
         if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
         result = {"hud_available":self.hud is not None and self.hud.available,"generation":self.generation,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
-                "reason": "activo" if self.armed else reason,
+                "reason": "activo" if self.armed else reason, "stop_cause":STOP_REASONS.get(status['stop'],'sin parada' if not status['stop'] else 'codigo desconocido'),
                 "capabilities": status.get("capabilities", 0), "native_hud_supported": bool(status.get("capabilities", 0)&16), "camera_active": status.get("camera_active", False),
                 "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
         if frame.get('client') is not None:result['client']=dict(frame['client'])

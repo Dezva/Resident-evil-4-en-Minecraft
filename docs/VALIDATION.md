@@ -1,3 +1,45 @@
+# Validación0.4.55 — trampas, altura y renderizado
+
+Linux cloud,2026-10-15. Mod/host/DLL455. La lectura del usuario en0.4.54 contiene
+una parada nativa con foco=true, tick_age_ms=21 y sample_age_ms=16. Otro tramo
+muestra pérdida de foco. El antiguo stop1 era ambiguo: no se afirma que todos
+los cortes provengan de un único fallo o de generación de chunks.
+
+- Core57, Minecraft90 y Python185 pruebas pasan sin fallos, errores ni omisiones.
+  Compilación, remapeo del JAR y access widener pasan. remapSourcesJar está
+  omitida por configuración. Build nativo MinGW con warnings como errores y
+  cinco fixtures adicionales de política/geometría/vida pasan.
+- Callback de colisión real compilado con memoria simulada: caídas/subidas y
+  cambio de altura compartida a nativa no paran por Y; conservan Y y bloquean
+  X/Z. Siguen parando un desplazamiento horizontal excesivo y referencia500ms.
+- Diagnóstico de trampas del usuario: pool cEm60x3592, tipo2A, tabla virtual
+  RVA711174, variantes de rutina(1,0) y(1,6), HP1000/1860/2160. Ambos manejadores
+  nativos del segundo informe coinciden con las comprobaciones nuevas del perfil.
+  Esas funciones consumen el mensaje y cambian HP/estado nativamente; el puente
+  no las llama directamente ni reproduce sus escrituras.
+- Callback de combate real en fixtures: trampas/minas, variantes1/2, mensaje
+  consumido + HP0 + rutina nativa; HP0 solo, transición incompleta, identidad
+  reutilizada y perfiles desconocidos no confirman. Comprueba byte a byte que
+  observar la transición no escribe el actor; no suma bajas/cajas ni llama
+  ApplyDamage. Daño letal, cajas, cuervos, alcance/muros y F8/TTL previos pasan.
+- Límite de renderizado60 solo durante el control: respeta un límite30 y vuelve
+  a260 al salir. La inyección al método getFramerateLimit compila y se remapea.
+  Selección de trampas bajo el origen coincide en core/nativo; no baja hitboxes
+  de entidades vivas. No se midieron FPS/GPU ni cargas de chunks reales.
+- TCP autenticado acepta el nuevo stop8 conservando conexión y botones0. Los
+  ocho motivos paran y exigen nueva generación; copiar consola no bloquea red.
+- PowerShell ejecuta pruebas del código VIEW real con ventanas simuladas:
+  stop8 escribe solo su palabra y conserva una causa previa; restauración,
+  foco/transitorios, F8 y preparación autenticada pasan.
+- Instaladores verifican copia de partidas y retirada por hash, incluida la DLL
+  publicada compartida de0.4.53/54. Preservan DLL ajena y rechazan copia vacía.
+
+Falta ejecutar Windows/Direct3D real y una partida de RE4. No se afirma que las
+animaciones, explosiones, sonido o rendimiento de0.4.55 estén confirmados en el
+equipo del usuario. No se implementa aún combate de arco/ballesta.
+
+---
+
 # Validación0.4.54 — sesiones, consola y foco
 
 Linux cloud,2026-10-15. Usuario confirma combate/cuervos/cajas en0.4.53.

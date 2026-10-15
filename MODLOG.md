@@ -1,3 +1,18 @@
+## 0.4.55 — trampas nativas, altura y presupuesto de renderizado
+
+Los golpes alcanzan cEm2a (trampas de osos/bombas) mediante el mensaje de impacto
+existente. Sus propios manejadores consumen el golpe, cierran la trampa o activan
+la explosión con efectos/sonido nativos; no se escriben HP ni rutinas. Se confirma
+la transición observada y se excluyen de muertes/corazones. El perfil de ambos
+manejadores se comprueba antes de habilitar estas dianas.
+
+La protección de desplazamiento horizontal usa X/Z: caídas y cambios de suelo
+ya no cuentan como teletransportes. Conserva el límite horizontal y los leases.
+Distingue códigos de F8, expiración, colisión, altura, gráficos y VIEW, con el
+primer motivo y estado gráfico/colisión en la consola. Minecraft conserva un
+máximo de60FPS solo durante el control, respetando límites inferiores del usuario.
+No se implementa aún combate de arco/ballesta. Ver [guía0.4.55](docs/RE4-BLOCK-0.4.55.md).
+
 ## 0.4.54 — estabilidad, pausas del cliente y diagnóstico
 
 Conserva la DLL453 publicada y el combate confirmado por el usuario. El socket

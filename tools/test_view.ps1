@@ -148,9 +148,12 @@ public class ViewChecks {
             for(int version=1;version<=2;version++) {
                 for(int word=0;word<20;word++) Marshal.WriteInt32(view,word*4,100+word);
                 Marshal.WriteInt32(view,0,0x52453443); Marshal.WriteInt32(view,4,version); Marshal.WriteInt32(view,28,1);
+                Marshal.WriteInt32(view,24,0);
                 int[] before=new int[20]; for(int word=0;word<20;word++) before[word]=Marshal.ReadInt32(view,word*4);
                 Check(WindowsDesktop.LatchStop(view),"Supported IPC must accept stop");
-                for(int word=0;word<20;word++) Check(Marshal.ReadInt32(view,word*4)==(word==6?1:before[word]),"Stop must not change host sequence/armed/buttons/look or native status");
+                for(int word=0;word<20;word++) Check(Marshal.ReadInt32(view,word*4)==(word==6?8:before[word]),"Stop must not change host sequence/armed/buttons/look or native status");
+                Marshal.WriteInt32(view,24,4);WindowsDesktop.LatchStop(view);
+                Check(Marshal.ReadInt32(view,24)==4,"VIEW preserves the first native stop cause");
             }
             foreach(int offset in new int[]{0,4,28}) {
                 Marshal.WriteInt32(view,0,0x52453443); Marshal.WriteInt32(view,4,2); Marshal.WriteInt32(view,28,1);

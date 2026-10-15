@@ -58,7 +58,7 @@ static void consume(void){live_control.stamp=now;combat_damage_hook(actors[0],15
 static ControlFrame reset(void){
  memset(&report,0,sizeof(report));combat_shared=&report;combat_lock.held=collision_tick_lock.held=0;combat_consumed=combat_generation=combat_ack=combat_hits=combat_kills=combat_attempts=0;combat_reason=1;
  memset(&combat_pending,0,sizeof(combat_pending));memset(combat_hurt,0,sizeof(combat_hurt));memset(actors,0,sizeof(actors));memset(extra_part,0,sizeof(extra_part));memset(player,0,sizeof(player));
- combat_engine_ready=1;combat_original_damage=original_damage;combat_native_ray=engine_ray;combat_native_message=engine_message;combat_queued=combat_expired=combat_boxes_broken=0;
+ combat_engine_ready=combat_hazards_ready=1;combat_original_damage=original_damage;combat_native_ray=engine_ray;combat_native_message=engine_message;combat_queued=combat_expired=combat_boxes_broken=0;
  player_value=(uint32_t)(uintptr_t)player;assert((uintptr_t)player<=UINT32_MAX);*state=(Shared){1,0,7};now=1000;thread_id=1;scripted=f8=torn=bad=race=late_f8=polls=ray_miss=ray_calls=message_calls=damage_calls=0;
  enemy_manager=(uint32_t)(uintptr_t)manager;enemy_candidate_count=0;manager[0]=0x1234;manager[1]=(uint32_t)(uintptr_t)actors;manager[2]=3;manager[3]=0x408;
  for(unsigned i=0;i<3;i++){uint32_t vt=0x1234,flags=0x21,guid=10+i;int16_t value=1000;float pos[3]={2000-i*300.f,0,0};memcpy(actors[i],&vt,4);memcpy(actors[i]+4,&flags,4);memcpy(actors[i]+0xf8,&guid,4);memcpy(actors[i]+0x324,&value,2);memcpy(actors[i]+0x326,&value,2);memcpy(actors[i]+0x94,pos,12);actors[i][0x100]=0x12;actors[i][0xfc]=1;actors[i][0x102]=20;actors[i][0x368]=1;actors[i][0x36A]=6;}
@@ -68,6 +68,34 @@ static ControlFrame reset(void){
  live_control=(ControlFrame){.armed=1,.generation=7,.stamp=1000,.flags=3,.eye=1000};return live_control;
 }
 int main(void){
+ {
+  ControlFrame low=reset();actors[0][0x100]=0x2A;float feet=-500;memcpy(player+0x98,&feet,4);
+  report.start[1]=report.end[1]=-200;low.eye=300;live_control=low;
+  combat_tick(&low,1,now);assert(message_calls==1 && hp(0)==1000 && !damage_calls);
+ }
+ // Trap handlers perform their own native transition without ApplyDamage.
+ for(unsigned variant=0;variant<3;variant++)for(unsigned stage=0;stage<4;stage++){
+  ControlFrame hazard=reset();actors[0][0x100]=0x2A;actors[0][0x101]=(uint8_t)variant;actors[0][0xFD]=variant?6:0;
+  report.start[1]=report.end[1]=300;hazard.eye=300;live_control=hazard;
+  combat_tick(&hazard,1,now);assert(message_calls==1 && !report.hits && hp(0)==1000 && !report.ack);
+  int16_t zero=0;memcpy(actors[0]+0x324,&zero,2);
+  if(stage>=1)actors[0][0xFD]=variant?7:3;
+  if(stage>=2)actors[0][0x32C]=0;
+  if(stage==3)actors[0][0x101]=99; // same address reused for another variant cannot acknowledge
+  unsigned char after[0x408];memcpy(after,actors[0],sizeof(after));combat_tick(&hazard,1,now);
+  assert(!memcmp(after,actors[0],sizeof(after)) && !report.kills && !report.boxes_broken && !damage_calls);
+  assert(report.hits==(stage==2) && report.ack==(stage==2));
+  if(stage==2){combat_tick(&hazard,1,now);assert(report.hits==1 && !combat_pending.active);}
+ }
+ for(unsigned gate=0;gate<5;gate++){
+  ControlFrame hazard=reset();actors[0][0x100]=0x2A;report.start[1]=report.end[1]=300;hazard.eye=300;live_control=hazard;
+  if(gate==0)combat_hazards_ready=0;
+  if(gate==1)actors[0][0xFD]=3;
+  if(gate==2){actors[0][0x101]=1;actors[0][0xFD]=7;}
+  if(gate==3)f8=1;
+  if(gate==4)scripted=1;
+  combat_tick(&hazard,1,now);assert(!message_calls && hp(0)==1000 && !report.hits);
+ }
  ControlFrame c=reset();combat_tick(&c,1,now);
  assert(hp(0)==1000 && actors[0][0xFC]==1 && report.hits==0 && report.ack==0 && combat_pending.active && report.pending_id==1 && ray_calls==1 && message_calls==1);
  assert(report.hit_part==6 && fabsf(report.hit_position[0]-1800)<.01f); // native ray owns the impact and bone

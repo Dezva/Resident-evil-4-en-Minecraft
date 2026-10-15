@@ -16,7 +16,7 @@ final class CombatEffects {
     private static final ArrayDeque<Particle> particles=new ArrayDeque<>();
     private static Object world;
     static void clear(){for(var p:particles)p.markDead();particles.clear();world=null;}
-    static boolean living(int kind){return kind<0x50;}
+    static boolean living(int kind){return kind<0x50 && kind!=0x2A;}
     static int hearts(double damage){return Math.max(1,Math.min(8,(int)(damage*.5)));}
     private static void add(Particle p){if(p==null)return;if(particles.size()==64)particles.removeFirst().markDead();particles.addLast(p);}
     static void hit(MinecraftClient client,ControllerMapping map,CombatState state,boolean sword){

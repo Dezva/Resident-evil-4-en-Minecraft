@@ -1,4 +1,4 @@
-# Native build453
+# Native build455
 
 Combat v3 is5324 bytes. Owned messages may complete on a different native thread;
 the callback claims once under combat_lock and releases it around native damage.
@@ -8,10 +8,19 @@ cleared intact flag, including updates that bypass ApplyDamage. It writes no
 actor HP, flags, routines, sounds or items. ZeroHP alone does not acknowledge a
 box kill. User's read-only snapshot confirmed cEmBox0x53, routines(1,0)/(1,1).
 
+Build455 adds cEm2a targets only when the two observed impact handler profiles
+match (RVA0xA8840 and0xAA920). The bridge queues the existing validated damage
+message; native code owns trap closing/explosion and audio. A separate observer
+requires consumed message, HP0 and routine(1,3/4) for bears or(1,7) for mine
+variants1/2, retaining identity/variant/source/part and500ms session checks.
+No direct calls to these handlers and no trap HP/routine writes are introduced.
+Traps do not count as living kills or emit living damage hearts. Combat IPC
+remains v3/5324 bytes; runtime IPC remains v5/160 bytes, both require build455.
+
 Runtime v5 is160 bytes. Pickup navigation uses GLOBAL STATUS[1]&2 (STA_ITEM_GET),
 confirmed in the user's Yes/No snapshot. Arrow/confirm/cancel kinds2..7 remain
 gated to this native state, live generation and normal menu/F8/TTL guards.
-Only actually injected key bits are restored. See [0.4.53 guide](../docs/RE4-BLOCK-0.4.53.md).
+Only actually injected key bits are restored. See [0.4.55 guide](../docs/RE4-BLOCK-0.4.55.md).
 Windows gameplay/audio still require live verification; all local tests use
 simulated native APIs, not a running bio4.exe.
 
@@ -206,7 +215,12 @@ This rendering interpretation needs Windows validation; weapons/child effects
 may still draw. Mouse yaw is user-confirmed; first-person anchoring/hiding is not.
 Odd/changed sequence, nonmovement bits, opposite directions or expired input
 produce zero remote movement. TTL is 500 ms, with uint32 tick wrap handled.
-Stop 1 is F8 and stop 2 is expired armed input; either requires a new explicit
+Stop codes: 1 physical F8, 2 expired armed input, 3 collision reference age >=500ms,
+4 horizontal displacement outside the sweep budget, 5 vertical actor change,
+6 vertical range exceeded, 7 HUD/device reset or failure, 8 VIEW return/focus stop.
+In build455 the horizontal displacement check uses only X/Z; native falls and
+height ownership handoffs retain their Y without falsely latching a teleport.
+Every stop requires a new explicit
 arm generation in the authenticated TCP session to clear it. Hook status 1 means
 ready, 2 means unsupported signatures/image and 3 means patch/protection error.
 Frame counter is needed to verify the hook actually runs. There is no native

@@ -6,7 +6,8 @@ static uint32_t combat_generation,combat_ack,combat_reason=1,combat_target_guid,
 static CombatActor combat_catalog[COMBAT_MAX_ACTORS];static uint32_t combat_count,combat_pool[4],combat_manager;
 typedef struct {uint32_t generation,guid,vtable,stamp,damage;unsigned valid;} CombatHurt;
 static CombatHurt combat_hurt[4096];
-static int combat_kind(unsigned id){return enemy_kind(id) || id==0x23 || id==0x53 || id==0x55 || id==0x56 || id==0x58;}
+static unsigned combat_hazards_ready;
+static int combat_kind(unsigned id){return enemy_kind(id) || id==0x23 || (id==0x2A && combat_hazards_ready) || id==0x53 || id==0x55 || id==0x56 || id==0x58;}
 #include "combat_engine.h"
 static void combat_publish(unsigned active,uint32_t now){
  if(!combat_shared)return;
@@ -33,7 +34,8 @@ static int combat_collect(const float *feet,float scale){
   float distance=0;unsigned valid=1;for(unsigned a=0;a<3;a++){if(!isfinite(pos[a]) || fabsf(pos[a])>20000000)valid=0;float d=pos[a]-feet[a];distance+=d*d;}
   if(!valid || distance>(8*scale+2000)*(8*scale+2000))continue;
   if(combat_count==COMBAT_MAX_ACTORS)return 0; // never publish an incomplete nearby target set
-  CombatActor *out=&combat_catalog[combat_count++];*out=(CombatActor){.slot=i,.guid=guid,.kind=p[0x100],.hp=(uint32_t)hp,.max=(uint32_t)max,.radius=p[0x100]>=0x50?700: p[0x100]==0x23?350:250,.height=p[0x100]==0x23?600:1800};memcpy(out->position,pos,12);
+  if(p[0x100]==0x2A && (p[0xFC]!=1 || ((p[0x101]==1 || p[0x101]==2)?p[0xFD]!=6:(p[0xFD]!=0 && p[0xFD]!=5))))continue;
+  CombatActor *out=&combat_catalog[combat_count++];*out=(CombatActor){.slot=i,.guid=guid,.kind=p[0x100],.hp=(uint32_t)hp,.max=(uint32_t)max,.radius=p[0x100]==0x2A?1000:p[0x100]>=0x50?700: p[0x100]==0x23?350:250,.height=p[0x100]==0x23?600:1800};memcpy(out->position,pos,12);
  }
  return !memcmp(combat_pool,(void*)(uintptr_t)combat_manager,16);
 }
@@ -52,7 +54,7 @@ static int combat_blocks_clear(const CombatShared *r,float hit){
 static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
  if(!combat_shared || !TryAcquireSRWLockExclusive(&combat_lock))return;
  CombatShared r={0};int stable=0;unsigned active=0;
- if(complete)combat_observe_box(now);
+ if(complete){combat_observe_box(now);combat_observe_hazard(now);}
  if((combat_pending.active==1 || combat_pending.active==3) && (now-combat_pending.stamp>=500 || !complete || !combat_session_valid(combat_pending.generation,now)))combat_cancel_pending();
  if(!combat_engine_ready){combat_reason=6;goto done;}
  for(unsigned i=0;i<3;i++){LONG before=combat_shared->request_sequence;if(before&1)continue;MemoryBarrier();memcpy((char*)&r+20,(const char*)combat_shared+20,60);MemoryBarrier();if(before==combat_shared->request_sequence){stable=1;break;}}
@@ -71,7 +73,7 @@ static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
  float origin_distance=0;for(unsigned i=0;i<3;i++){float d=r.start[i]-feet[i]-(i==1?control->eye:0);origin_distance+=d*d;}
  if(!isfinite(control->eye) || control->eye<40 || control->eye>2500 || origin_distance>r.scale*r.scale)goto done;
  CombatActor *target=NULL;float nearest=2;
- for(unsigned i=0;i<combat_count;i++){CombatActor *a=&combat_catalog[i];float b[6]={a->position[0]-a->radius,a->position[1],a->position[2]-a->radius,a->position[0]+a->radius,a->position[1]+a->height,a->position[2]+a->radius},t;if(combat_ray_box(r.start,r.end,b,&t) && t<nearest){target=a;nearest=t;}}
+ for(unsigned i=0;i<combat_count;i++){CombatActor *a=&combat_catalog[i];float b[6]={a->position[0]-a->radius,a->position[1]-(a->kind==0x2A?400:0),a->position[2]-a->radius,a->position[0]+a->radius,a->position[1]+a->height,a->position[2]+a->radius},t;if(combat_ray_box(r.start,r.end,b,&t) && t<nearest){target=a;nearest=t;}}
  combat_reason=2;if(!target || target->slot!=r.slot || target->guid!=r.guid)goto done;
  combat_reason=3;if(!combat_blocks_clear(&r,nearest))goto done;
  unsigned char *p=(unsigned char*)(uintptr_t)(combat_pool[1]+target->slot*combat_pool[3]);uint32_t vt,flags,guid;int16_t hp,max;uint8_t routine[4];float pose[3];
@@ -104,7 +106,7 @@ static void combat_ipc_open(void){
  HANDLE map=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CombatShared),name);if(!map)return;
  if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(map);return;}
  CombatShared *p=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));if(!p){CloseHandle(map);return;}
- memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=3;p->build=453;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
+ memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=3;p->build=455;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
 }
 
 #include "combat_install.h"

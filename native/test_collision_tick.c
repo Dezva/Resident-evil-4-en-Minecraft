@@ -43,6 +43,19 @@ static ControlFrame reset(void){
     return(ControlFrame){.generation=1,.armed=1,.stamp=1000,.flags=3};
 }
 int main(void) {
+    // Native ground/falling and bridge-to-native Y handoff are not X/Z teleports.
+    for(unsigned mode=0;mode<3;mode++){
+        ControlFrame falling=reset();runtime_vertical_valid=mode==2;runtime_physics_y=6000;
+        published.boxes[0][1]=mode==0?8000:-2500;published.boxes[0][4]=mode==0?11000:0;
+        pose(-300,6000,0);cube_collision_tick(&falling,1,now);
+        runtime_vertical_valid=0;now+=16;falling.stamp=published.stamp=now;
+        pose(100,mode==0?9000:-2000,80);cube_collision_tick(&falling,1,now);
+        assert(!state->stop && report.active && report.corrections==1 && coordinate(0)<-250);
+        assert(coordinate(1)==(mode==0?9000:-2000)); // native Y is never rewritten
+    }
+    ControlFrame expired=reset();cube_collision_tick(&expired,1,now);
+    now+=500;expired.stamp=published.stamp=now;cube_collision_tick(&expired,1,now);
+    assert(state->stop==3); // a truly expired collision reference remains latched
     ControlFrame slope=reset();pose(500,0,0);published.boxes[0][4]=3000;
     runtime_physics_y=runtime_view_y=3000;runtime_vertical_valid=1;runtime_support_skin=10;cube_collision_tick(&slope,1,now);
     now+=16;slope.stamp=published.stamp=now;pose(530,-60,0);cube_collision_tick(&slope,1,now);
@@ -104,7 +117,7 @@ int main(void) {
     assert(!state->stop && !report.corrections);graphics_ready=1;cube_collision_tick(&c,1,now);
     assert(!state->stop && report.corrections==1 && coordinate(0)<-250 && coordinate(1)==8); // 4.15 units/ms; sweep retained safe pose
     c=reset();cube_collision_tick(&c,1,now);now+=150;c.stamp=published.stamp=now;pose(5000,0,0);cube_collision_tick(&c,1,now);
-    assert(state->stop && report.reason==4 && !report.corrections && coordinate(0)==5000); // genuine teleport is not swept back
+    assert(state->stop==4 && report.reason==4 && !report.corrections && coordinate(0)==5000); // genuine teleport is not swept back
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);now=1101;cube_collision_tick(&c,1,now);assert(report.corrections==1 && coordinate(0)<-250);
     c=reset();cube_collision_tick(&c,1,now);pose(100,0,0);published.origin[0]=1;cube_collision_tick(&c,1,now);
     assert(report.reason==2 && report.corrections==1 && coordinate(0)<-249 && coordinate(1)==0); // new transform cannot adopt an embedded pose

@@ -37,7 +37,7 @@ int main(void){
     assert(!texture_refs && stop && !memcmp(&original,&current,sizeof(current)));
     for(unsigned failure=1;failure<=48;failure++){
         f=reset_hud();setter_fail=failure;hud_render_device(&f);
-        assert(applies==1 && !backup_refs && !texture_refs && !memcmp(&original,&current,sizeof(current)) && stop==1);
+        assert(applies==1 && !backup_refs && !texture_refs && !memcmp(&original,&current,sizeof(current)) && stop==7);
     }
     for(unsigned fail=0;fail<7;fail++){
         f=reset_hud();
@@ -48,7 +48,7 @@ int main(void){
         if(fail==4)texture_bad_pitch=1;
         if(fail==5)texture_null_bits=1;
         if(fail==6)draw_fail=1;
-        hud_render_device(&f);assert(applies==1 && !texture_refs && !backup_refs && !memcmp(&original,&current,sizeof(current)) && stop==1);
+        hud_render_device(&f);assert(applies==1 && !texture_refs && !backup_refs && !memcmp(&original,&current,sizeof(current)) && stop==7);
     }
     f=reset_hud();apply_fail=1;hud_render_device(&f);assert(f.gate.fatal && stop && !texture_refs);
     for(unsigned gate=0;gate<9;gate++){
@@ -64,7 +64,7 @@ int main(void){
         if(gate==8)f.scene=0;
         hud_render_device(&f);assert(!creates && !draws && !texture_refs && !backup_refs && !surface_refs);
     }
-    f=reset_hud();hud_render_device(&f);hud_reset_device(&f);assert(stop==1 && f.hud_blocked_generation==1);
+    f=reset_hud();hud_render_device(&f);hud_reset_device(&f);assert(stop==7 && f.hud_blocked_generation==1);
     assert(!texture_refs && !f.hud_texture);
     puts("HUD: 200 unchanged frames reuse one GPU upload; changed pixels, reset/recreation, gates, 48 setter failures and restoration passed");
 }

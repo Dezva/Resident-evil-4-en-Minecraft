@@ -95,7 +95,7 @@ namespace RE4BridgeView {
         public void Normal(bool focusGame) {
             foregroundLostAt=-1;FocusSuspended=false;
             FocusConfirmed = false;
-            // Latch the same stop word as native F8, independently of the TCP host.
+            // Separate VIEW's return/focus stop from physical F8 diagnostics.
             StopConfirmed = desktop.SameWindow(game.Handle,game.Pid) && desktop.Stop(game.Pid);
             try { desktop.EndMouse(); } finally {
             if (Active || Prepared) {
@@ -420,8 +420,8 @@ namespace RE4BridgeView {
         public static bool LatchStop(IntPtr view) {
             int version = Marshal.ReadInt32(view,4);
             if (Marshal.ReadInt32(view,0) != 0x52453443 || (version != 1 && version != 2) || Marshal.ReadInt32(view,28) != 1) return false;
-            // Aligned single-word write, matching native F8. Never publish a control frame here.
-            Marshal.WriteInt32(view,24,1);
+            // Aligned single-word stop. Preserve a previously observed native cause.
+            if(Marshal.ReadInt32(view,24)==0)Marshal.WriteInt32(view,24,8);
             return true;
         }
         public bool Stop(uint pid) {

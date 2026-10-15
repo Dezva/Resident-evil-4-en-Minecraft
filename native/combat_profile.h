@@ -6,6 +6,16 @@
 #define COMBAT_DAMAGE_RVA 0x1B5AF0u
 #define COMBAT_RAY_RVA 0x1BB3C0u
 #define COMBAT_MESSAGE_RVA 0x1AEEF0u
+#define COMBAT_TRAP_IMPACT_RVA 0xA8840u
+#define COMBAT_MINE_IMPACT_RVA 0xAA920u
+/* Read-only trap diagnostic: these handlers consume the same native message,
+ * set HP zero themselves and dispatch native closing/explosion routines. */
+static inline int combat_profile_hazard(const unsigned char *p,unsigned mine){
+ static const unsigned char trap[]={0x80,0xBE,0x2C,0x03,0,0,0,0x0F,0x84,0xB5,0,0,0};
+ static const unsigned char bomb[]={0x53,0x56,0x8B,0xF0,0x33,0xDB,0x66,0x39,0x9E,0x24,0x03,0,0,0x7E,0x35};
+ static const unsigned char close[]={0xC7,0x86,0xFC,0,0,0,1,3,0,0},explode[]={0xC7,0x86,0xFC,0,0,0,1,7,0,0};
+ return mine?(!memcmp(p,bomb,sizeof(bomb)) && !memcmp(p+0xA1,explode,sizeof(explode))):(!memcmp(p,trap,sizeof(trap)) && !memcmp(p+0xB8,close,sizeof(close)));
+}
 /* Prefixes observed in the user's read-only 2026-10-15 diagnostic. The ray
  * cookie address is relocated by ASLR and is deliberately not compared. */
 static inline int combat_profile_entry(const unsigned char *p,unsigned role){

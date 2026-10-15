@@ -19,7 +19,7 @@ class Writer:
         self.paused=paused
         if kwargs.get('look'): print('LOOK ' + str(kwargs['look']), flush=True)
     def reset_stop(self): pass
-    def status(self): return {"stop": 0, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons,
+    def status(self): return {"stop": args.native_stop, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons,
                               "capabilities": 31, "camera_active": False, "look_packets": 10, "camera_ticks": 50}
 
 
@@ -27,6 +27,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path, required=True)
 parser.add_argument("--overlay",action="store_true")
 parser.add_argument("--dialog",action="store_true")
+parser.add_argument("--native-stop",type=int,default=0)
 args = parser.parse_args()
 config = load_config(args.config)
 class Preview:

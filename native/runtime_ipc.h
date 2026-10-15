@@ -103,7 +103,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=5;p->build=453;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=5;p->build=455;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){

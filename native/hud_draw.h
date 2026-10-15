@@ -10,7 +10,7 @@ static void hud_release_texture(CubeDevice *f){
 static void hud_reset_device(CubeDevice *f){
     hud_release_texture(f);
     f->hud_blocked_generation=f->hud_generation;
-    if(f->hud_generation && state)InterlockedCompareExchange(&state->stop,1,0);
+    if(f->hud_generation && state)InterlockedCompareExchange(&state->stop,7,0);
 }
 static void hud_quad(BlockSurfaceVertex *out,float x,float y,float w,float h){
     const unsigned order[6]={0,1,2,0,2,3};

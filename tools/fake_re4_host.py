@@ -52,7 +52,7 @@ def control_summary(state):
     if not isinstance(state, dict):
         return state
     result = {key: state[key] for key in (
-        'armed', 'stop', 'reason', 'generation', 'hook_ticks', 'camera_active',
+        'armed', 'stop', 'stop_cause', 'reason', 'generation', 'hook_ticks', 'camera_active',
         'terrain_state', 'combat_terrain_state', 'client') if key in state}
     for key in ('terrain', 'combat_terrain'):
         mesh = state.get(key)
@@ -67,6 +67,10 @@ def control_summary(state):
             'callback_seen', 'callback_owned', 'callback_thread_changed', 'callback_foreign', 'last_native_flags', 'last_message', 'boxes_broken') if key in combat}
         result['combat']['enemies'] = len(combat.get('enemies', ()))
     runtime = state.get('runtime_state')
+    preview=state.get('preview_state')
+    if isinstance(preview,dict):
+        result['graphics']={key:preview[key] for key in ('reason','blocked','last_hresult','failures','stop_reason','telemetry_stale') if key in preview}
+        if isinstance(preview.get('collision_state'),dict):result['collision']=preview['collision_state']
     if isinstance(runtime, dict):
         result['scene']={key:runtime[key] for key in ('scene','flags','fresh') if key in runtime}
         result['dialog'] = {key: runtime[key] for key in ('dialog_active', 'dialog_actions', 'action_ack') if key in runtime}

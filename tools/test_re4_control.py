@@ -15,6 +15,16 @@ class Writer:
 
 
 class ControlTests(unittest.TestCase):
+    def test_distinct_native_stop_causes_latch_until_new_generation(self):
+        from re4_control import STOP_REASONS
+        self.assertEqual(set(STOP_REASONS),set(range(1,9)))
+        for code,cause in STOP_REASONS.items():
+            writer=Writer();policy=ControlPolicy(writer);player={'state':'player'}
+            self.assertTrue(policy.apply(self.frame(),player)['armed']);writer.stop_code=code
+            result=policy.apply(self.frame(),player)
+            self.assertFalse(result['armed']);self.assertEqual(result['stop_cause'],cause);self.assertEqual(writer.writes[-1],(False,0))
+            writer.stop_code=0;self.assertFalse(policy.apply(self.frame(),player)['armed'])
+            self.assertTrue(policy.apply(self.frame(generation=2),player)['armed'])
     def frame(self, generation=1, armed=True, buttons=1):
         return {"type": "re4_control", "armed": armed, "buttons": buttons, "arm_id": generation}
 

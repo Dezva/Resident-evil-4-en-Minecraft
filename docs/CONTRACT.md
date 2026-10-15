@@ -1,4 +1,20 @@
-# Cliente/host0.4.54 — sin cambios de DLL/IPC nativo
+# Cliente/host0.4.55 — trampas, altura y renderizado
+
+Combate v3/5324bytes y runtime v5/160bytes exigen build455. cEm2a se publica
+solo con los perfiles de ambos manejadores verificados. Usa el mensaje nativo
+existente y confirma HP0 + mensaje consumido + transición nativa, sin escrituras
+de HP/rutina/sonido ni llamadas directas a manejadores de trampas. Identidad,
+variante, alcance, raycast nativo, muros, sesión y TTL siguen siendo necesarios.
+La caja aproximada incluye400unidades bajo el origen de trampas; el raycast
+nativo valida la parte real. No amplía alcance ni aplica a colisiones de enemigos.
+Trampas quedan excluidas de bajas y corazones; el daño a ganados sigue igual.
+
+Minecraft devuelve min(límite vanilla,60) mientras el control activo en primera
+persona está vigente, sin cambiar opciones persistidas. Al salir usa vanilla.
+La guardia de desplazamiento de colisión solo mide X/Z; no modifica la Y nativa
+ni relaja el TTL500ms o el presupuesto de movimiento horizontal.
+
+## Histórico0.4.54 — sin cambios de DLL/IPC nativo
 
 Se conserva build453/Combatv3/Runtimev5. Client input lease: LIVE<200ms,
 SUSPENDED[200ms,1s) solo para una sesión previamente armada, EXPIRED>=1s.
@@ -107,7 +123,11 @@ Armado requiere arm_id >0 y una nueva generacion para rearmar tras parar. Bits
 No se permiten ataques, apuntado, recarga u otros bits. Correr exige capacidad4
 de la DLL; host rechaza su solicitud con DLL anterior y exige nuevo arm.
 `ack` incluye re4_sample y control_state {armed,stop,hook_ticks}. Stop 1=F8,
-2=TTL expirado. La sesion arranca desarmada y desarma al cerrar o fallar.
+2=TTL expirado. Desde0.4.55 también3=referencia de colisión caducada,
+4=desplazamiento horizontal fuera de rango,5=cambio de actor vertical,
+6=altura fuera de rango,7=reinicio/fallo gráfico y8=retorno/parada de VIEW.
+El campo informativo `stop_cause` y la consola muestran el motivo.
+La sesion arranca desarmada y desarma al cerrar o fallar.
 
 El host 0.3.5 agrega reason, requested_buttons y native_buttons como campos
 opcionales para observar solicitud y aplicacion. native_buttons es mascara

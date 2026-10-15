@@ -7,7 +7,7 @@ from test_re4_control import Writer
 from test_cube_test import Function
 class Kernel:
  def __init__(self):
-  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,3,453,42);self.closed=[]
+  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,3,455,42);self.closed=[]
   self.OpenFileMappingW=Function(lambda a,b,n:7);self.MapViewOfFile=Function(lambda a,b,c,d,n:ctypes.addressof(self.buffer) if n==SIZE else 0)
   self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a));self.GetTickCount=Function(lambda:1000)
  def report(self):
@@ -58,5 +58,5 @@ class CombatTests(unittest.TestCase):
   state=native.status();self.assertFalse(state['active']);self.assertFalse(state['fresh']);self.assertEqual(state['enemies'],[]);native.close()
  def test_build_mismatch_releases_both_mapping_resources(self):
   k=Kernel();k.words[2]=451
-  with self.assertRaisesRegex(ReaderError,'DLL0.4.53'):NativeCombat(42,k)
+  with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):NativeCombat(42,k)
   self.assertEqual(len(k.closed),2)

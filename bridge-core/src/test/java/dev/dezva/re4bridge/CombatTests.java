@@ -4,6 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.google.gson.*;
 import java.io.IOException;
 class CombatTests {
+ @Test void lowTrapBodyCanBeTargetedBelowItsModelOriginWithoutLoweringLivingHitboxes() throws Exception {
+  var json=state();var actor=json.getAsJsonArray("enemies").get(0).getAsJsonObject();actor.addProperty("kind",0x2A);actor.addProperty("radius",1000);
+  assertNotNull(CombatState.parse(json,0).raycast(p(0,-200,0),p(3000,-200,0)));
+  assertNull(CombatState.parse(json,0).raycast(p(0,-401,0),p(3000,-401,0)));
+  actor.addProperty("kind",0x12);assertNull(CombatState.parse(json,0).raycast(p(0,-200,0),p(3000,-200,0)));
+ }
  private static TerrainSnapshot.Point p(double x,double y,double z){return new TerrainSnapshot.Point(x,y,z);}
  private static JsonObject state(){return JsonParser.parseString("{\"available\":true,\"active\":true,\"fresh\":true,\"generation\":7,\"ack\":1,\"reason\":0,\"hp_before\":1000,\"hp_after\":950,\"hits\":1,\"kills\":0,\"enemies\":[{\"slot\":0,\"guid\":10,\"kind\":18,\"hp\":950,\"maximum\":1000,\"position\":[2000,0,0],\"radius\":250,\"height\":1600}]}").getAsJsonObject();}
  @Test void vanillaCooldownWeightsWeaponAttributeWithoutIncreasingSpamDamage(){

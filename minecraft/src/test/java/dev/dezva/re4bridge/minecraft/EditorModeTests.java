@@ -2,6 +2,14 @@ package dev.dezva.re4bridge.minecraft;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class EditorModeTests {
+    @Test void activeBridgeSharesRenderBudgetAndPreservesLowerVanillaLimits(){
+        var original=BridgeKeys.mode;
+        try{
+            BridgeKeys.mode=()->false;assertEquals(260,BridgeKeys.frameLimit(260));
+            BridgeKeys.mode=()->true;assertEquals(60,BridgeKeys.frameLimit(260));assertEquals(30,BridgeKeys.frameLimit(30));
+            BridgeKeys.mode=()->false;assertEquals(260,BridgeKeys.frameLimit(260));
+        }finally{BridgeKeys.mode=original;}
+    }
     @Test void survivalFlightIsBorrowedWithoutChangingGamemodeAndNewModesKeepTheirDefaults(){
         var player=new Player();var lease=new EditorMode();lease.take(player);
         assertEquals(0,player.mode);assertTrue(player.allowFlying);assertTrue(player.flying);

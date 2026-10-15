@@ -3,7 +3,7 @@ import ctypes,math,struct
 from ctypes import wintypes as w
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
-MAGIC=0x52453446
+MAGIC=0x52455446
 SIZE=5324
 
 def validate_combat(frame):
@@ -41,7 +41,7 @@ class NativeCombat:
         self.address=k.MapViewOfFile(self.handle,6,0,0,SIZE)
         if not self.address:self.close();raise ReaderError('No se pudo mapear combate')
         self.words=(ctypes.c_uint32*(SIZE//4)).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,3,453,pid):self.close();raise ReaderError('Combate requiere DLL0.4.53')
+        if tuple(self.words[:4])!=(MAGIC,3,455,pid):self.close();raise ReaderError('Combate requiere DLL0.4.55')
         self.available=True;self.publish(False,0)
     def publish(self,enabled,generation,scale=1000,request=None):
         if not self.available:return

@@ -40,7 +40,7 @@ class BridgeCombatTests {
   }
  }
  @Test void confirmedDamageUsesBoundedVanillaParticlesAndDoesNotGiveHeartsToCrates(){
-  assertTrue(CombatEffects.living(0x12));assertTrue(CombatEffects.living(0x23));assertFalse(CombatEffects.living(0x53));assertFalse(CombatEffects.living(0x58));
+  assertTrue(CombatEffects.living(0x12));assertTrue(CombatEffects.living(0x23));assertFalse(CombatEffects.living(0x2A));assertFalse(CombatEffects.living(0x53));assertFalse(CombatEffects.living(0x58));
   assertEquals(1,CombatEffects.hearts(.2));assertEquals(3,CombatEffects.hearts(7));assertEquals(8,CombatEffects.hearts(1000));
  }
 }

@@ -2,7 +2,7 @@
 #include "vertical_actor.h"
 /* Existing pad/camera/projection callbacks; one small geometry snapshot, no atlas copies. */
 static uint32_t collision_player,collision_generation,collision_stamp;
-static float collision_previous[3],collision_origin[4],collision_raw_y;
+static float collision_previous[3],collision_origin[4];
 static SRWLOCK collision_tick_lock=SRWLOCK_INIT;
 static CubeCommand collision_command; /* protected by collision_tick_lock; no 96KB stack frame */
 static void cube_collision_tick(const ControlFrame *control,int complete,uint32_t now) {
@@ -30,14 +30,18 @@ static void cube_collision_tick(const ControlFrame *control,int complete,uint32_
     // Opening a menu intentionally drops movement before its render/server pause.
     // A menu/GUI initialization gap must not be interpreted as a player teleport.
     if((uint32_t)(now-collision_stamp)>=500 && (control->flags&8u) && !control->buttons){reason=2;goto reference;}
-    if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
-    float distance=0;for(unsigned i=0;i<3;++i){float d=i==1?(runtime_actor_active?0:raw[1]-collision_raw_y):observed[i]-collision_previous[i];distance+=d*d;}
+    if((uint32_t)(now-collision_stamp)>=500){reason=4;InterlockedCompareExchange(&state->stop,3,0);goto disabled;}
+    /* This solver owns X/Z only. Native stairs, falls and handoff from bridge
+       feet to native ground can change Y sharply without any teleport in X/Z.
+       Including that Y delta falsely latched an emergency stop. */
+    float dx=observed[0]-collision_previous[0],dz=observed[2]-collision_previous[2];
+    float distance=dx*dx+dz*dz;
     /* A valid graphics/input snapshot can be skipped while turning/building.
        Sprint was measured at ~4.16 units/ms; a fixed 500-unit limit falsely
        stopped ordinary movement accumulated over ~120ms. Keep a bounded
        sweep budget, the 500ms lease and instant-teleport rejection. */
     float limit=500.f+5.f*(uint32_t)(now-collision_stamp);
-    if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,1,0);goto disabled;}
+    if(distance>limit*limit){reason=4;InterlockedCompareExchange(&state->stop,4,0);goto disabled;}
 resolve:;
     int hit=block_resolve_horizontal_actor_skin(command,before,observed,resolved,runtime_body_radius,runtime_body_height,runtime_support_skin);
     if(hit>=0)hit+=block_depenetrate_horizontal_skin(command,resolved,runtime_body_radius,runtime_body_height,runtime_support_skin);
@@ -54,7 +58,7 @@ resolve:;
     }
 reference:
     collision_player=player;collision_generation=control->generation;collision_stamp=now;
-    memcpy(collision_previous,observed,12);collision_raw_y=raw[1];memcpy(collision_origin,command->origin,16);goto publish;
+    memcpy(collision_previous,observed,12);memcpy(collision_origin,command->origin,16);goto publish;
 disabled:
     active=0;collision_player=collision_generation=0;goto publish;
 transient:

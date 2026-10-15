@@ -14,6 +14,8 @@ public final class BridgeKeys {
     static java.util.function.IntConsumer navigate=kind->{};
     public static void screen(Screen next){screen.accept(next);}
     public static void focus(boolean focused){focus.accept(focused);}
+    /** GUI/hand transfer is capped at 60 Hz; do not starve RE4 with uncapped MC rendering. */
+    public static int frameLimit(int vanilla){return mode.getAsBoolean()?Math.min(vanilla,60):vanilla;}
     public static boolean key(MinecraftClient client,long window,int key,int action){
         if(window!=client.getWindow().getHandle() || !client.isWindowFocused() || !mode.getAsBoolean() || client.currentScreen!=null)return false;
         if(consumeDialogKey(dialog.getAsBoolean(),key,action,navigate))return true;

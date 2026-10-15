@@ -302,7 +302,7 @@ public final class BridgeConnection implements AutoCloseable {
                         if(state.has("combat_state"))combatState=CombatState.parse(state.getAsJsonObject("combat_state"),System.nanoTime());
                         nativeStop = state.get("stop").getAsInt();
                         nativeTicks = state.get("hook_ticks").getAsLong();
-                        if (nativeStop < 0 || nativeStop > 2 || nativeTicks < 0 || nativeTicks > 0xFFFFFFFFL)
+                        if (nativeStop < 0 || nativeStop > 8 || nativeTicks < 0 || nativeTicks > 0xFFFFFFFFL)
                             throw new IOException("Invalid native status");
                         if (!state.get("stop").getAsString().equals(Integer.toString(nativeStop))
                                 || !state.get("hook_ticks").getAsString().equals(Long.toString(nativeTicks)))

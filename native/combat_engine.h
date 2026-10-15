@@ -17,13 +17,13 @@ static uint32_t combat_queued,combat_expired,combat_last_part,combat_target_kind
 static float combat_hit_position[3];
 typedef struct {
  /* active: 0 idle, 1 awaiting damage, 2 inside native damage, 3 awaiting box break. */
- unsigned active;uint32_t actor,guid,vtable,generation,id,slot,damage,total_damage,stamp,thread,part,kind,hp_before;
+ unsigned active;uint32_t actor,guid,vtable,generation,id,slot,damage,total_damage,stamp,thread,part,kind,hp_before,variant;
  float source[3];
 } CombatPending;
 static CombatPending combat_pending;
 static int combat_pending_identity(const CombatPending *p){
  unsigned char *actor=(unsigned char*)(uintptr_t)p->actor;
- return readable(actor,0x408) && !memcmp(&p->vtable,actor,4) && !memcmp(&p->guid,actor+0xF8,4) && actor[0x100]==p->kind && combat_kind(p->kind);
+ return readable(actor,0x408) && !memcmp(&p->vtable,actor,4) && !memcmp(&p->guid,actor+0xF8,4) && actor[0x100]==p->kind && (p->kind!=0x2A || actor[0x101]==p->variant) && combat_kind(p->kind);
 }
 static int combat_owned_message(const CombatPending *p){
  unsigned char *actor=(unsigned char*)(uintptr_t)p->actor;
@@ -56,6 +56,18 @@ static void combat_observe_box(uint32_t now){
  combat_ack=p->id;combat_target_guid=p->guid;combat_target_slot=p->slot;combat_hp_before=p->hp_before;combat_hp_after=0;
  combat_reason=0;combat_hits++;combat_boxes_broken++;p->active=0;
 }
+static void combat_observe_hazard(uint32_t now){
+ CombatPending *p=&combat_pending;
+ if((p->active!=1 && p->active!=3) || p->kind!=0x2A || now-p->stamp>=500 || !combat_session_valid(p->generation,now) || !combat_owned_message(p))return;
+ unsigned char *actor=(unsigned char*)(uintptr_t)p->actor;int16_t hp;memcpy(&hp,actor+0x324,2);
+ /* Both verified handlers clear only msg flag_4, retaining kind/weapon/source.
+    Require their native terminal transition, not merely a consumed message or
+    HP zero. The bridge never calls a trap routine or writes HP/routine/audio. */
+ unsigned mine=p->variant==1 || p->variant==2;
+ if(hp!=0 || actor[0x32C] || actor[0xFC]!=1 || (mine?actor[0xFD]!=7:(actor[0xFD]!=3 && actor[0xFD]!=4)))return;
+ combat_ack=p->id;combat_target_guid=p->guid;combat_target_slot=p->slot;combat_hp_before=p->hp_before;combat_hp_after=0;
+ combat_reason=0;combat_hits++;p->active=0;
+}
 static uint32_t combat_callback_seen,combat_callback_owned,combat_callback_thread_changed,combat_last_native_flags,combat_last_message,combat_callback_foreign;
 static int __cdecl combat_damage_hook(unsigned char *actor,int damage,int variance,unsigned flags){
  AcquireSRWLockExclusive(&combat_lock);
@@ -83,7 +95,7 @@ static int __cdecl combat_damage_hook(unsigned char *actor,int damage,int varian
  combat_pending.active=0;
  if(!combat_pending_identity(&p) || combat_generation!=p.generation){ReleaseSRWLockExclusive(&combat_lock);return result;}
  memcpy(&after,actor+0x324,2);
- if(p.kind==0x53 && valid && after<=0){
+ if((p.kind==0x53 || p.kind==0x2A) && valid && after<=0){
   /* HP zero alone is insufficient for boxes, even if their update used this
      helper. Let the caller complete its break/audio/drop transition first. */
   combat_pending.active=3;ReleaseSRWLockExclusive(&combat_lock);return result;
@@ -92,7 +104,7 @@ static int __cdecl combat_damage_hook(unsigned char *actor,int damage,int varian
  combat_hp_before=before>0?(uint32_t)before:0;combat_hp_after=after>0?(uint32_t)after:0;
  combat_reason=valid && after<before?0:4;
  if(combat_reason==0){
-  combat_hits++;if(after<=0 && p.kind<0x50)combat_kills++;
+  combat_hits++;if(after<=0 && p.kind<0x50 && p.kind!=0x2A)combat_kills++;
   CombatHurt *hurt=&combat_hurt[p.slot];
   if(!hurt->valid || hurt->generation!=p.generation || hurt->guid!=p.guid || hurt->vtable!=p.vtable || GetTickCount()-hurt->stamp>=500)
    *hurt=(CombatHurt){.generation=p.generation,.guid=p.guid,.vtable=p.vtable,.stamp=p.stamp,.damage=p.total_damage,.valid=1};
@@ -131,9 +143,10 @@ static unsigned char *combat_hit_part(const CombatShared *r,unsigned char *actor
 static int combat_queue_message(const CombatShared *r,unsigned char *actor,unsigned char *part,uint32_t damage,uint32_t vt,uint32_t now){
  if(actor[0x32C] || actor[0x32D] || combat_pending.active || !writable(actor+0x328,0x1C))return 0;
  if(actor[0x100]==0x53 && (actor[0xFC]!=1 || actor[0xFD]!=0))return 0;
+ if(actor[0x100]==0x2A && (actor[0xFC]!=1 || ((actor[0x101]==1 || actor[0x101]==2)?actor[0xFD]!=6:(actor[0xFD]!=0 && actor[0xFD]!=5))))return 0;
  float distance;memcpy(&distance,part+0x28,4);
  int16_t hp;memcpy(&hp,actor+0x324,2);
- combat_pending=(CombatPending){.active=1,.actor=(uint32_t)(uintptr_t)actor,.guid=r->guid,.vtable=vt,.generation=r->generation,.id=r->id,.slot=r->slot,.damage=damage,.total_damage=r->damage,.stamp=now,.thread=GetCurrentThreadId(),.part=(uint32_t)(uintptr_t)part,.kind=actor[0x100],.hp_before=hp>0?(uint32_t)hp:0};
+ combat_pending=(CombatPending){.active=1,.actor=(uint32_t)(uintptr_t)actor,.guid=r->guid,.vtable=vt,.generation=r->generation,.id=r->id,.slot=r->slot,.damage=damage,.total_damage=r->damage,.stamp=now,.thread=GetCurrentThreadId(),.part=(uint32_t)(uintptr_t)part,.kind=actor[0x100],.variant=actor[0x101],.hp_before=hp>0?(uint32_t)hp:0};
  memcpy(combat_pending.source,r->start,12);
  combat_native_message(actor+0x328,NULL,0,10,2,r->start,distance,part);
  if(!combat_owned_message(&combat_pending) || !(actor[0x32C]&1u)){combat_pending.active=0;return 0;}

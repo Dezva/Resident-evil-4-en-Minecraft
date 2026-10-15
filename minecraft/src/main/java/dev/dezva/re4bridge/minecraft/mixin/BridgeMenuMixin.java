@@ -7,9 +7,12 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MinecraftClient.class)
 abstract class BridgeMenuMixin {
+    @Inject(method="getFramerateLimit",at=@At("RETURN"),cancellable=true)
+    private void re4bridge$frameBudget(CallbackInfoReturnable<Integer> ci){ci.setReturnValue(BridgeKeys.frameLimit(ci.getReturnValueI()));}
     @Inject(method="setScreen",at=@At("HEAD"))
     private void re4bridge$menu(Screen next,CallbackInfo ci){BridgeKeys.screen(next);}
     @Inject(method="onWindowFocusChanged",at=@At("HEAD"))

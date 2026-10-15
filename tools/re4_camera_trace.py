@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "e034d92c2e4e79732da6f66efce630dced46003e80edec2e08f0653c0e3ad362": "0.4.55 (native traps, horizontal-only displacement guard and distinct stops)",
     "46836d4f3e609cc9b127d99f6801b868c631cf4c604d2f040179483989a9d546": "0.4.53 (lethal hits, native box completion and pickup navigation)",
     "665d23b2342632d2579fed94cf0843cbf302968dbbeaa00b67b965f11e84f338": "0.4.52 (native impact messages, body parts, particles and host recovery)",
     "8ddee51be0483cb2bad06b7f966252b3abb669a78d98664ac515c349780f4e10": "0.4.51 (Minecraft melee, native actor catalogue and confirmed damage/death)",

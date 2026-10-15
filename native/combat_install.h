@@ -2,7 +2,7 @@
 /* Reuse the executable's incremental-link thunk instead of relocating any
  * instructions. Already-detoured functions and unknown builds remain disabled. */
 static void combat_engine_install(unsigned char *base,DWORD size,IMAGE_NT_HEADERS32 *nt){
- combat_engine_ready=0;combat_hook_reason=1;
+ combat_engine_ready=combat_hazards_ready=0;combat_hook_reason=1;
  if(nt->FileHeader.TimeDateStamp!=COMBAT_PROFILE_TIMESTAMP || size<=COMBAT_RAY_RVA+32)return;
  unsigned char *damage=base+COMBAT_DAMAGE_RVA,*ray=base+COMBAT_RAY_RVA,*message=base+COMBAT_MESSAGE_RVA;
  unsigned char *entries[8];unsigned count=0;IMAGE_SECTION_HEADER *sections=IMAGE_FIRST_SECTION(nt);
@@ -38,4 +38,10 @@ static void combat_engine_install(unsigned char *base,DWORD size,IMAGE_NT_HEADER
   memcpy(entries[0]+1,&saved,4);FlushInstructionCache(GetCurrentProcess(),entries[0],5);VirtualProtect(entries[0],5,old,&ignored);combat_hook_reason=5;return;
  }
  combat_hook_reason=0;combat_engine_ready=1;
+ combat_hazards_ready=1;
+ for(unsigned mine=0;mine<2;mine++){
+  DWORD rva=mine?COMBAT_MINE_IMPACT_RVA:COMBAT_TRAP_IMPACT_RVA;MEMORY_BASIC_INFORMATION m;
+  if(rva>size || size-rva<0xC8 || !readable(base+rva,0xC8) || !VirtualQuery(base+rva,&m,sizeof(m)) || m.State!=MEM_COMMIT
+   || !(m.Protect&(PAGE_EXECUTE_READ|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY)) || !combat_profile_hazard(base+rva,mine))combat_hazards_ready=0;
+ }
 }

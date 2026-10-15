@@ -9,6 +9,20 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ControlTests {
+    @Test void viewStopCodeRemainsConnectedAndDisarmedInsteadOfFailingProtocol() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("stop-config.json");var log=temp.resolve("stop-peer.log");
+        Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString(),"--native-stop","8")
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});
+            bridge.start();await(()->bridge.nativeStop()==8);
+            assertTrue(bridge.status().connected());assertFalse(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());
+            long seq=bridge.status().acknowledgedSequence();await(()->bridge.status().acknowledgedSequence()>seq);
+            assertTrue(bridge.status().connected());assertEquals(8,bridge.nativeStop());
+        }finally{peer.destroyForcibly();}
+    }
     @Test void movingToEscImmediatelyZeroesInputWhileKeepingGenerationThroughGuiInitialization() throws Exception {
         int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
         var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("config.json");var log=temp.resolve("pause-peer.log");Files.writeString(file,new Gson().toJson(config));

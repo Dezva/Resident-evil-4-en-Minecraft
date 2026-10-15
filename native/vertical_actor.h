@@ -15,10 +15,10 @@ static void runtime_vertical_actor(const ControlFrame *control,int complete,uint
     if(vertical_actor_generation!=control->generation){
         vertical_actor_generation=control->generation;vertical_actor_player=player;vertical_actor_origin=raw[1];
     }
-    if(vertical_actor_player!=player){InterlockedCompareExchange(&state->stop,1,0);return;}
+    if(vertical_actor_player!=player){InterlockedCompareExchange(&state->stop,5,0);return;}
     if(runtime_vertical_rebase){vertical_actor_origin=raw[1];runtime_vertical_rebase=0;}
     if(fabsf(runtime_physics_y-vertical_actor_origin)>128*runtime_vertical_scale){
-        InterlockedCompareExchange(&state->stop,1,0);return;
+        InterlockedCompareExchange(&state->stop,6,0);return;
     }
     if(*player_slot!=player || state->stop || !state->armed || state->arm_id!=control->generation || (GetAsyncKeyState(VK_F8)&0x8000)
         || (uint32_t)(GetTickCount()-control->stamp)>=500

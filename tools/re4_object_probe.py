@@ -6,7 +6,7 @@ ENEMY='81 E1 01 02 00 00 83 F9 01 75 ? 50 B9 ? ? ? ? E8'
 GLOBAL='A1 ? ? ? ? B9 FF FF FF 7F 21 48 ? A1'
 MESSAGE='51 52 6A 04 B9 ? ? ? ? 8B F0 E8'
 
-def snapshot(read,base,size,slot):
+def snapshot(read,base,size,slot, hazards=False):
     pose=sample_player(read,slot,base,size);position=pose.get('position_raw')
     blobs=[(address,read(address,n)) for address,n in code_sections(read,base,size)]
     def operands(pattern,offset):return sorted({u32(read(address+i+offset,4)) for address,data in blobs for i in matches(data,pattern)})
@@ -36,18 +36,31 @@ def snapshot(read,base,size,slot):
             data=read(manager+8+i*0x100,0x100)
             if not u32(data,8) and not data[0xf8]:continue
             result['messages'].append(dict(slot=i,flags=hex(u32(data,8)),routine=list(data[0xc:0x10]),state=hex(u32(data,0x10)),choices=data[0xf8],selection=data[0xf9],current=data[0xfa],jump_max=data[0x9f]))
-    for name,rva in [('box_move',0x4827),('object_box_move',0x9F52),('barrel_move',0x1A5F),('apply_damage',0x1B5AF0)]:
+    entries=[('box_move',0x4827),('object_box_move',0x9F52),('barrel_move',0x1A5F),('apply_damage',0x1B5AF0)]
+    if hazards:entries.append(('trap_move',0xA209))
+    for name,rva in entries:
         address=base+rva;entry=read(address,5)
         if entry[0]==0xE9:address+=5+struct.unpack_from('<i',entry,1)[0]
         if base<=address<=base+size-768:result['code'][name]=dict(rva=hex(address-base),bytes=read(address,768).hex(' '))
+    if hazards:
+        # Bounded read-only code around the cEm2a update, including direct call
+        # targets. Bytes are for diagnosis only; never interpreted as permission
+        # to call or patch an unverified address.
+        result['trap_details']=[]
+        for row in result['pools']:
+            for actor in row['actors']:
+                if actor['kind']!='0x2a':continue
+                vt=base+int(actor['vtable_rva'],16)
+                if base<=vt<=base+size-0x60:
+                    result['trap_details'].append(dict(slot=actor['slot'],vtable=read(vt,0x60).hex(' ')))
     return result
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--game-exe',default=DEFAULT_EXE);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--game-exe',default=DEFAULT_EXE);parser.add_argument('--hazards',action='store_true');args=parser.parse_args()
     p=WindowsProcess(find_pid(),args.game_exe)
-    try:report=snapshot(p.read,p.base,p.size,locate_player_slot(p.read,p.base,p.size))
+    try:report=snapshot(p.read,p.base,p.size,locate_player_slot(p.read,p.base,p.size),args.hazards)
     finally:p.close()
-    output=Path(__file__).resolve().parents[1]/'cajas-menu.json';output.write_text(json.dumps(report,indent=2),encoding='utf-8')
+    output=Path(__file__).resolve().parents[1]/('trampas.json' if args.hazards else 'cajas-menu.json');output.write_text(json.dumps(report,indent=2),encoding='utf-8')
     print('Informe:',output);print('Solo lectura; no se llamo ni modifico el juego.')
     return 0
 if __name__=='__main__':raise SystemExit(main())

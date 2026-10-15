@@ -10,7 +10,7 @@ from re4_reader import ReaderError
 class Kernel:
     def __init__(self):
         self.buffer=ctypes.create_string_buffer(128);self.words=(ctypes.c_uint32*32).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,4,451,42);self.closed=[]
+        self.words[:4]=(MAGIC,4,452,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
         self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==128 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
@@ -29,7 +29,7 @@ class RuntimeTests(unittest.TestCase):
     def test_old_broken_dll_rejected_with_update_message(self):
         for build in (442,445,446,447,448,449,450):
             k=Kernel();k.words[2]=build
-            with self.assertRaisesRegex(ReaderError,'DLL0.4.51'):NativeRuntime(42,k)
+            with self.assertRaisesRegex(ReaderError,'DLL0.4.52'):NativeRuntime(42,k)
             self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])

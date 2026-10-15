@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "665d23b2342632d2579fed94cf0843cbf302968dbbeaa00b67b965f11e84f338": "0.4.52 (native impact messages, body parts, particles and host recovery)",
     "8ddee51be0483cb2bad06b7f966252b3abb669a78d98664ac515c349780f4e10": "0.4.51 (Minecraft melee, native actor catalogue and confirmed damage/death)",
     "0c7e316b6e64cc57c2413abe8dce4e377ff62d3b418fba7b0eae87664dbc96ab": "0.4.50 (native stair height ownership and absolute block support)",
     "db52e9a31cedf59cc8a78831b216a07cccc0fd4cc22f8c8ea8e96e4043e330b4": "0.4.49 (absolute feet, real actor elevation and native platform landing)",

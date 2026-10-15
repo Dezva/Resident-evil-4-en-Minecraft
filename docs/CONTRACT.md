@@ -1,3 +1,32 @@
+# Combat v2 / build 452
+
+Combat mapping is 5296 bytes, magic 0x52453446/version2/build452/PID. The command
+area [16,80) and report seqlock at80 retain their offsets; the 128 actor rows at136
+remain 40 bytes. Added tail at5256: six u32 (engine_ready,queued,expired,hit_part,
+hook_reason,pending_id), three float hit_position and u32 target_kind.
+
+Requests are consumed once, separately from acknowledged completion. Reason9
+means a native message is waiting; ack still names the preceding completed
+request. A native ApplyDamage for the exact actor/GUID/part/source/thread may
+replace the amount and variance (0), retaining flags/result. HP counters and
+ack advance only on that callback. A pending request expires at500ms or loses
+its control generation/menu/F8 lease; only its still-owned pending message can
+be canceled. Slot reuse/foreign messages must retain ordinary native damage.
+
+Native Bullet_RayTest supplies the actual hit-part pointer; that pointer must
+belong to the target's bounded/cycle-checked YARARE list with valid bone, ray
+point and reach. World geometry is authoritative in RE4. Placed-block occlusion
+is rechecked against the actual point, not just the selection AABB.
+
+Client effects require a confirmed HP reduction, are bounded to64 live vanilla
+particles and render at the returned impact in the transparent overlay. Crow
+and active Box/Rack/Window/Barrel types with valid HP join the existing whitelist;
+this is not a general entity/object editor. Combat no longer requests a second
+terrain capture. The host writes rotating error logs without authentication
+frames/tokens or geometry dumps.
+
+Historical channel contracts follow.
+
 # Puente v1: contrato del prototipo
 
 ## Orientacion opcional 0.4.1 (IPC nativo v2)

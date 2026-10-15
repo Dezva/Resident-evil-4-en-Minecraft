@@ -7,11 +7,13 @@ from test_re4_control import Writer
 from test_cube_test import Function
 class Kernel:
  def __init__(self):
-  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,1,451,42);self.closed=[]
+  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,2,452,42);self.closed=[]
   self.OpenFileMappingW=Function(lambda a,b,n:7);self.MapViewOfFile=Function(lambda a,b,c,d,n:ctypes.addressof(self.buffer) if n==SIZE else 0)
   self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a));self.GetTickCount=Function(lambda:1000)
  def report(self):
   self.words[20:34]=[2,1000,7,1,0,10,0,1000,950,1,0,1,1,1]
+  self.words[1314:1320]=[1,1,0,6,0,0]
+  struct.pack_into('<3fI',self.buffer,5280,1800,1000,0,0x12)
   struct.pack_into('<5I5f',self.buffer,136,0,10,0x12,950,1000,2000,0,0,250,1600)
 class CombatTests(unittest.TestCase):
  def frame(self):return dict(type='re4_control',armed=True,buttons=0,arm_id=7,combat_enabled=True,combat_scale=1000,look=dict(enabled=True,first_person=True,total_yaw=0,pitch=0,eye_height=1000),combat=dict(id=1,slot=0,guid=10,damage=50,scale=1000,reach=3,start=[0,1000,0],end=[3000,1000,0]))
@@ -49,6 +51,6 @@ class CombatTests(unittest.TestCase):
   k=Kernel();native=NativeCombat(42,k);k.report();k.words[20]=3
   state=native.status();self.assertFalse(state['active']);self.assertFalse(state['fresh']);self.assertEqual(state['enemies'],[]);native.close()
  def test_build_mismatch_releases_both_mapping_resources(self):
-  k=Kernel();k.words[2]=450
-  with self.assertRaisesRegex(ReaderError,'DLL0.4.51'):NativeCombat(42,k)
+  k=Kernel();k.words[2]=451
+  with self.assertRaisesRegex(ReaderError,'DLL0.4.52'):NativeCombat(42,k)
   self.assertEqual(len(k.closed),2)

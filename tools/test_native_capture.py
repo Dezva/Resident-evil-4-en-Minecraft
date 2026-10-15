@@ -90,6 +90,9 @@ class NativeCaptureTests(unittest.TestCase):
         fixture=(root/'native/test_runtime.c').read_text().replace('/* ACTUAL_RUNTIME */',prefix+action)
         self.compile_run('runtime.c',fixture)
 
+    def test_native_reaction_profile_installs_only_verified_shared_thunk(self):
+        self.compile_run("test_combat_install.c")
+
     def test_actual_melee_callback_damage_and_guards(self):
         root=Path(__file__).resolve().parents[1]
         enemies=(root/'native/enemy_collision.h').read_text();enemies=enemies[enemies.index('static uint32_t enemy_select_manager'):enemies.index('static void enemy_collision_tick')]

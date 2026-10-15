@@ -4,7 +4,7 @@ from ctypes import wintypes as w
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
 MAGIC=0x52453446
-SIZE=5256
+SIZE=5296
 
 def validate_combat(frame):
     enabled=frame.get('combat_enabled',False)
@@ -41,7 +41,7 @@ class NativeCombat:
         self.address=k.MapViewOfFile(self.handle,6,0,0,SIZE)
         if not self.address:self.close();raise ReaderError('No se pudo mapear combate')
         self.words=(ctypes.c_uint32*(SIZE//4)).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,1,451,pid):self.close();raise ReaderError('Combate requiere DLL0.4.51')
+        if tuple(self.words[:4])!=(MAGIC,2,452,pid):self.close();raise ReaderError('Combate requiere DLL0.4.52')
         self.available=True;self.publish(False,0)
     def publish(self,enabled,generation,scale=1000,request=None):
         if not self.available:return
@@ -63,12 +63,14 @@ class NativeCombat:
             if before!=self.words[20]:continue
             stamp,generation,ack,reason,guid,slot,hp_before,hp_after,hits,kills,attempts,active,count=struct.unpack_from('<13I',data)
             if generation>2147483647 or ack>2147483647 or reason>9 or active>1 or count>128 or hp_after>hp_before or hp_before>32767:raise ReaderError('Estado de combate no valido')
+            engine,queued,expired,part,profile,pending,xh,yh,zh,kind=struct.unpack_from('<6I3fI',data,5256-84)
+            if engine>1 or part>255 or kind>255 or profile>9 or pending>2147483647 or any(not math.isfinite(n) or abs(n)>20000000 for n in (xh,yh,zh)):raise ReaderError('Reaccion de combate no valida')
             actors=[];seen=set()
             for i in range(count if active else 0):
                 slot_id,identity,kind,hp,maximum,x,y,z,radius,height=struct.unpack_from('<5I5f',data,52+40*i)
                 if slot_id>4095 or slot_id in seen or kind>255 or not 0<hp<=maximum<=32767 or not 100<=radius<=1000 or not 300<=height<=3000 or any(not math.isfinite(n) or abs(n)>20000000 for n in (x,y,z)):raise ReaderError('Ganado de combate no valido')
                 seen.add(slot_id);actors.append(dict(slot=slot_id,guid=identity,kind=kind,hp=hp,maximum=maximum,position=[x,y,z],radius=radius,height=height))
-            return dict(available=True,active=bool(active),fresh=((self.k.GetTickCount()-stamp)&0xffffffff)<500,generation=generation,ack=ack,reason=reason,target_slot=slot,target_guid=guid,hp_before=hp_before,hp_after=hp_after,hits=hits,kills=kills,attempts=attempts,enemies=actors)
+            return dict(available=True,active=bool(active),fresh=((self.k.GetTickCount()-stamp)&0xffffffff)<500,generation=generation,ack=ack,reason=reason,target_slot=slot,target_guid=guid,hp_before=hp_before,hp_after=hp_after,hits=hits,kills=kills,attempts=attempts,enemies=actors,engine_supported=bool(engine),profile_reason=profile,pending=pending,queued=queued,expired=expired,hit_part=part,hit_position=[xh,yh,zh],target_kind=kind)
         return dict(available=True,active=False,fresh=False,generation=0,ack=0,reason=1,hp_before=0,hp_after=0,hits=0,kills=0,enemies=[])
     def close(self):
         if self.available:self.publish(False,0)

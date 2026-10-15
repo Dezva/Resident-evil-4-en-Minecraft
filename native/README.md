@@ -1,3 +1,23 @@
+# Native bridge
+
+Build 452 uses Combat v2 (5296 bytes). It submits the game's own hit-part ray and
+DmgMsg message, then overrides only that owned message's ApplyDamage amount.
+It never sets enemy HP or routine bytes directly. Damage confirmation is deferred
+until the native update; ordinary damage retains its original arguments/result.
+
+The Steam UHD profile was checked against the user's read-only diagnostic:
+timestamp 0x5a6192e5; ApplyDamage RVA 0x1b5af0, ray 0x1bb3c0, message 0x1aeef0;
+shared damage ILT RVA 0x71c1 with 91 calls. Startup checks observed byte prefixes,
+executable memory and the unique ILT, then replaces only that thunk's displacement.
+There is no instruction relocation or fallback patch for an unknown profile.
+ABI research: boshjerns/re4-boshjerns-sdk@0383241204842ae61bc4a93d6110c32e495f365d,
+`docs/game/weapons.md`, `fun-combat.md`, `src/raygun.cpp`; layout reference remains
+nipkownix/re4_tweaks@92c0208bd09c29c9640e13a2493b8e6bd6edd700 `SDK/em.h`.
+This is an independent implementation; neither SDK binaries nor game assets
+are distributed. Real game reactions still need a Windows visual test.
+
+See [0.4.52 guide](../docs/RE4-BLOCK-0.4.52.md).
+
 # Native RE4 bridge
 
 Build451 adds an independent Combat v1 IPC (5256 bytes). Existing pad callbacks

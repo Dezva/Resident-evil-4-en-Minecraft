@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <math.h>
 #define COMBAT_MAX_ACTORS 128u
-#define COMBAT_SIZE 5256u
+#define COMBAT_SIZE 5296u
 #define COMBAT_MAGIC 0x52453446u
 /* Native cEm +0x324/+0x326 and identity fields from pinned SDK. */
 typedef struct {uint32_t slot,guid,kind,hp,max;float position[3],radius,height;} CombatActor;
@@ -12,9 +12,11 @@ typedef struct {
  uint32_t stamp,enabled,generation,id,damage;float scale,reach;uint32_t slot,guid;float start[3],end[3];
  volatile LONG sequence;uint32_t observed_stamp,observed_generation,ack,reason,target_guid,target_slot,hp_before,hp_after,hits,kills,attempts,active,count;
  CombatActor actors[COMBAT_MAX_ACTORS];
+ uint32_t engine_ready,queued,expired,hit_part,hook_reason,pending_id;
+ float hit_position[3];uint32_t target_kind;
 } CombatShared;
 _Static_assert(sizeof(CombatActor)==40,"Combat actor");
-_Static_assert(sizeof(CombatShared)==COMBAT_SIZE,"Combat v1");
+_Static_assert(sizeof(CombatShared)==COMBAT_SIZE,"Combat v2");
 static inline int combat_ray_box(const float *start,const float *end,const float *box,float *fraction){
  float low=0,high=1;
  for(unsigned i=0;i<3;i++){float d=end[i]-start[i];if(fabsf(d)<.000001f){if(start[i]<box[i] || start[i]>box[i+3])return 0;}else{float a=(box[i]-start[i])/d,b=(box[i+3]-start[i])/d;if(a>b){float tmp=a;a=b;b=tmp;}low=fmaxf(low,a);high=fminf(high,b);if(low>high)return 0;}}

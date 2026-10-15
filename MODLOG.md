@@ -1,3 +1,19 @@
+## 0.4.52 — impactos nativos, nuevos objetivos y host
+
+Sustituye HP/Die directos por Bullet_RayTest, EmDmgMsg_Set y un ajuste limitado
+al mensaje del puente en Em_ApplyDamage. RE4 elige partes, reacciones y muerte;
+la confirmación asíncrona precede a durabilidad y efectos. El diagnóstico del
+usuario confirma timestamp 0x5a6192e5, prefijos, RVAs y el único thunk de daño con
+91 llamadas. Otros perfiles se rechazan sin parchear instrucciones desconocidas.
+Añade cuervos y Box/Rack/Window/Barrel con HP válido; partículas originales de
+Minecraft se capturan en el overlay, sin corazones para objetos. Mantiene
+bloques oclusores hasta el impacto real. No añade daño de barrido.
+El host elimina el segundo extractor de mapa, resume la consola, limita el
+frame de salida y guarda errores con rotación; una sesión fallida puede reconectar.
+Combat v2/5296 bytes, Runtime v4/build452; el desinstalador reconoce DLL451.
+Pruebas simuladas pasan; animaciones/destrucciones/partículas en juego pendientes.
+Ver [guía 0.4.52](docs/RE4-BLOCK-0.4.52.md).
+
 ## 0.4.51 — cuerpo a cuerpo Minecraft contra ganados
 
 Implementa clic izquierdo, atributo de daño de la mano principal, recarga vanilla

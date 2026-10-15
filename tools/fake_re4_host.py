@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hmac
 import json
+import logging
 import math
 from pathlib import Path
 import socket
@@ -39,8 +40,32 @@ def read_frame(stream):
 
 
 def write_frame(stream, frame):
-    stream.write((json.dumps(frame, allow_nan=False, separators=(",", ":")) + "\n").encode())
+    data = (json.dumps(frame, allow_nan=False, separators=(",", ":")) + "\n").encode()
+    if len(data) - 1 > MAX_FRAME_BYTES:
+        raise ProtocolError("Outbound frame exceeds byte limit")
+    stream.write(data)
     stream.flush()
+
+
+def control_summary(state):
+    """Console telemetry must never print meshes or complete actor catalogs."""
+    if not isinstance(state, dict):
+        return state
+    result = {key: state[key] for key in (
+        'armed', 'stop', 'reason', 'hook_ticks', 'camera_active',
+        'terrain_state', 'combat_terrain_state') if key in state}
+    for key in ('terrain', 'combat_terrain'):
+        mesh = state.get(key)
+        if isinstance(mesh, dict):
+            result[key] = {k: mesh[k] for k in ('revision', 'complete', 'radius', 'age_ms') if k in mesh}
+            result[key]['triangles'] = len(mesh.get('triangles', ()))
+    combat = state.get('combat_state')
+    if isinstance(combat, dict):
+        result['combat'] = {key: combat[key] for key in (
+            'active', 'fresh', 'ack', 'reason', 'hp_before', 'hp_after', 'hits', 'kills',
+            'engine_supported', 'profile_reason', 'pending', 'queued', 'expired', 'hit_part', 'target_kind') if key in combat}
+        result['combat']['enemies'] = len(combat.get('enemies', ()))
+    return result
 
 
 def number(value):
@@ -156,10 +181,8 @@ def serve_peer(peer, token, report, sample_provider=None, control_handler=None):
             if time.monotonic() - last_print > 1:
                 last_print = time.monotonic()
                 if sample_provider is not None:
-                    state=ack.get('control_state','read-only')
-                    if isinstance(state,dict):
-                        state={k:v for k,v in state.items() if k!='terrain'}
-                        if 'terrain' in ack['control_state']:state['terrain_triangles']=len(ack['control_state']['terrain']['triangles'])
+                    state=control_summary(ack.get('control_state','read-only'))
+                    logging.getLogger('re4bridge.host').info('seq=%s control=%s',sequence,state)
                     print(f"seq={sequence} RE4={ack['re4_sample'].get('state')} "
                           f"position={ack['re4_sample'].get('position_raw')} "
                           f"control={state}", flush=True)

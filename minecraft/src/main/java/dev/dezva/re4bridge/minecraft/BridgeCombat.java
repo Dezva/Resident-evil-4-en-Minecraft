@@ -8,7 +8,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.sound.*;
-import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.*;
 
@@ -19,32 +18,28 @@ public final class BridgeCombat {
  private static volatile Context context;private static volatile Pending pending;private static final AtomicBoolean busy=new AtomicBoolean();
  private static final java.util.concurrent.atomic.AtomicLong epoch=new java.util.concurrent.atomic.AtomicLong();
  private static void release(long lease){if(epoch.get()==lease)busy.set(false);}
- private static int generation,counter;private static long messageAt;
+ private static int generation,counter;
  static void bind(BridgeConnection bridge,ControllerMapping map,int gen,UUID player,String dimension,Set<net.minecraft.util.math.BlockPos> placed){context=new Context(bridge,map,gen,player,dimension,Set.copyOf(placed),System.nanoTime());bridge.combatRequested(true,map.scale());}
- public static void clear(){epoch.incrementAndGet();var c=context;var p=pending;context=null;pending=null;busy.set(false);if(c!=null)c.bridge.clearCombat();if(p!=null)p.context.bridge.clearCombat();}
+ public static void clear(){CombatEffects.clear();epoch.incrementAndGet();var c=context;var p=pending;context=null;pending=null;busy.set(false);if(c!=null)c.bridge.clearCombat();if(p!=null)p.context.bridge.clearCombat();}
  private static boolean active(Context c){var live=context;return c!=null && live!=null && live.bridge==c.bridge && live.generation==c.generation && live.player.equals(c.player) && System.nanoTime()-live.stamp<200_000_000L && c.bridge.status().connected() && c.bridge.nativeArmed() && c.bridge.nativeStop()==0 && !c.bridge.scripted();}
  private static TerrainSnapshot.Point point(Vec3d p){return new TerrainSnapshot.Point(p.x,p.y,p.z);}
  static int wear(ItemStack stack){return stack.getItem() instanceof net.minecraft.item.SwordItem || stack.isIn(ItemTags.SWORDS)?1:stack.contains(DataComponentTypes.TOOL)?2:0;}
  record Aim(CombatState.Enemy enemy,TerrainSnapshot.Point start,TerrainSnapshot.Point end){}
- static Aim select(CombatState state,TerrainSnapshot mesh,ControllerMapping map,Vec3d eye,Vec3d end,net.minecraft.util.hit.BlockHitResult block){
+ static Aim select(CombatState state,ControllerMapping map,Vec3d eye,Vec3d end,net.minecraft.util.hit.BlockHitResult block){
   var start=TerrainSnapshot.nativePoint(map,point(eye));var finish=TerrainSnapshot.nativePoint(map,point(end));var target=state.raycast(start,finish);if(target==null)return null;
   if(block!=null && eye.squaredDistanceTo(block.getPos())<=eye.squaredDistanceTo(end)*target.fraction()*target.fraction())return null;
-  if(mesh==null || !mesh.covered(start) || !mesh.covered(finish))throw new IllegalArgumentException("Unknown combat terrain");
-  var wall=mesh.raycast(start,finish);if(wall!=null && wall.fraction()<=target.fraction()+.00001)return null;
-  double limit=wall==null?1:wall.fraction();if(block!=null)limit=Math.min(limit,eye.distanceTo(block.getPos())/eye.distanceTo(end));
+  // Native RE4 raycasting checks world walls and destructible geometry at impact.
+  // A cached construction mesh must not hide a crate or an already-broken door.
+  double limit=block==null?1:eye.distanceTo(block.getPos())/eye.distanceTo(end);
   if(limit<1)finish=start.add(finish.subtract(start).times(Math.max(0,limit-.00001)));
   return new Aim(target.enemy(),start,finish);
  }
  public static boolean attack(MinecraftClient client){
   var c=context;if(!active(c) || client.player==null || client.world==null || !client.player.isAlive() || !BridgePlayMode.supported(client.player) || !client.isInSingleplayer() || client.currentScreen!=null || client.isPaused() || !client.isWindowFocused())return false;
-  var state=c.bridge.combatState();if(state==null || !state.fresh(System.nanoTime()) || state.generation()!=c.generation)return false;
+  var state=c.bridge.combatState();if(state==null || !state.reactionSupported() || !state.fresh(System.nanoTime()) || state.generation()!=c.generation)return false;
   double reach=Math.min(6,client.player.getEntityInteractionRange());Vec3d eye=client.player.getPos().add(0,client.player.getEyeHeight(net.minecraft.entity.EntityPose.STANDING),0),end=eye.add(client.player.getRotationVec(1).multiply(reach));
   var block=TerrainInteraction.nearestPlaced(eye,end,c.placed,p->client.world.isChunkLoaded(p)?client.world.getBlockState(p).getCollisionShape(client.world,p):net.minecraft.util.shape.VoxelShapes.empty());
-  var mesh=c.bridge.combatTerrain();if(mesh==null || mesh.generation()!=c.generation || !mesh.fresh(System.nanoTime()))mesh=c.bridge.terrain();if(mesh!=null && (mesh.generation()!=c.generation || !mesh.fresh(System.nanoTime())))mesh=null;
-  Aim aim;
-  try{aim=select(state,mesh,c.map,eye,end,block);}catch(IllegalArgumentException unknown){
-   if(System.nanoTime()-messageAt>2_000_000_000L){messageAt=System.nanoTime();client.player.sendMessage(Text.literal("Combate: esperando geometria RE4 para comprobar paredes."),true);}return false;
-  }
+  Aim aim=select(state,c.map,eye,end,block);
   if(aim==null)return false;
   if(!busy.compareAndSet(false,true))return true;
   long lease=epoch.get();
@@ -65,11 +60,13 @@ public final class BridgeCombat {
    }catch(IllegalArgumentException error){release(lease);}
   });return true;
  }
+ static double visualFov(){var c=context;return c==null?50:c.bridge.verticalFov();}
  static void tick(MinecraftClient client){
   var p=pending;if(p==null)return;var state=p.context.bridge.combatState();long now=System.nanoTime();
   if(!active(p.context) || now-p.request.createdNs()>1_000_000_000L){pending=null;p.context.bridge.combatRequest(null);release(p.lease);return;}
   if(state==null || !state.available() || !state.fresh() || now-state.receivedNs()>=500_000_000L || state.generation()!=p.request.generation() || state.acknowledgement()!=p.request.id())return;
   pending=null;p.context.bridge.combatRequest(null);
+  if(state.reason()==0 && state.hpAfter()<state.hpBefore())CombatEffects.hit(client,p.context.map,state,p.wear==1 && p.strong);
   var server=client.getServer();if(server==null){release(p.lease);return;}
   server.execute(()->{
    try{

@@ -5,17 +5,19 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.51: combate de Minecraft](docs/RE4-BLOCK-0.4.51.md).
-Clic izquierdo contra ganados con daño del objeto, alcance y recarga de Minecraft.
-La DLL confirma impactos sobre su HP real; paredes y bloques obstruyen el golpe.
-Mantiene altura real y apoyo nativo de escaleras. Requiere DLL451 y host/JAR nuevos.
-Pruebas automatizadas pasan; combate y bajas en RE4/Windows pendientes de confirmar.
+**Estado actual:** [0.4.52: impactos nativos y estabilidad](docs/RE4-BLOCK-0.4.52.md).
+Clic izquierdo con daño, alcance y recarga de Minecraft. El mensaje nativo de
+RE4 recibe la parte del cuerpo alcanzada y conserva sus reacciones y muertes.
+Añade cuervos, cajas/barriles compatibles y partículas de daño y espada.
+Elimina el segundo mapa continuo de combate y registra errores del host.
+Requiere DLL 452 y host/JAR nuevos. Perfil del ejecutable confirmado por el
+usuario; las nuevas reacciones y partículas requieren prueba visual en Windows.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.51 |
+| RE4 Bridge | paquete/mod 0.4.52 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

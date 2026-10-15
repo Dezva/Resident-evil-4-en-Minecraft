@@ -1,3 +1,37 @@
+# Validación 0.4.52 — impactos y recuperación
+
+Linux cloud, 2026-10-15. El usuario confirma HP y drops en 0.4.51, pero los cuerpos
+quedan inmóviles; el log muestra 12 impactos/4 bajas y ninguna excepción de host.
+Su diagnóstico nuevo confirma timestamp 0x5a6192e5, las tres funciones en los RVAs
+esperados y un único thunk de ApplyDamage con 91 llamadas. No se publican sus logs.
+
+- Core: 48 pruebas; Minecraft: 86; Python: 178, sin fallos ni omisiones.
+- Compilación JDK21/Gradle8.11.1, remapeo y access widener pasan. La tarea opcional
+  remapSourcesJar está omitida por la configuración existente.
+- La prueba compila el callback nativo real y las funciones de mensaje/hook contra
+  APIs simuladas. Comprueba espera de confirmación, importe/ventana diferencial,
+  partes nativas, cuervo/caja/barril, bloque entre AABB e impacto, F8/menú/TTL,
+  identidad reciclada y disparos ajenos. No hay escrituras de HP/rutinas del puente.
+- Instalación del perfil: prefijos observados, ASLR del cookie, thunk compartido,
+  91 llamadas, fallos de protección y rollback; perfiles desconocidos no cambian
+  código. Cinco fixtures C adicionales pasan con warnings como errores.
+- TCP autenticado real a main() del host: provoca RuntimeError, verifica desarmado,
+  guarda traceback sin token y acepta una segunda conexión. La consola resume ambos
+  meshes y catálogos; una línea completa del log pasa de 2390 a 294 caracteres.
+- Se retira el segundo worker/extractor de mapa de combate; no se infiere un aumento
+  de FPS sin medir en el juego. La extracción de construcción continúa.
+- Instaladores PowerShell simulados pasan, incluida actualización desde la DLL451
+  publicada y rechazo de DLL desconocida.
+- DLL452 SHA256: 665d23b2342632d2579fed94cf0843cbf302968dbbeaa00b67b965f11e84f338.
+
+El perfil de código está confirmado por lectura del ejecutable del usuario.
+Las animaciones, efectos gráficos, destrucción de cada tipo y estabilidad prolongada
+no se han ejecutado en RE4/Windows dentro de cloud. Las partículas usan el overlay
+transparente; su oclusión visual no usa la profundidad nativa. No se presenta la
+excepción simulada como la causa de todas las interrupciones reales.
+
+La evidencia histórica continúa a continuación.
+
 # Validación0.4.51 — combate de Minecraft
 
 Linux cloud,2026-10-14. Alcance confirmado por el usuario: clic izquierdo,

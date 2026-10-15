@@ -69,7 +69,7 @@ class Combat:
         self.enabled=enabled;self.generation=generation
         if enabled and request and request['id']!=self.ack:
             self.ack=request['id'];self.hits+=1;print(f"MELEE generation={generation} id={self.ack} damage={request['damage']} slot={request['slot']}",flush=True)
-    def status(self):return dict(available=True,active=self.enabled,fresh=True,generation=self.generation,ack=self.ack,reason=0,hp_before=1000,hp_after=950,hits=self.hits,kills=0,enemies=[])
+    def status(self):return dict(engine_supported=True,available=True,active=self.enabled,fresh=True,generation=self.generation,ack=self.ack,reason=0,hp_before=1000,hp_after=950,hits=self.hits,kills=0,enemies=[])
 policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime(),Combat())
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))

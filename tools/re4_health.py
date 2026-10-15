@@ -32,7 +32,7 @@ class NativeHealth:
         self.address=k.MapViewOfFile(self.handle,6,0,0,SIZE)
         if not self.address:self.close();raise ReaderError('No se pudo mapear vida')
         self.words=(ctypes.c_uint32*25).from_address(self.address)
-        if tuple(self.words[:2])!=(MAGIC,1) or self.words[2] not in (441,442,443,444,445,446,447,448,449,450,451) or self.words[3]!=pid:self.close();raise ReaderError('Canal de vida incompatible')
+        if tuple(self.words[:2])!=(MAGIC,1) or self.words[2] not in (441,442,443,444,445,446,447,448,449,450,451,452) or self.words[3]!=pid:self.close();raise ReaderError('Canal de vida incompatible')
         self.available=True;self.publish(False,0)
 
     def publish(self,enabled,generation,request=None):

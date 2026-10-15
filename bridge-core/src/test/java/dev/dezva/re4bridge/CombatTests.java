@@ -24,4 +24,10 @@ class CombatTests {
   var counter=state();counter.addProperty("ack",1.5);assertThrows(IOException.class,()->CombatState.parse(counter,0));
   var bounds=state();bounds.getAsJsonArray("enemies").get(0).getAsJsonObject().addProperty("height",Double.NaN);assertThrows(IOException.class,()->CombatState.parse(bounds,0));
  }
+ @Test void legacyHostCannotEnableReactionsAndConfirmedImpactsRetainNativeCoordinates() throws Exception {
+  var json=state();assertFalse(CombatState.parse(json,0).reactionSupported());
+  json.addProperty("engine_supported",true);json.add("hit_position",JsonParser.parseString("[1800,1000,0]"));json.addProperty("target_kind",35);
+  var nativeState=CombatState.parse(json,0);assertTrue(nativeState.reactionSupported());assertEquals(p(1800,1000,0),nativeState.impact());assertEquals(35,nativeState.targetKind());
+  json.add("hit_position",JsonParser.parseString("[0,0]"));assertThrows(IOException.class,()->CombatState.parse(json,0));
+ }
 }

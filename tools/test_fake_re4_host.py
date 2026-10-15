@@ -93,3 +93,18 @@ class SimulatorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TelemetryBudgetTests(unittest.TestCase):
+    def test_console_summary_does_not_copy_meshes_actor_catalogs_or_tokens(self):
+        mesh={'revision':1,'complete':True,'triangles':[[123456.789]*9 for _ in range(1024)]}
+        state={'armed':True,'terrain':mesh,'combat_terrain':mesh,'combat_state':{'hits':12,'kills':4,'enemies':[{'position':[1,2,3]}]*128},'token':'a'*64}
+        summary=host.control_summary(state)
+        self.assertLess(len(json.dumps(summary)),600)
+        self.assertEqual(summary['terrain']['triangles'],1024);self.assertEqual(summary['combat']['enemies'],128)
+        self.assertNotIn('123456',str(summary));self.assertNotIn('token',summary)
+        self.assertEqual(len(state['terrain']['triangles']),1024)
+
+    def test_oversized_outbound_frame_is_rejected_before_any_partial_write(self):
+        stream=io.BytesIO()
+        with self.assertRaises(host.ProtocolError):host.write_frame(stream,{'payload':'x'*host.MAX_FRAME_BYTES})
+        self.assertEqual(stream.getvalue(),b'')

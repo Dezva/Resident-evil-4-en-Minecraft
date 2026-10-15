@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Authenticated loopback RE4 host; optional local native-input controller."""
 import argparse
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import socket
@@ -11,15 +13,28 @@ from re4_control import NativeControl, ControlPolicy
 from re4_health import NativeHealth
 from re4_runtime import NativeRuntime
 from re4_combat import NativeCombat
+from re4_combat_probe import describe_profile
 from re4_graphics_capture import read_capture
 from re4_block_preview import NativePreview
 from re4_hud import NativeHud
 from re4_overlay import NativeOverlay
-from re4_terrain_feed import TerrainFeed,CombatTerrainFeed
+from re4_terrain_feed import TerrainFeed
+
+
+def setup_logging():
+    folder=Path(__file__).resolve().parents[1]/'logs'
+    folder.mkdir(exist_ok=True)
+    log=logging.getLogger('re4bridge.host');log.setLevel(logging.INFO)
+    handler=RotatingFileHandler(folder/'re4bridge-host.log',maxBytes=2*1024*1024,backupCount=2,encoding='utf-8')
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    log.addHandler(handler)
+    return log,handler
 
 
 def main():
-    terrain=None;combat_terrain=None
+    terrain=None
+    log,log_handler=setup_logging()
+    log.info('Host 0.4.52 iniciado')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
@@ -40,15 +55,18 @@ def main():
         print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             terrain=TerrainFeed(process.read,process.base,process.size)
-            combat_terrain=CombatTerrainFeed(process.read,process.base,process.size)
             native = NativeControl(pid)
             health = NativeHealth(pid,native.k)
             runtime = NativeRuntime(pid,native.k)
             combat = NativeCombat(pid,native.k)
+            engine=combat.status()
+            log.info('Perfil de reacciones nativas: %s',engine)
+            if not engine.get('engine_supported'):log.warning('Perfil del ejecutable (solo lectura): %s',describe_profile(process.read,process.base,process.size))
+            print('Reacciones nativas: '+('listas' if engine.get('engine_supported') else 'perfil no reconocido; revisa logs/re4bridge-host.log'),flush=True)
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.51: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            print('Host 0.4.52: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -80,28 +98,35 @@ def main():
                         def apply(frame,sample):
                             result=policy.apply(frame,sample)
                             result.update(terrain.observe(frame,sample,result))
-                            result.update(combat_terrain.observe(frame,sample,result))
+                            result['combat_terrain_state']='consulta nativa por impacto'
                             return result
                         serve_peer(peer, config["token"], {}, provider, apply if policy else None)
                     except (ProtocolError, OSError,ReaderError) as error:
+                        log.warning('Sesion interrumpida (%s): %s',type(error).__name__,error)
                         print("Sesion cerrada:", error, flush=True)
+                    except Exception:
+                        log.exception('Fallo inesperado de sesion; se desarma y se permite reconectar')
+                        print('Sesion interrumpida. Detalles en logs/re4bridge-host.log; puedes volver a preparar Minecraft.',flush=True)
                     finally:
                         if policy:
                             policy.stop()
                             terrain.observe({'armed':False}, {'state':'unavailable'}, {'armed':False})
-                            combat_terrain.observe({'armed':False}, {'state':'unavailable'}, {'armed':False})
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError, ProtocolError, ReaderError) as error:
+        log.exception('Host detenido')
         print("ERROR:", error, flush=True)
         print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
+        return 1
+    except Exception:
+        log.exception('Host detenido por un fallo inesperado')
+        print('ERROR: revisa logs/re4bridge-host.log.',flush=True)
         return 1
     finally:
         if combat is not None:combat.close()
         if runtime is not None:runtime.close()
         if health is not None:health.close()
         if terrain is not None:terrain.close()
-        if combat_terrain is not None:combat_terrain.close()
         if hud is not None:hud.close()
         if preview is not None:
             preview.close()
@@ -109,6 +134,8 @@ def main():
             native.close()
         if process is not None:
             process.close()
+        log.info('Host terminado')
+        log.removeHandler(log_handler);log_handler.close()
     return 0
 
 

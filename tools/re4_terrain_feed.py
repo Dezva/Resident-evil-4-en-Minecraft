@@ -1,11 +1,12 @@
 """Bounded read-only terrain snapshots. Inactive until an authenticated FP client asks.
 No process writes, native calls, world import, or reads on the input/network thread.
 """
-import threading,time
+import logging,threading,time,struct
 from re4_map_export import extract
 from re4_reader import ReaderError
 
 MAX_TRIANGLES=1024
+
 class TerrainFeed:
     def __init__(self,read,base,size,extractor=extract,clock=time.monotonic,radius=12000):
         self.read=read;self.base=base;self.size=size;self.extractor=extractor;self.clock=clock
@@ -36,7 +37,9 @@ class TerrainFeed:
             triangles=[[*p[0],*p[1],*p[2]] for row in rows for p in [row['vertices']]] if complete else []
             kinds=[row.get('kind','other') for row in rows] if complete else []
             reason='disponible' if complete else 'mapa incompleto o excede limite local'
-        except (ReaderError,ValueError,OSError) as error:complete=False;triangles=[];kinds=[];reason='lectura de mapa no disponible'
+        except (ReaderError,ValueError,OSError,struct.error) as error:
+            logging.getLogger('re4bridge.host').warning('Geometria no disponible: %s',error)
+            complete=False;triangles=[];kinds=[];reason='lectura de mapa no disponible'
         with self.lock:
             if self.request is None or self.request[1]!=generation or max(abs(self.request[0][i]-position[i]) for i in range(3))>3000 or self.closed.is_set() or radius!=self.radius:return
             self.revision=self.revision%2147483647+1

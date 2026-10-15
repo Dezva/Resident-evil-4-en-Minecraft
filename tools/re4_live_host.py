@@ -19,6 +19,8 @@ from re4_block_preview import NativePreview
 from re4_hud import NativeHud
 from re4_overlay import NativeOverlay
 from re4_terrain_feed import TerrainFeed
+from re4_console import ConsoleReporter
+from fake_re4_host import control_summary
 
 
 def setup_logging():
@@ -34,12 +36,14 @@ def setup_logging():
 def main():
     terrain=None
     log,log_handler=setup_logging()
-    log.info('Host 0.4.53 iniciado')
+    log.info('Host 0.4.54 iniciado')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
     parser.add_argument("--control", action="store_true", help="Require native module; explicit /re4bridge arm needed")
     args = parser.parse_args()
+    console=ConsoleReporter()
+    say=console.print
     process = None
     native = None
     preview = None
@@ -52,7 +56,7 @@ def main():
         pid = find_pid()
         process = WindowsProcess(pid, args.game_exe)
         slot = locate_player_slot(process.read, process.base, process.size)
-        print("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
+        say("RE4 UHD 1.1.0 detectado. Lectura externa conectada.", flush=True)
         if args.control:
             terrain=TerrainFeed(process.read,process.base,process.size)
             native = NativeControl(pid)
@@ -62,21 +66,21 @@ def main():
             engine=combat.status()
             log.info('Perfil de reacciones nativas: %s',engine)
             if not engine.get('engine_supported'):log.warning('Perfil del ejecutable (solo lectura): %s',describe_profile(process.read,process.base,process.size))
-            print('Reacciones nativas: '+('listas' if engine.get('engine_supported') else 'perfil no reconocido; revisa logs/re4bridge-host.log'),flush=True)
+            say('Reacciones nativas: '+('listas' if engine.get('engine_supported') else 'perfil no reconocido; revisa logs/re4bridge-host.log'),flush=True)
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.53: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            say('Host 0.4.54: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
-                print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
+                say(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
                 if 'installation' in captured:
                     journal=captured['installation']
-                    print(f"Captura al inicio: {journal['initial']['reason']}; ultimo intento: {journal['latest']['reason']}; fase={journal['phase']}",flush=True)
-            except ReaderError as error:print('Captura grafica:',error,flush=True)
-            print("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
+                    say(f"Captura al inicio: {journal['initial']['reason']}; ultimo intento: {journal['latest']['reason']}; fase={journal['phase']}",flush=True)
+            except ReaderError as error:say('Captura grafica:',error,flush=True)
+            say("Modulo de controles nativo conectado. DESARMADO. F8 = parada de emergencia.", flush=True)
             capabilities = native.status()['capabilities']
-            print(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}, correr={bool(capabilities & 4)}", flush=True)
+            say(f"Capacidades: raton={bool(capabilities & 1)}, primera_persona={bool(capabilities & 2)}, correr={bool(capabilities & 4)}", flush=True)
 
         def provider():
             try:
@@ -89,24 +93,30 @@ def main():
             server.bind(("127.0.0.1", config["port"]))
             server.listen(1)
             command = "controller" if args.control else "re4"
-            print(f"READY 127.0.0.1:{config['port']} — RE4 REAL; "+("pulsa Preparar Minecraft en VIEW" if args.control else f"usa /re4bridge {command}"), flush=True)
+            say(f"READY 127.0.0.1:{config['port']} — RE4 REAL; "+("pulsa Preparar Minecraft en VIEW" if args.control else f"usa /re4bridge {command}"), flush=True)
             while True:
                 peer, _ = server.accept()
                 with peer:
                     policy = ControlPolicy(native,preview,hud,health,runtime,combat) if native is not None else None
                     try:
+                        last_state=None
                         def apply(frame,sample):
+                            nonlocal last_state
                             result=policy.apply(frame,sample)
                             result.update(terrain.observe(frame,sample,result))
                             result['combat_terrain_state']='consulta nativa por impacto'
+                            client=result.get('client',{})
+                            key=(frame.get('arm_id'),result['armed'],result.get('reason'),result.get('stop'),client.get('reason'),client.get('focused'),client.get('screen'),result.get('runtime_state',{}).get('scene'))
+                            if key!=last_state:
+                                log.info('Cambio de control: %s',control_summary(result));last_state=key
                             return result
-                        serve_peer(peer, config["token"], {}, provider, apply if policy else None)
+                        serve_peer(peer, config["token"], {}, provider, apply if policy else None, console.emit)
                     except (ProtocolError, OSError,ReaderError) as error:
                         log.warning('Sesion interrumpida (%s): %s',type(error).__name__,error)
-                        print("Sesion cerrada:", error, flush=True)
+                        say("Sesion cerrada:", error, flush=True)
                     except Exception:
                         log.exception('Fallo inesperado de sesion; se desarma y se permite reconectar')
-                        print('Sesion interrumpida. Detalles en logs/re4bridge-host.log; puedes volver a preparar Minecraft.',flush=True)
+                        say('Sesion interrumpida. Detalles en logs/re4bridge-host.log; puedes volver a preparar Minecraft.',flush=True)
                     finally:
                         if policy:
                             policy.stop()
@@ -115,12 +125,12 @@ def main():
         return 0
     except (OSError, ValueError, ProtocolError, ReaderError) as error:
         log.exception('Host detenido')
-        print("ERROR:", error, flush=True)
-        print("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
+        say("ERROR:", error, flush=True)
+        say("Comprueba RE4 abierto, config de Minecraft y que el simulador/otro host este cerrado.")
         return 1
     except Exception:
         log.exception('Host detenido por un fallo inesperado')
-        print('ERROR: revisa logs/re4bridge-host.log.',flush=True)
+        say('ERROR: revisa logs/re4bridge-host.log.',flush=True)
         return 1
     finally:
         if combat is not None:combat.close()
@@ -136,6 +146,7 @@ def main():
             process.close()
         log.info('Host terminado')
         log.removeHandler(log_handler);log_handler.close()
+        console.close()
     return 0
 
 

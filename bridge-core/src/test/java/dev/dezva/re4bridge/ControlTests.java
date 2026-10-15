@@ -38,8 +38,47 @@ class ControlTests {
             bridge.requestAction(8);bridge.publishControl(true,1,7,new MouseLook.Input(true,true,0,0,1620));
             long acknowledged=bridge.status().acknowledgedSequence();await(()->bridge.status().acknowledgedSequence()>acknowledged);
             assertFalse(Files.readString(log).contains("ACTION generation=8")); // action from another generation cannot cross the wire
-            // Movement still expires at the ordinary 200 ms deadline.
+            // Stalled input is zeroed at200ms; a full second still ends the native session.
             await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
+        }finally{peer.destroyForcibly();}
+    }
+    @Test void shortTickStallStopsInputAt200msAndLongStallStillRequiresANewArm() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("stall-config.json");var log=temp.resolve("stall-peer.log");
+        Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString())
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
+            var look=new MouseLook.Input(true,true,0,0,1620);
+            var scene=new BlockScene(10,20,30,0,java.util.List.of(new BlockScene.Bounds(0,0,0,1000,1000,1000)),0);
+            bridge.clientState("activo",true,false,"NONE");bridge.publishSceneControl(true,1,7,look,scene);await(()->bridge.nativeArmed() && bridge.nativeButtons()==1);
+            await(()->bridge.nativeButtons()==0);assertTrue(bridge.nativeArmed());assertTrue(bridge.previewRequested());
+            assertTrue(Files.readString(log).contains("sin tick de Minecraft; entrada suspendida"));
+            assertTrue(Files.readString(log).contains("FROZEN generation=7 fp=True"));
+            bridge.publishSceneControl(true,1,7,look,scene);await(()->bridge.nativeButtons()==1);assertTrue(bridge.nativeArmed());
+            await(()->!bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());
+            long sequence=bridge.status().acknowledgedSequence();bridge.publishSceneControl(true,1,7,look,scene);await(()->bridge.status().acknowledgedSequence()>sequence);assertFalse(bridge.nativeArmed());
+            bridge.publishSceneControl(true,1,8,look,scene);await(bridge::nativeArmed);
+        }finally{peer.destroyForcibly();}
+    }
+    @Test void focusSuspensionKeepsSceneAndGenerationWithZeroButtonsAndReportsItsReason() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("focus-config.json");var log=temp.resolve("focus-peer.log");
+        Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString())
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
+            var look=new MouseLook.Input(true,true,0,0,1620);
+            var scene=new BlockScene(10,20,30,0,java.util.List.of(new BlockScene.Bounds(0,0,0,1000,1000,1000)),0);
+            bridge.publishSceneControl(true,1,7,look,scene);await(()->bridge.nativeArmed() && bridge.nativeButtons()==1 && bridge.previewRequested());
+            bridge.clientState("foco transitorio; entrada suspendida",false,false,"NONE");bridge.suspendForMenu();bridge.clearCombat();
+            await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);Thread.sleep(75);assertTrue(bridge.previewRequested());
+            assertTrue(Files.readString(log).contains("foco transitorio; entrada suspendida"));assertTrue(Files.readString(log).contains("'focused': False"));
+            bridge.menuRequested(false);bridge.clientState("activo",true,false,"NONE");bridge.publishSceneControl(true,1,7,look,scene);
+            await(()->bridge.nativeButtons()==1);assertTrue(bridge.nativeArmed());
+            assertThrows(IllegalArgumentException.class,()->bridge.clientState("bad\nline",true,false,"NONE"));
         }finally{peer.destroyForcibly();}
     }
     @Test void pickupDialogTransmitsArrowThenEnterAndClearsLaterInputWhenItCloses() throws Exception {

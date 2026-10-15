@@ -1,3 +1,28 @@
+# Cliente/host0.4.54 — sin cambios de DLL/IPC nativo
+
+Se conserva build453/Combatv3/Runtimev5. Client input lease: LIVE<200ms,
+SUSPENDED[200ms,1s) solo para una sesión previamente armada, EXPIRED>=1s.
+SUSPENDED transmite armed=true/buttons0/menu=true, conserva look/escena/Y,
+suprime acción/combate y extracción nueva de terreno. Nunca escribe un timestamp
+nuevo al snapshot cliente. Un tick auténtico puede recuperar antes de1s; después
+la política host exige nueva generación. El menú existente conserva su límite1s.
+
+Opcional client={reason:string<=160 sin CR/LF,focused:bool,paused:bool,
+screen:string<=32 sin CR/LF,sample_age_ms:int[-1,60000],tick_age_ms:int[-1,60000]}.
+Se valida antes de IPC; es diagnóstico y no autoriza ninguna escritura. El host
+lo devuelve junto con generation y registra transiciones inmediatamente. Si el
+worker suspende/caduca por falta de ticks, sobrescribe solo su reason diagnóstico.
+Consola usa un emisor asíncrono con32 mensajes, descarte de antiguos y shutdown
+acotado; nunca bloquea el hilo del socket esperando una selección de consola.
+
+Foco: callback HEAD onWindowFocusChanged publica pausa/0 antes de los cambios
+vanilla. ControlArming conserva como máximo200ms una sesión activa ya confirmada;
+registra la hora en callback para impedir recuperación tardía si no hubo ticks.
+VIEW espera solo foreground nulo o ForegroundStaging de Explorer, máximo200ms;
+ventanas ajenas, fallos de ratón, cierre y F8 mantienen la parada.
+
+Contratos anteriores debajo.
+
 # Build453: Combat v3 y Runtime v5
 
 Combat: 5324 bytes, magic0x52453446/version3/build453/PID. Conserva offsets de

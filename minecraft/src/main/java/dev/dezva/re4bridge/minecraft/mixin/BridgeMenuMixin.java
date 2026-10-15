@@ -12,6 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class BridgeMenuMixin {
     @Inject(method="setScreen",at=@At("HEAD"))
     private void re4bridge$menu(Screen next,CallbackInfo ci){BridgeKeys.screen(next);}
+    @Inject(method="onWindowFocusChanged",at=@At("HEAD"))
+    private void re4bridge$focus(boolean focused,CallbackInfo ci){BridgeKeys.focus(focused);}
     @Inject(method="handleInputEvents",at=@At("HEAD"))
     private void re4bridge$scripted(CallbackInfo ci){var client=(MinecraftClient)(Object)this;BridgeKeys.input(client);dev.dezva.re4bridge.minecraft.TerrainInteraction.crosshair(client,1);}
 }

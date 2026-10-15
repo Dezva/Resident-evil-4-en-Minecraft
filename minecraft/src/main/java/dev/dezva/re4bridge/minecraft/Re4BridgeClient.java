@@ -263,6 +263,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             minecraftHud.render(client,ticks);
         };
         BridgeKeys.screen=this::screenChanging;
+        BridgeKeys.focus=focused->{var current=bridge;if(!focused && current!=null && controlArming.active()){controlArming.lostFocus(System.nanoTime());current.suspendForMenu();current.clearCombat();}};
         BridgeBlockEffects.broken=(p,state)->breakEffect(MinecraftClient.getInstance(),p,state);
         BridgeKeys.mode=()->bridge!=null && bridge.status().connected() && bridge.controllerMode() && controlArming.active() && firstPersonEnabled;
         BridgeKeys.toggle=()->toggleMode(MinecraftClient.getInstance());
@@ -321,7 +322,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
     }
     private void beforeTick(MinecraftClient client) {
         while(stopKey.wasPressed()) {
-            stopDriving();
+            stopDriving("F8 pulsado en Minecraft");
             if(prepareFuture!=null){prepareFuture.completeExceptionally(new IllegalStateException("Preparacion cancelada con F8."));prepareFuture=null;}
         }
         preparing(client);
@@ -355,7 +356,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if(controlArming.active())current.vertical(controlArming.generation(),vertical.token(),vertical.lift(controllerMapping.scale()),controllerMapping.scale(),controllerMapping.gridHeight(placedScene.height()).toNative(vertical.point().x(),vertical.point().y(),vertical.point().z()).y(),vertical.nativeGround());
                 /* Commit position only at END tick: vanilla must retain last tick's render position for interpolation. */
                 if(!mouseEnabled)client.player.setYaw(controllerMapping.minecraftYaw(sample.yawRadians()));lastEditorPoint=point;
-            }catch(IllegalArgumentException error){recordStop("seguimiento",error);stopDriving();say(client,"Sincronizacion detenida: "+error.getMessage()+". Revisa latest.log.");}
+            }catch(IllegalArgumentException error){recordStop("seguimiento",error);stopDriving("fallo de seguimiento: "+error.getMessage());say(client,"Sincronizacion detenida: "+error.getMessage()+". Revisa latest.log.");}
         }else controllerFollower.release();
         // START runs before vanilla processes item use. Observe before prediction,
         // even on the tick that closes arm's chat; publishing remains arm-gated.
@@ -528,14 +529,17 @@ public final class Re4BridgeClient implements ClientModInitializer {
     private void recordStop(String phase,RuntimeException error){
         org.slf4j.LoggerFactory.getLogger("RE4Bridge").error("Puente detenido en {}; altura={}; motivo={}",phase,vertical.point(),error.getMessage(),error);
     }
-    private void stopDriving() {
+    private void stopDriving(){stopDriving("detenido por comando o cambio de modo");}
+    private void stopDriving(String cause) {
         healthSessionOpen=false;vertical.clear();particles.clear();brokenAt.clear();
         BridgeCombat.clear();
         if(bridge!=null)bridge.clearVertical();
         if(bridge!=null)bridge.clearAction();
         healthLink.release(bridge);
         controllerInput.release();controllerFollower.release();
-        controlArming.stop("desarmado");
+        cause=cause.replace('\r',' ').replace('\n',' ');
+        controlArming.stop(cause.length()>160?cause.substring(0,160):cause);
+        reportClientState(MinecraftClient.getInstance());
         placementTracker.clear();
         mouseLook.reset();
         if (bridge != null && bridge.controllerMode()) bridge.publishControl(false, 0, controlArming.generation());
@@ -612,6 +616,17 @@ public final class Re4BridgeClient implements ClientModInitializer {
         return 1;
     }
 
+    private String reportedClientState;
+    private void reportClientState(MinecraftClient client){
+        var current=bridge;if(current==null)return;
+        String screen=client.currentScreen==null?"NONE":client.currentScreen instanceof ChatScreen?"CHAT":MinecraftHud.pause(client)?"PAUSE":MinecraftHud.inventory(client)?"INVENTORY":"OTHER";
+        String reason=controlArming.reason();current.clientState(reason,client.isWindowFocused(),client.isPaused(),screen);
+        String key=controlArming.generation()+":"+controlArming.active()+":"+reason+":"+client.isWindowFocused()+":"+screen;
+        if(!key.equals(reportedClientState)){
+            reportedClientState=key;
+            org.slf4j.LoggerFactory.getLogger("RE4Bridge").info("Control: generation={} active={} reason={} focused={} paused={} screen={} nativeStop={} nativeReason={}",controlArming.generation(),controlArming.active(),reason,client.isWindowFocused(),client.isPaused(),screen,current.nativeStop(),current.nativeReason());
+        }
+    }
     private void tick(MinecraftClient client) {
         BridgeConnection current = bridge;
         if (current == null) return;
@@ -621,7 +636,7 @@ public final class Re4BridgeClient implements ClientModInitializer {
             return;
         }
         if (!current.status().connected()) {
-            stopDriving();
+            stopDriving("conexion: "+current.status().message());
             following = false;
             calibration = null;
             if (!current.status().message().equals("connecting") && previousPerspective != null) {
@@ -640,6 +655,13 @@ public final class Re4BridgeClient implements ClientModInitializer {
             else healthLink.release(current);
             controlArming.tick(now, client.isPaused(), client.isWindowFocused(), screen,
                 current.scripted() || sample != null && sample.fresh(now), current.nativeArmed(), current.nativeStop());
+            reportClientState(client);
+            if(!client.isWindowFocused()){
+                BridgeCombat.clear();TerrainInteraction.clear();mouseLook.reset();
+                if(controlArming.active())current.suspendForMenu();
+                else {controllerInput.release();controllerFollower.release();current.publishControl(false,0,controlArming.generation());}
+                return;
+            }
             if(controlArming.active() && synchronizedMovement && !BridgePlayMode.supported(client.player)){stopDriving();say(client,"Sincronizacion detenida: usa creativo o supervivencia.");}
             if(!controlArming.active()){controllerInput.release();controllerFollower.release();}
             int buttons = 0;
@@ -651,14 +673,14 @@ public final class Re4BridgeClient implements ClientModInitializer {
                 if (buttons != 0 && client.options.sprintKey.isPressed()) buttons |= 64;
             }
             if(controlArming.active() && !current.scripted() && synchronizedMovement && controllerMapping!=null){
-                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),vertical.point()==null?base.y():vertical.groundY());}catch(IllegalArgumentException error){recordStop("seguimiento final",error);stopDriving();buttons=0;}
+                try{var base=editorPoint(client,sample);var elevated=vertical.point();if(elevated==null)elevated=base;controllerFollower.follow(client,elevated,current,editorSupport,controllerMapping.gridHeight(placedScene.height()),controlArming.generation(),vertical.exhaustion(),vertical.fallHarm(),vertical.grounded(),vertical.point()==null?base.y():vertical.groundY());}catch(IllegalArgumentException error){recordStop("seguimiento final",error);stopDriving("fallo de seguimiento final: "+error.getMessage());buttons=0;}
             }
             MouseLook.Input look = null;
             if (controlArming.active() && mouseEnabled) {
                 try { look = firstPersonEnabled && synchronizedMovement && controllerMapping!=null && (current.nativeCapabilities()&8)!=0
                     ? controllerMapping.look(client.player.getYaw(),client.player.getPitch(),nativeEyeHeight(client))
                     : mouseLook.sample(client.player.getYaw(), client.player.getPitch(), firstPersonEnabled, nativeEyeHeight(client)); }
-                catch (IllegalArgumentException error) { controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
+                catch (IllegalArgumentException error) { recordStop("orientacion",error);controlArming.stop("orientacion invalida"); buttons = 0; mouseLook.reset(); }
             } else mouseLook.reset();
             String dimension=client.world.getRegistryKey().getValue().toString();
             if(placedScene.style()==3)blockMaterials.resources(client);
@@ -705,8 +727,9 @@ public final class Re4BridgeClient implements ClientModInitializer {
                             var p=hit.getBlockPos();var bounds=shape.getBoundingBox();var origin=controllerMapping.toNative(p.getX(),p.getY(),p.getZ());double scale=controllerMapping.scale();
                             hud=hud.selection(new double[]{origin.x(),origin.y()+placedScene.height(),origin.z(),controllerMapping.rotation(),bounds.minX*scale,controllerFollower.helper(p)?bounds.maxY*scale-1:bounds.minY*scale,bounds.minZ*scale,bounds.maxX*scale,bounds.maxY*scale,bounds.maxZ*scale});
                         }
-                    }}catch(IllegalArgumentException | IllegalStateException error){recordStop("interfaz",error);hudEnabled=false;stopDriving();buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
+                    }}catch(IllegalArgumentException | IllegalStateException error){recordStop("interfaz",error);hudEnabled=false;stopDriving("fallo de interfaz: "+error.getMessage());buttons=0;say(client,"Interfaz detenida: "+error.getMessage()+". F8 devuelve la ventana de RE4.");}
             }
+            reportClientState(client);
             if (scene!=null || hud!=null) current.publishSceneControl(controlArming.active(),buttons,controlArming.generation(),look,scene,hud);
             else current.publishControl(controlArming.active(), buttons, controlArming.generation(), look, blockPreview);
             if (++controlHudTicks % 5 == 0) client.player.sendMessage(Text.literal(

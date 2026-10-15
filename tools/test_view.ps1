@@ -67,10 +67,12 @@ public class FakeViewDesktop : Desktop {
     public System.Collections.Generic.List<string> Calls = new System.Collections.Generic.List<string>();
     public IntPtr Current = new IntPtr(2);
     public int Resizes;
-    public bool GameAlive = true, FailPresent, FailRestore, DenyFocus, FailMouse, FailMouseEnd;
+    public bool GameAlive = true, FailPresent, FailRestore, DenyFocus, FailMouse, FailMouseEnd, IsTransient, Exclusive;public long Milliseconds;
     public bool SameWindow(IntPtr h,uint pid) { return h == new IntPtr(1) ? GameAlive && pid == 10 : h == new IntPtr(2) && pid == 20; }
     public IntPtr Foreground() { return Current; }
     public string ForegroundDescription(){return "ventana activa "+Current+", proceso fixture";}
+    public bool TransientForeground(IntPtr window){return IsTransient;}
+    public void ValidateView(Snapshot s){Calls.Add("validate");if(Exclusive)throw new InvalidOperationException("exclusive fullscreen");}
     public Snapshot Capture(IntPtr h,uint pid) { Calls.Add("capture"); return new Snapshot {Handle=h,Pid=pid}; }
     public void PrepareInput(Snapshot s,Rect r){Calls.Add("inputsize");}
     public void PrepareView(Snapshot s,Rect r){Calls.Add("resize");Resizes++;}
@@ -86,12 +88,12 @@ public class FakeViewDesktop : Desktop {
 }
 public class ViewChecks {
     static void Check(bool value,string description) { if(!value) throw new Exception(description); }
-    static Session Create(FakeViewDesktop api) { return new Session(api,new IntPtr(1),10,new IntPtr(2),20); }
+    static Session Create(FakeViewDesktop api) { return new Session(api,new IntPtr(1),10,new IntPtr(2),20,()=>api.Milliseconds); }
     static Session Ready(FakeViewDesktop api){var session=Create(api);session.Prepare(new Rect());api.Calls.Clear();return session;}
     public static void Run() {
         var api=new FakeViewDesktop();var unprepared=Create(api);
         try{unprepared.Enter(new Rect());throw new Exception("unprepared view accepted");}catch(InvalidOperationException){}
-        unprepared.Prepare(new Rect());Check(String.Join(",",api.Calls.ToArray())=="capture,capture,stop,mouseoff,inputsize,resize,focus2","Stop and resize before arming, Minecraft visible");
+        unprepared.Prepare(new Rect());Check(String.Join(",",api.Calls.ToArray())=="capture,capture,stop,mouseoff,validate,inputsize,resize,focus2","Stop and resize before arming, Minecraft visible");
         Check(unprepared.Prepared && !unprepared.Active,"prepare must not cover Minecraft");unprepared.Normal(false);Check(!unprepared.Prepared,"F8 restores even an inactive prepared view");
         api=new FakeViewDesktop(); var session=Ready(api);
         session.Enter(new Rect()); Check(session.Active && api.Resizes==1 && api.Current==new IntPtr(2),"Presentation stole Minecraft focus");
@@ -105,6 +107,18 @@ public class ViewChecks {
         api.Current=new IntPtr(2); session.Enter(new Rect());
         api.GameAlive=false; int count=api.Calls.Count;
         session.Normal(true); Check(api.Calls.Count==count+2 && api.Calls[api.Calls.Count-2]=="mouseoff" && api.Calls[api.Calls.Count-1]=="restore","Never write IPC or restore/focus a reused or closed game HWND");
+        api=new FakeViewDesktop();session=Ready(api);session.Enter(new Rect());api.Current=new IntPtr(3);api.IsTransient=true;
+        int unchanged=api.Calls.Count;
+        Check(session.Interruption()==null && session.FocusSuspended,"staging handoff keeps layout briefly");
+        api.Milliseconds=199;Check(session.Interruption()==null,"bounded staging handoff");
+        Check(api.Calls.Count==unchanged,"staging never refocuses, restores or resizes windows");
+        api.Current=new IntPtr(2);Check(session.Interruption()==null && !session.FocusSuspended,"same Minecraft HWND recovered");
+        api.Current=new IntPtr(3);api.Milliseconds=200;Check(session.Interruption()==null,"new handoff");
+        api.Milliseconds=400;Check(session.Interruption()!=null,"persistent staging still ends view");
+        api.Milliseconds=401;api.IsTransient=false;Check(session.Interruption()!=null,"real alt-tab is not staging");
+        api=new FakeViewDesktop();api.Exclusive=true;session=Create(api);
+        try{session.Prepare(new Rect());throw new Exception("exclusive view accepted");}catch(InvalidOperationException e){Check(e.Message=="exclusive fullscreen","preflight failure");}
+        Check(api.Resizes==0 && !session.Prepared && session.StopConfirmed,"exclusive-mode preflight stops before changing either window");
         api=new FakeViewDesktop(); session=Ready(api); api.FailPresent=true;
         try { session.Enter(new Rect()); throw new Exception("partial failure accepted"); } catch(Exception e) { Check(e.Message=="partial present","Unexpected failure"); }
         Check(!session.Active && api.Calls.Contains("restore") && api.Calls.Contains("stop"),"Partial presentation needs stop and restoration");
@@ -149,6 +163,19 @@ public class ViewChecks {
 }
 '@
 Add-Type -TypeDefinition ((Get-Content -LiteralPath (Join-Path $PSScriptRoot 'RE4View.cs') -Raw) + [Environment]::NewLine + $fixture)
+$capture=[Runtime.InteropServices.Marshal]::AllocHGlobal(96)
+try {
+    for($i=0;$i -lt 96;$i+=4){[Runtime.InteropServices.Marshal]::WriteInt32($capture,$i,0)}
+    foreach($entry in @(@(0,0x52453447),@(4,3),@(8,2),@(16,10),@(44,1),@(76,1),@(88,1))){[Runtime.InteropServices.Marshal]::WriteInt32($capture,$entry[0],$entry[1])}
+    if([RE4BridgeView.WindowsDesktop]::CapturedWindowed($capture,10,[IntPtr]::new(1)) -ne $true){throw 'Known windowed capture rejected'}
+    [Runtime.InteropServices.Marshal]::WriteInt32($capture,76,0)
+    if([RE4BridgeView.WindowsDesktop]::CapturedWindowed($capture,10,[IntPtr]::new(1)) -ne $false){throw 'Exclusive mode not detected'}
+    foreach($bad in @(@(8,3),@(16,99),@(88,99))){
+        $old=[Runtime.InteropServices.Marshal]::ReadInt32($capture,$bad[0]);[Runtime.InteropServices.Marshal]::WriteInt32($capture,$bad[0],$bad[1])
+        if($null -ne [RE4BridgeView.WindowsDesktop]::CapturedWindowed($capture,10,[IntPtr]::new(1))){throw 'Unknown/torn/foreign capture must not guess the mode'}
+        [Runtime.InteropServices.Marshal]::WriteInt32($capture,$bad[0],$old)
+    }
+}finally{[Runtime.InteropServices.Marshal]::FreeHGlobal($capture)}
 [RE4BridgeView.ViewChecks]::Run()
 [RE4BridgeView.MouseChecks]::Run()
 $tokens=$null; $errors=$null
@@ -158,8 +185,9 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 
 $returnFunction=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Return-ToNormal'},$true)
 if ($null -eq $returnFunction) { throw 'Missing direct return action.' }
 # Execute the real return action with the panel hidden; no WinForms button click is needed.
+function Write-ViewEvent([string]$Message) {}
 Invoke-Expression $returnFunction.Extent.Text
-foreach ($name in @('Begin-MinecraftPreparation','Continue-MinecraftPreparation','Prepare-All')) {
+foreach ($name in @('Begin-MinecraftPreparation','Continue-MinecraftPreparation','Prepare-All','Monitor-ViewFocus')) {
     $function=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
     if ($null -eq $function) {throw ('Missing preparation continuation: '+$name)}
     Invoke-Expression $function.Extent.Text
@@ -202,6 +230,16 @@ Return-ToNormal
 if ($session.Active -or !$session.StopConfirmed -or $label.Text -notlike '*pulsa la ventana de RE4*' -or $label.Text -like 'Error*') {
     throw 'Denied focus must report manual activation after restoring and stopping.'
 }
+$api=[RE4BridgeView.FakeViewDesktop]::new()
+$session=[RE4BridgeView.Session]::new($api,[IntPtr]::new(1),10,[IntPtr]::new(2),20,[Func[long]]{$api.Milliseconds})
+$session.Prepare([RE4BridgeView.Rect]::new());$session.Enter([RE4BridgeView.Rect]::new())
+$script:panelHidden=$true;$script:viewFocusSuspended=$false;$api.Current=[IntPtr]::new(3);$api.IsTransient=$true
+Monitor-ViewFocus
+if (!$session.Active -or !$script:viewFocusSuspended -or !$script:panelHidden) {throw 'Transient staging must not restore windows or show the panel'}
+$api.Current=[IntPtr]::new(2);Monitor-ViewFocus
+if (!$session.Active -or $script:viewFocusSuspended) {throw 'Recovered focus should keep the view'}
+$api.Current=[IntPtr]::new(3);$api.IsTransient=$false;Monitor-ViewFocus
+if ($session.Active -or !$session.StopConfirmed -or $script:panelHidden) {throw 'Real foreground change must still stop and restore'}
 Write-Host 'View fixtures passed: focus preserved, native stop before return, partial failure cleanup, closed/reused window protection, restoration retry, IPC v1/v2 stop-only write and invalid-header rejection. GUI script parsed. Button/wheel routing, simultaneous held buttons, capture releases, modifiers, injected/foreign event rejection and send failures passed. Real Windows presentation not executed.'
 . (Join-Path $PSScriptRoot 'Prepare-Minecraft.ps1')
 $listener=[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback,0)

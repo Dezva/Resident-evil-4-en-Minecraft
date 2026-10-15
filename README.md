@@ -5,18 +5,18 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Estado actual:** [0.4.53: daño letal, cajas y recogida](docs/RE4-BLOCK-0.4.53.md).
-Corrige el daño cero al procesarse impactos en otro hilo y permite golpes letales.
-Confirma la rotura nativa de cajas, conservando sonido y botín de RE4. Las flechas
-eligen en la recogida de objetos; Enter/R confirma y Retroceso cancela.
-Requiere DLL453 y host/JAR nuevos. Las pruebas automatizadas pasan; falta
-comprobar esta versión dentro de RE4/Windows.
+**Estado actual:** [0.4.54: estabilidad del armado y foco](docs/RE4-BLOCK-0.4.54.md).
+Suspende entradas a los200ms de un tick tardío y permite recuperar antes de1s;
+los cortes persistentes requieren otro armado. Separa la consola del socket,
+reduce consultas OpenGL redundantes y corrige preparación de ventanas minimizadas.
+Registra el primer motivo del cliente. Conserva la DLL453 y el combate de0.4.53,
+confirmado por el usuario. Falta verificar foco/rendimiento reales en Windows.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.53 |
+| RE4 Bridge | paquete/mod 0.4.54 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

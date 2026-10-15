@@ -15,6 +15,9 @@ MAGIC = 0x52453443
 
 
 def validate_control(frame):
+    client=frame.get('client')
+    if client is not None:
+        if not isinstance(client,dict) or set(client)!={'reason','focused','paused','screen','sample_age_ms','tick_age_ms'} or type(client['reason']) is not str or len(client['reason'])>160 or any(c in client['reason'] for c in '\r\n') or type(client['screen']) is not str or len(client['screen'])>32 or any(c in client['screen'] for c in '\r\n') or type(client['focused']) is not bool or type(client['paused']) is not bool or type(client['sample_age_ms']) is not int or not -1<=client['sample_age_ms']<=60000 or type(client['tick_age_ms']) is not int or not -1<=client['tick_age_ms']<=60000:raise ProtocolError('Invalid client diagnostic')
     validate_combat(frame)
     if type(frame.get("combat_terrain_revision",0)) is not int or not 0<=frame.get("combat_terrain_revision",0)<=2147483647:raise ProtocolError("Invalid combat terrain revision")
     if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
@@ -125,11 +128,12 @@ class ControlPolicy:
         self.writer.publish(self.armed, frame["buttons"] if self.armed and not scripted else 0,
                             look=look if self.armed else None, generation=frame["arm_id"],menu=frame.get("menu",False))
         if self.hud is not None:self.hud.publish(self.armed and hud is not None,frame['arm_id'],hud if self.armed else None)
-        result = {"hud_available":self.hud is not None and self.hud.available,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
+        result = {"hud_available":self.hud is not None and self.hud.available,"generation":self.generation,"armed": self.armed, "stop": status["stop"], "hook_ticks": status["hook_ticks"],
                 "requested_buttons": frame["buttons"], "native_buttons": status.get("native_buttons", 0),
                 "reason": "activo" if self.armed else reason,
                 "capabilities": status.get("capabilities", 0), "native_hud_supported": bool(status.get("capabilities", 0)&16), "camera_active": status.get("camera_active", False),
                 "look_packets": status.get("look_packets", 0), "camera_ticks": status.get("camera_ticks", 0)}
+        if frame.get('client') is not None:result['client']=dict(frame['client'])
         if self.preview is not None:
             result['preview_available']=True
             result['scene_available']=getattr(self.preview,'scene_available',False)

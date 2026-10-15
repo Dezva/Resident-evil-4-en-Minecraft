@@ -47,6 +47,13 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $form.Controls.Add($modeLabel); $form.Controls.Add($mode)
     $prepare = New-Object System.Windows.Forms.Button
     $prepare.Text='Preparar Minecraft'; $prepare.Location=[System.Drawing.Point]::new(10,116); $prepare.Size=[System.Drawing.Size]::new(160,45)
+    function Write-ViewEvent([string]$Message) {
+        try {
+            $file=Join-Path $PSScriptRoot 'view-events.log'
+            if ((Test-Path -LiteralPath $file) -and (Get-Item -LiteralPath $file).Length -gt 1MB) {Move-Item -LiteralPath $file -Destination ($file+'.1') -Force}
+            Add-Content -LiteralPath $file -Value ((Get-Date -Format o)+' '+$Message)
+        } catch {}
+    }
     function Begin-MinecraftPreparation {
         $script:waitingForMinecraft=$false
         try {$script:prepareCall=Invoke-MinecraftPreparation $GameDir $script:preparedMode;$label.Text='Preparando Minecraft... F8 cancela.'}
@@ -60,6 +67,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     function Prepare-All {
         if ($null -ne $script:prepareCall -or $script:waitingForMinecraft) {return}
         $script:preparedMode=@('keep','survival','creative')[$mode.SelectedIndex]
+        Write-ViewEvent ('Preparar Minecraft; modo='+$script:preparedMode)
         $session.Prepare($bounds)
         if ($session.InputFocused) { Begin-MinecraftPreparation }
         else {
@@ -71,6 +79,7 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
     $normal = New-Object System.Windows.Forms.Button
     $normal.Text='Volver a RE4 normal (F8)'; $normal.Location=[System.Drawing.Point]::new(180,116); $normal.Size=[System.Drawing.Size]::new(235,45)
     function Return-ToNormal {
+        Write-ViewEvent 'Retorno solicitado (F8/panel).'
         $script:waitingForMinecraft=$false
         if ($null -ne $script:prepareCall) {$script:prepareCall.Dispose();$script:prepareCall=$null}
         try {
@@ -95,6 +104,20 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
             $normal.Location=[System.Drawing.Point]::new(180,116)
         }
     }
+    $script:viewFocusSuspended=$false
+    function Monitor-ViewFocus {
+        $reason=$session.Interruption()
+        if ($null -eq $reason) {
+            if ($script:viewFocusSuspended -ne $session.FocusSuspended) {
+                $script:viewFocusSuspended=$session.FocusSuspended
+                Write-ViewEvent $(if ($session.FocusSuspended) {'Foco transitorio de Windows; se conserva la vista hasta 200ms, sin reenfocar.'} else {'Minecraft recupero el foco; vista conservada.'})
+            }
+            return
+        }
+        Write-ViewEvent $reason
+        $session.Normal($false); Set-ViewPanel $false; $label.Text=$reason+' Preparar Minecraft y F9 para volver.'
+        $script:viewFocusSuspended=$false
+    }
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval=16
     $keys = @{F8=$false; F9=$false}
@@ -114,12 +137,8 @@ public class RE4BridgeViewPanel : System.Windows.Forms.Form {
                 if ($script:waitingForMinecraft) {$label.Text='Pulsa la ventana de Minecraft para terminar la preparacion; despues F9. F8 cancela.'}
                 elseif ($null -ne $script:prepareCall) {$label.Text='Espera a que termine Preparar Minecraft; F8 cancela.'}
                 elseif ($session.Active) { Set-ViewPanel $false; Prepare-All }
-                else { $session.Enter($bounds); Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
-            } elseif ($session.Active -and !$session.StillFocused()) {
-                $reason=$session.Interruption()
-                $session.Normal($false); Set-ViewPanel $false; $label.Text=$reason+' Preparar Minecraft y F9 para volver.'
-                try { Add-Content -LiteralPath (Join-Path $PSScriptRoot 'view-events.log') -Value ((Get-Date -Format o)+' '+$reason) } catch {}
-            }
+                else { $session.Enter($bounds); Write-ViewEvent 'Vista RE4 activada con F9.'; Set-ViewPanel $true; $label.Text='Vista RE4 activa. Minecraft recibe los inputs. F8 vuelve a RE4 normal.' }
+            } elseif ($session.Active) { Monitor-ViewFocus }
         } catch { $label.Text=$_.Exception.Message }
         $keys.F8=$f8; $keys.F9=$f9
     })

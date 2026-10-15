@@ -6,12 +6,14 @@ import net.minecraft.client.gui.screen.Screen;
 /** Runs on the client thread, before vanilla's GUI/perspective transitions. */
 public final class BridgeKeys {
     static java.util.function.Consumer<Screen> screen=next->{};
+    static java.util.function.Consumer<Boolean> focus=focused->{};
     static java.util.function.BooleanSupplier mode=()->false;
     static java.util.function.BooleanSupplier scripted=()->false;
     static Runnable interact=()->{},skip=()->{};
     static java.util.function.BooleanSupplier dialog=()->false;
     static java.util.function.IntConsumer navigate=kind->{};
     public static void screen(Screen next){screen.accept(next);}
+    public static void focus(boolean focused){focus.accept(focused);}
     public static boolean key(MinecraftClient client,long window,int key,int action){
         if(window!=client.getWindow().getHandle() || !client.isWindowFocused() || !mode.getAsBoolean() || client.currentScreen!=null)return false;
         if(consumeDialogKey(dialog.getAsBoolean(),key,action,navigate))return true;

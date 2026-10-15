@@ -9,11 +9,14 @@ from re4_control import ControlPolicy
 
 
 class Writer:
-    def __init__(self): self.armed = False; self.buttons = 0
+    def __init__(self): self.armed = False; self.buttons = 0; self.paused=False
     def publish(self, armed, buttons, **kwargs):
         self.armed = armed
         self.buttons = buttons if armed else 0
         print(f"INPUT armed={armed} buttons={buttons}", flush=True)
+        paused=bool(kwargs.get('menu'))
+        if paused and not self.paused:print(f"FROZEN generation={kwargs.get('generation')} fp={bool((kwargs.get('look') or {}).get('first_person'))}",flush=True)
+        self.paused=paused
         if kwargs.get('look'): print('LOOK ' + str(kwargs['look']), flush=True)
     def reset_stop(self): pass
     def status(self): return {"stop": 0, "ticking": True, "hook_ticks": 123, "native_buttons": self.buttons,
@@ -75,6 +78,14 @@ class Combat:
             self.ack=request['id'];self.hits+=1;print(f"MELEE generation={generation} id={self.ack} damage={request['damage']} slot={request['slot']}",flush=True)
     def status(self):return dict(engine_supported=True,available=True,active=self.enabled,fresh=True,generation=self.generation,ack=self.ack,reason=0,hp_before=1000,hp_after=950,hits=self.hits,kills=0,enemies=[])
 policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime(),Combat())
+last_client=None
+def apply_with_client_diagnostic(frame,sample):
+    global last_client
+    client=frame.get('client')
+    if client is not None and client!=last_client:
+        last_client=client;print('CLIENT '+str(client),flush=True)
+    return policy.apply(frame,sample)
+
 with socket.socket() as server:
     server.bind(("127.0.0.1", config["port"]))
     server.listen(1)
@@ -83,5 +94,5 @@ with socket.socket() as server:
     with peer:
         try:
             serve_peer(peer, config["token"], {},
-                lambda: {"state":"player", "position_raw":[1,2,3], "angles_raw":[0,0,0]}, policy.apply)
+                lambda: {"state":"player", "position_raw":[1,2,3], "angles_raw":[0,0,0]}, apply_with_client_diagnostic)
         finally: policy.stop()

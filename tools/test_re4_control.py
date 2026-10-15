@@ -18,6 +18,15 @@ class ControlTests(unittest.TestCase):
     def frame(self, generation=1, armed=True, buttons=1):
         return {"type": "re4_control", "armed": armed, "buttons": buttons, "arm_id": generation}
 
+    def test_client_diagnostic_is_bounded_and_never_changes_control_commands(self):
+        client=dict(reason='Minecraft perdio el foco',focused=False,paused=False,screen='NONE',sample_age_ms=25,tick_age_ms=25)
+        writer=Writer();result=ControlPolicy(writer).apply(dict(self.frame(),client=client),{'state':'player'})
+        self.assertEqual(result['client'],client);self.assertEqual(writer.writes[-1],(True,1))
+        for field,value in [('reason','x'*161),('reason','bad\nline'),('focused',1),('sample_age_ms',True),('sample_age_ms',60001)]:
+            writer=Writer()
+            with self.assertRaises(ProtocolError):ControlPolicy(writer).apply(dict(self.frame(),client=dict(client,**{field:value})),{'state':'player'})
+            self.assertFalse(writer.writes)
+
     def test_emergency_stop_requires_new_arm_generation(self):
         writer = Writer()
         policy = ControlPolicy(writer)

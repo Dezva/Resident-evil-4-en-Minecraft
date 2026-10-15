@@ -43,6 +43,12 @@ public final class BridgeConnection implements AutoCloseable {
             var frame=old.frame().deepCopy();var j=new JsonObject();j.addProperty("enabled",look.enabled());j.addProperty("first_person",look.firstPerson());j.addProperty("total_yaw",look.totalYaw());j.addProperty("pitch",look.pitch());j.addProperty("eye_height",look.eyeHeight());j.addProperty("absolute_yaw",look.absoluteYaw());frame.add("look",j);return new ControlFrame(frame,old.hud(),old.createdNs());});
     }
     private final NativeActionQueue nativeActions=new NativeActionQueue();
+    private record ClientState(String reason,boolean focused,boolean paused,String screen){}
+    private volatile ClientState clientState;
+    public void clientState(String reason,boolean focused,boolean paused,String screen){
+        if(reason==null || reason.length()>160 || reason.indexOf('\n')>=0 || reason.indexOf('\r')>=0 || screen==null || screen.length()>32)throw new IllegalArgumentException("Invalid client state");
+        clientState=new ClientState(reason,focused,paused,screen);
+    }
     public RuntimeState runtimeState(){return runtimeState;}
     public boolean scripted(){var state=runtimeState;return state!=null && state.scripted(System.nanoTime());}
     public boolean nativeDialog(){var state=runtimeState;return state!=null && state.dialog(System.nanoTime());}
@@ -207,6 +213,8 @@ public final class BridgeConnection implements AutoCloseable {
             boolean preferCollision = true;
             while (running) {
                 JsonObject frame = null;
+                boolean tickSuspended=false;
+                ControlFrame sentControl=null;
                 if (readerMode()) {
                     if (sequence > 0 && System.nanoTime() - lastSend < (controllerMode() ? 16_666_667L : 100_000_000L)) {
                         Thread.sleep(Duration.ofMillis(1));
@@ -216,17 +224,19 @@ public final class BridgeConnection implements AutoCloseable {
                     frame.addProperty("type", "re4_poll");
                     if (controllerMode()) {
                         var latest = control.get();
-                        // GUI initialization can stall a render tick. Only its zero-input
-                        // snapshot receives this bounded transition grace; movement never does.
-                        if (latest != null && System.nanoTime() - latest.createdNs() < (latest.frame().has("menu") && latest.frame().get("menu").getAsBoolean() && latest.frame().get("buttons").getAsInt()==0?1_000_000_000L:200_000_000L)) {
+                        sentControl=latest;
+                        var lease=latest==null?ControlLease.Phase.EXPIRED:ControlLease.phase(System.nanoTime(),latest.createdNs(),latest.frame().get("armed").getAsBoolean(),latest.frame().get("menu").getAsBoolean() && latest.frame().get("buttons").getAsInt()==0);
+                        if (latest != null && lease!=ControlLease.Phase.EXPIRED) {
                             frame = latest.frame().deepCopy();
+                            tickSuspended=lease==ControlLease.Phase.SUSPENDED;
+                            if(tickSuspended){frame.addProperty("buttons",0);frame.addProperty("menu",true);clearAction();}
                             var v=vertical;
                             if(v!=null && frame.get("armed").getAsBoolean() && v.generation()==frame.get("arm_id").getAsInt() && (System.nanoTime()-v.stamp()<200_000_000L || frame.get("menu").getAsBoolean())){var j=new JsonObject();j.addProperty("lift",v.lift());j.addProperty("scale",v.scale());j.addProperty("token",v.token());j.addProperty("feet_y",v.feetY());j.addProperty("native_ground",v.nativeGround());frame.add("vertical",j);}
                             var activity=runtimeState;
                             var action=nativeActions.next(frame.get("arm_id").getAsInt(),System.nanoTime(),activity==null?0:activity.actionGeneration(),activity==null?0:activity.actionAcknowledgement());
                             if(action!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean()
                                 && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L){frame.addProperty("action_id",action.id());frame.addProperty("action_kind",action.kind());}
-                            frame.addProperty("combat_enabled",combatEnabled);frame.addProperty("combat_scale",combatScale);frame.addProperty("combat_reach",combatReach);frame.addProperty("combat_terrain_revision",combatTerrain==null?0:combatTerrain.revision());
+                            frame.addProperty("combat_enabled",combatEnabled && !tickSuspended);frame.addProperty("combat_scale",combatScale);frame.addProperty("combat_reach",combatReach);frame.addProperty("combat_terrain_revision",combatTerrain==null?0:combatTerrain.revision());
                             var swing=combatRequest;if(combatEnabled && swing!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean() && swing.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-swing.createdNs()<200_000_000L)frame.add("combat",swing.toJson());
                             var health=healthRequest;
                             if(health!=null && frame.get("armed").getAsBoolean() && health.generation()==frame.get("arm_id").getAsInt()
@@ -237,7 +247,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 hud=visual!=null && visual.menu()==hud.menu()?hud.visual(visual):null;
                             }
                             if(hud!=null)frame.add("hud",hud.toJson());
-                            frame.addProperty("terrain",terrainRequested && frame.get("armed").getAsBoolean());frame.addProperty("terrain_revision",terrain==null?0:terrain.revision());
+                            frame.addProperty("terrain",terrainRequested && !tickSuspended && frame.get("armed").getAsBoolean());frame.addProperty("terrain_revision",terrain==null?0:terrain.revision());
                             frame.addProperty("depth",depthRequested && frame.get("armed").getAsBoolean());
                         }
                         else {
@@ -256,6 +266,13 @@ public final class BridgeConnection implements AutoCloseable {
                 if (frame == null) {
                     Thread.sleep(Duration.ofMillis(10));
                     continue;
+                }
+                var client=clientState;
+                if(controllerMode() && client!=null){
+                    var details=new JsonObject();var snapshot=sentControl;boolean missedTick=frame.has("armed") && !frame.get("armed").getAsBoolean() && snapshot!=null && snapshot.frame().get("armed").getAsBoolean();
+                    details.addProperty("reason",tickSuspended?"sin tick de Minecraft; entrada suspendida":missedTick?"sin tick de Minecraft; lease caducado":client.reason());details.addProperty("focused",client.focused());details.addProperty("paused",client.paused());details.addProperty("screen",client.screen());
+                    details.addProperty("tick_age_ms",snapshot==null?-1:Math.min(60000,Math.max(0,(System.nanoTime()-snapshot.createdNs())/1_000_000L)));
+                    var sample=re4Sample;details.addProperty("sample_age_ms",sample==null?-1:Math.min(60000,Math.max(0,(System.nanoTime()-sample.receivedNs())/1_000_000L)));frame.add("client",details);
                 }
                 frame.addProperty("protocol", LineProtocol.VERSION);
                 frame.addProperty("session", session);

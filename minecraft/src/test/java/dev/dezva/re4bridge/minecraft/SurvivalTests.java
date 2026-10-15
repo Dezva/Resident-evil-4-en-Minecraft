@@ -5,6 +5,11 @@ import org.objectweb.asm.tree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SurvivalTests {
+    @Test void focusCallbackExistsBeforeVanillaMayPauseAndDiscardKeys() throws Exception {
+        assertNotNull(net.minecraft.client.MinecraftClient.class.getDeclaredMethod("onWindowFocusChanged",boolean.class));
+        var calls=new java.util.ArrayList<Boolean>();var previous=BridgeKeys.focus;
+        try{BridgeKeys.focus=calls::add;BridgeKeys.focus(false);BridgeKeys.focus(true);assertEquals(java.util.List.of(false,true),calls);}finally{BridgeKeys.focus=previous;}
+    }
     @Test void survivalDifficultyFixesPeacefulAndPreservesTheChosenDifficulty(){
         var normal=net.minecraft.world.Difficulty.NORMAL;
         assertEquals(normal,BridgePlayMode.survivalDifficulty(net.minecraft.world.Difficulty.PEACEFUL));

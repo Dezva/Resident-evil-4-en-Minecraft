@@ -1,3 +1,19 @@
+## 0.4.54 — estabilidad, pausas del cliente y diagnóstico
+
+Conserva la DLL453 publicada y el combate confirmado por el usuario. El socket
+corta movimiento a200ms sin tick, conserva una sesión congelada hasta1s y exige
+nuevo armado después. Acciones/combate se suprimen, manteniendo soporte/cámara;
+imágenes y red no renuevan el plazo. Foco transitorio tolera hasta200ms con
+entradas suspendidas; una pérdida persistente o F8 no se rearman solos.
+Consola asíncrona limitada para evitar bloqueo al seleccionar texto. Registra
+cambios de control inmediatamente con motivo del cliente, foco, pausa y edades.
+VIEW restaura estado iconic/zoom sin activación, detecta modo exclusivo conocido
+y conserva brevemente ForegroundStaging sin reenfocar otra aplicación. El HUD
+comprueba cadencia antes del lease OpenGL. No se afirma mejora medida de FPS.
+Pruebas Linux de protocolo/TCP, callbacks, PowerShell y compilación pasan; foco
+real Windows y causa única de todos los cortes anteriores aún sin confirmar.
+Ver [guía0.4.54](docs/RE4-BLOCK-0.4.54.md).
+
 ## 0.4.53 — daño letal, estado de cajas y menús de recogida
 
 El callback de daño reclama el mensaje propio bajo bloqueo, sin exigir el hilo

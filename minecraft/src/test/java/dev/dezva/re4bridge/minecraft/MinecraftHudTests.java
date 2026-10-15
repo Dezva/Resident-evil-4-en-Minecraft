@@ -6,6 +6,19 @@ import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class MinecraftHudTests {
+    @Test void cadenceRejectsFramesBeforeAcquiringTheExpensiveGlStateLease() throws Exception {
+        try(var input=MinecraftHud.class.getResourceAsStream("MinecraftHud.class")){
+            var tree=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(input).accept(tree,0);
+            var method=tree.methods.stream().filter(m->m.name.equals("render")).findFirst().orElseThrow();
+            boolean cadenceSeen=false,returnedBeforeLease=false,found=false;
+            for(var node:method.instructions){
+                if(node instanceof org.objectweb.asm.tree.FieldInsnNode field && field.name.equals("renderedAt"))cadenceSeen=true;
+                if(cadenceSeen && node.getOpcode()==org.objectweb.asm.Opcodes.RETURN)returnedBeforeLease=true;
+                if(node instanceof org.objectweb.asm.tree.TypeInsnNode type && type.getOpcode()==org.objectweb.asm.Opcodes.NEW && type.desc.endsWith("/GuiRenderState")){assertTrue(returnedBeforeLease);found=true;break;}
+            }
+            assertTrue(found);
+        }
+    }
     @Test void gpuReadbackIsFlippedAndEncodedForD3DWithoutMutatingInput(){
         var pixels=ByteBuffer.allocate(HudFrame.BYTES+4);pixels.position(4);
         // Bottom left red, top left blue, partially transparent premultiplied green.

@@ -1,3 +1,33 @@
+# Validación0.4.54 — sesiones, consola y foco
+
+Linux cloud,2026-10-15. Usuario confirma combate/cuervos/cajas en0.4.53.
+Los fragmentos nuevos muestran cliente desarmado/stop0 con TCP aún respondiendo;
+uno incluye WinError10053 y reconexión. Copiar consola también puede producir
+foco/desarmado; estos datos no prueban un único disparador de los cortes previos.
+
+- Core55, Minecraft89 y Python183 pruebas, sin fallos ni omisiones. Compilación,
+  remapeo y access widener pasan. remapSourcesJar sigue omitida por configuración.
+- TCP autenticado: 200ms sin tick producen botones0 conservando look/colisionadores
+  y generación; un tick recupera.1s desarma; la misma generación no vuelve a armar.
+  Imágenes/red no prolongan ticks. Motivos y edades viajan hasta el host.
+- Consola bloqueada simulada:5000 mensajes conservan cola<=32;20 solicitudes TCP
+  reciben ack mientras el emisor sigue bloqueado. Cierre acotado y recuperación
+  del host tras una excepción siguen pasando.
+- Foco: callback existente y registro temporal aun sin ticks; recuperación breve,
+  expiración200ms y parada nativa. Bytecode comprueba rechazo de captura antes
+  de adquirir GuiRenderState, sin necesitar un contexto GL en los tests.
+- PowerShell/C#: staging200ms sin refoco/resize, aplicación real detiene vista,
+  preflight exclusivo antes de redimensionar, captura de modo solo lectura y
+  rechazo de reportes torn/ajenos; GUI real analizada e invocada con desktop falso.
+- Instalación/retirada y diagnósticos pasan en archivos/APIs simulados. DLL del
+  paquete idéntica byte por byte a0.4.53 publicada (SHA25646836d4f3e609cc9b127d99f6801b868c631cf4c604d2f040179483989a9d546).
+
+No se ejecutó RE4/Windows ni se midió FPS real. La mejora elimina caminos de
+bloqueo/desarmado demostrados en código/pruebas; no demuestra que expliquen cada
+corte anterior. El registro nuevo captura el primer motivo para esa verificación.
+
+Validación histórica debajo.
+
 # Validación 0.4.53 — daño, cajas y recogida
 
 Linux cloud, 2026-10-15. El log del usuario contiene20 solicitudes/20 caducadas,

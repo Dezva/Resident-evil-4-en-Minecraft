@@ -40,6 +40,8 @@ namespace RE4BridgeView {
         bool SameWindow(IntPtr window, uint pid);
         IntPtr Foreground();
         string ForegroundDescription();
+        bool TransientForeground(IntPtr window);
+        void ValidateView(Snapshot state);
         Snapshot Capture(IntPtr window, uint pid);
         void PrepareView(Snapshot state,Rect screen);
         void Present(Snapshot state, Rect screen);
@@ -59,14 +61,18 @@ namespace RE4BridgeView {
         readonly Snapshot game;readonly Snapshot inputWindow;
         readonly IntPtr minecraft;
         readonly uint minecraftPid;
+        readonly Func<long> clock;
+        long foregroundLostAt=-1;
+        public bool FocusSuspended {get;private set;}
         public bool Active { get; private set; }
         public bool Prepared {get;private set;}
         public bool InputFocused {get{return Prepared && desktop.SameWindow(minecraft,minecraftPid) && desktop.Foreground()==minecraft;}}
         Rect preparedScreen;
         public bool StopConfirmed { get; private set; }
         public bool FocusConfirmed { get; private set; }
-        public Session(Desktop api, IntPtr re4, uint re4Pid, IntPtr mc, uint mcPid) {
+        public Session(Desktop api, IntPtr re4, uint re4Pid, IntPtr mc, uint mcPid,Func<long> milliseconds=null) {
             desktop = api; minecraft = mc; minecraftPid = mcPid;
+            clock=milliseconds??(()=> (long)(System.Diagnostics.Stopwatch.GetTimestamp()*(1000.0/System.Diagnostics.Stopwatch.Frequency)));
             if (!api.SameWindow(re4,re4Pid) || !api.SameWindow(mc,mcPid))
                 throw new InvalidOperationException("Las ventanas cambiaron. Reinicia VIEW-RE4.");
             game = api.Capture(re4,re4Pid);inputWindow=api.Capture(mc,mcPid);
@@ -87,6 +93,7 @@ namespace RE4BridgeView {
             } catch { Normal(false); throw; }
         }
         public void Normal(bool focusGame) {
+            foregroundLostAt=-1;FocusSuspended=false;
             FocusConfirmed = false;
             // Latch the same stop word as native F8, independently of the TCP host.
             StopConfirmed = desktop.SameWindow(game.Handle,game.Pid) && desktop.Stop(game.Pid);
@@ -102,6 +109,7 @@ namespace RE4BridgeView {
         public void Prepare(Rect screen) {
             Normal(false);
             if (!desktop.SameWindow(minecraft,minecraftPid)) throw new InvalidOperationException("Minecraft se cerro.");
+            desktop.ValidateView(game);
             Prepared=true;preparedScreen=screen;
             try {
                 desktop.PrepareInput(inputWindow,screen);
@@ -119,8 +127,16 @@ namespace RE4BridgeView {
             if(!desktop.SameWindow(game.Handle,game.Pid))return "La ventana de RE4 cambio o se cerro.";
             if(!desktop.SameWindow(minecraft,minecraftPid))return "La ventana de Minecraft cambio o se cerro.";
             if(desktop.MouseFailed)return "Fallo de raton: "+desktop.MouseFailure;
-            if(desktop.Foreground()!=minecraft)return "Minecraft perdio el foco ("+desktop.ForegroundDescription()+").";
-            return null;
+            IntPtr foreground=desktop.Foreground();
+            if(foreground==minecraft){foregroundLostAt=-1;FocusSuspended=false;return null;}
+            // Explorer's staging HWND is a temporary foreground handoff, not an
+            // app chosen by the user. Keep the layout briefly, without refocusing
+            // any window or forwarding input outside Minecraft.
+            if(Active && desktop.TransientForeground(foreground)){
+                long now=clock();if(foregroundLostAt<0)foregroundLostAt=now;
+                FocusSuspended=true;if(now-foregroundLostAt<200)return null;
+            }else FocusSuspended=false;
+            return "Minecraft perdio el foco ("+desktop.ForegroundDescription()+").";
         }
     }
     public interface MouseDesktop {
@@ -293,6 +309,9 @@ namespace RE4BridgeView {
             if(menuMapping!=IntPtr.Zero){CloseHandle(menuMapping);menuMapping=IntPtr.Zero;}
         }
         [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+        [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+        [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+        [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h,int command);
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll", SetLastError=true)] static extern bool SetForegroundWindow(IntPtr h);
@@ -328,6 +347,36 @@ namespace RE4BridgeView {
             string process="desconocido";try{using(var owner=System.Diagnostics.Process.GetProcessById((int)pid))process=owner.ProcessName;}catch(Exception){}
             return "ventana activa "+h+", proceso "+process+", clase "+name;
         }
+        public bool TransientForeground(IntPtr h){
+            if(h==IntPtr.Zero)return true;
+            var name=new System.Text.StringBuilder(256);GetClassNameW(h,name,name.Capacity);
+            if(name.ToString()!="ForegroundStaging")return false;
+            uint pid;GetWindowThreadProcessId(h,out pid);
+            try{using(var owner=System.Diagnostics.Process.GetProcessById((int)pid))return owner.ProcessName.Equals("explorer",StringComparison.OrdinalIgnoreCase);}catch(Exception){return false;}
+        }
+        // Read only. Unknown/torn capture reports do not guess the graphics mode.
+        public static bool? CapturedWindowed(IntPtr view,uint pid,IntPtr game){
+            int before=Marshal.ReadInt32(view,8);if((before&1)!=0)return null;
+            if(Marshal.ReadInt32(view)!=0x52453447 || Marshal.ReadInt32(view,4)!=3 || (uint)Marshal.ReadInt32(view,16)!=pid
+                || Marshal.ReadInt32(view,44)<=0 || (uint)Marshal.ReadInt32(view,88)!=(uint)game.ToInt64())return null;
+            int windowed=Marshal.ReadInt32(view,76);
+            if(before!=Marshal.ReadInt32(view,8) || windowed<0 || windowed>1)return null;
+            return windowed==1;
+        }
+        public void ValidateView(Snapshot state){
+            IntPtr mapping=OpenFileMappingW(4,false,"Local\\RE4Bridge-GraphicsCapture-"+state.Pid);if(mapping==IntPtr.Zero)return;
+            try{
+                IntPtr view=MapViewOfFile(mapping,4,0,0,new UIntPtr(96));if(view==IntPtr.Zero)return;
+                try{if(CapturedWindowed(view,state.Pid,state.Handle)==false)throw new InvalidOperationException("RE4 arranco en pantalla completa exclusiva. Cambia RE4 a modo ventana en su configuracion grafica y reinicialo antes de Preparar Minecraft.");}
+                finally{UnmapViewOfFile(view);}
+            }finally{CloseHandle(mapping);}
+        }
+        static void RestoreVisible(IntPtr h){
+            // Clearing WS_MINIMIZE alone leaves an iconic window at its taskbar
+            // coordinates. Restore its show state without activating it first.
+            if(IsIconic(h) || IsZoomed(h))ShowWindow(h,4); // SW_SHOWNOACTIVATE
+            if(IsIconic(h))throw new InvalidOperationException("La ventana sigue minimizada. Usa RE4 y Minecraft en modo ventana.");
+        }
         public Snapshot Capture(IntPtr h,uint pid) {
             Placement placement = new Placement(); placement.Length = Marshal.SizeOf(typeof(Placement));
             Check(GetWindowPlacement(h,ref placement));
@@ -335,12 +384,14 @@ namespace RE4BridgeView {
             return new Snapshot { Handle=h, Pid=pid, Style=GetStyle(h,-16), Extended=GetStyle(h,-20), Placement=placement, Bounds=rect };
         }
         public void PrepareView(Snapshot state,Rect screen) {
+            RestoreVisible(state.Handle);
             SetStyle(state.Handle,-16,state.Style & ~0x21C40000L); // Caption and resize frame.
             SetStyle(state.Handle,-20,(state.Extended & ~0x00000300L)|0x08000000L); // Client/window edges.
             // Resize in the background before arm; never reset graphics while entering the active view.
             Check(SetWindowPos(state.Handle,new IntPtr(-2),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
         }
         public void PrepareInput(Snapshot state,Rect screen){
+            RestoreVisible(state.Handle);
             SetStyle(state.Handle,-16,state.Style&~0x21C40000L);
             SetStyle(state.Handle,-20,state.Extended&~0x00000300L);
             Check(SetWindowPos(state.Handle,new IntPtr(-2),screen.Left,screen.Top,screen.Right-screen.Left,screen.Bottom-screen.Top,0x70));
@@ -350,8 +401,9 @@ namespace RE4BridgeView {
             Check(SetWindowPos(state.Handle,new IntPtr(-1),0,0,0,0,0x53));
         }
         public void Restore(Snapshot state) {
-            SetStyle(state.Handle,-16,state.Style); SetStyle(state.Handle,-20,state.Extended);
-            Rect rect = state.Bounds;
+            RestoreVisible(state.Handle);
+            SetStyle(state.Handle,-16,state.Style&~0x20000000L); SetStyle(state.Handle,-20,state.Extended);
+            Rect rect = (state.Style&0x20000000L)!=0?state.Placement.Normal:state.Bounds;
             IntPtr order = new IntPtr((state.Extended & 8) != 0 ? -1 : -2);
             Check(SetWindowPos(state.Handle,order,rect.Left,rect.Top,rect.Right-rect.Left,rect.Bottom-rect.Top,0x30)); // Restore bounds without activation.
         }

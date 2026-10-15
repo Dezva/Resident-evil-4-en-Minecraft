@@ -52,8 +52,8 @@ def control_summary(state):
     if not isinstance(state, dict):
         return state
     result = {key: state[key] for key in (
-        'armed', 'stop', 'reason', 'hook_ticks', 'camera_active',
-        'terrain_state', 'combat_terrain_state') if key in state}
+        'armed', 'stop', 'reason', 'generation', 'hook_ticks', 'camera_active',
+        'terrain_state', 'combat_terrain_state', 'client') if key in state}
     for key in ('terrain', 'combat_terrain'):
         mesh = state.get(key)
         if isinstance(mesh, dict):
@@ -68,6 +68,7 @@ def control_summary(state):
         result['combat']['enemies'] = len(combat.get('enemies', ()))
     runtime = state.get('runtime_state')
     if isinstance(runtime, dict):
+        result['scene']={key:runtime[key] for key in ('scene','flags','fresh') if key in runtime}
         result['dialog'] = {key: runtime[key] for key in ('dialog_active', 'dialog_actions', 'action_ack') if key in runtime}
     return result
 
@@ -128,8 +129,9 @@ def validate_sample(frame):
         raise ProtocolError("Contradictory completeness")
 
 
-def serve_peer(peer, token, report, sample_provider=None, control_handler=None):
+def serve_peer(peer, token, report, sample_provider=None, control_handler=None, console=None):
     # Timeout prevents an unauthenticated or dead peer occupying the only session indefinitely.
+    emit=console or (lambda message:print(message,flush=True))
     peer.settimeout(3.0)
     with peer.makefile("rwb") as stream:
         hello = read_frame(stream)
@@ -148,8 +150,8 @@ def serve_peer(peer, token, report, sample_provider=None, control_handler=None):
         sequence = 0
         report.clear()
         report.update(poses=0, snapshots=0, last_sequence=0, mode=mode, disconnected=False)
-        print("Conectado a Minecraft. " + ("CONTROL RE4 nativo." if control_handler else
-              "LECTOR RE4, solo lectura." if sample_provider else "SIMULADOR: RE4 no está conectado."), flush=True)
+        emit("Conectado a Minecraft. " + ("CONTROL RE4 nativo." if control_handler else
+              "LECTOR RE4, solo lectura." if sample_provider else "SIMULADOR: RE4 no está conectado."))
         last_print = 0.0
         while True:
             try:
@@ -187,14 +189,14 @@ def serve_peer(peer, token, report, sample_provider=None, control_handler=None):
                 if sample_provider is not None:
                     state=control_summary(ack.get('control_state','read-only'))
                     logging.getLogger('re4bridge.host').info('seq=%s control=%s',sequence,state)
-                    print(f"seq={sequence} RE4={ack['re4_sample'].get('state')} "
+                    emit(f"seq={sequence} RE4={ack['re4_sample'].get('state')} "
                           f"position={ack['re4_sample'].get('position_raw')} "
-                          f"control={state}", flush=True)
+                          f"control={state}")
                     continue
                 collision = report.get("last_collision", {})
-                print(f"seq={sequence} poses={report['poses']} snapshots={report['snapshots']} "
+                emit(f"seq={sequence} poses={report['poses']} snapshots={report['snapshots']} "
                       f"feet={report.get('last_pose', {}).get('feet')} "
-                      f"blocks={len(collision.get('blocks', []))} complete={collision.get('complete')}", flush=True)
+                      f"blocks={len(collision.get('blocks', []))} complete={collision.get('complete')}")
 
 
 def load_config(path):

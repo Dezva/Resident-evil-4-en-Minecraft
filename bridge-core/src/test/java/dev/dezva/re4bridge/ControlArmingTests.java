@@ -4,6 +4,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static dev.dezva.re4bridge.ControlArming.Screen.*;
 
 class ControlArmingTests {
+    @Test void transientFocusSuspendsAnExistingSessionButNeverRearmsAfterExpiryOrNativeStop(){
+        var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);int generation=gate.generation();
+        gate.tick(1_100_000_000L,false,false,NONE,true,true,0);assertTrue(gate.active());assertTrue(gate.focusSuspended());
+        gate.tick(1_299_000_000L,false,true,NONE,true,true,0);assertTrue(gate.active());assertFalse(gate.focusSuspended());assertEquals(generation,gate.generation());
+        gate.tick(1_300_000_000L,false,false,NONE,true,true,0);gate.tick(1_500_000_000L,false,false,NONE,true,true,0);assertFalse(gate.active());
+        gate.tick(1_501_000_000L,false,true,NONE,true,true,0);assertFalse(gate.active());
+        gate.request(2_000_000_000L);gate.tick(2_000_000_001L,false,true,NONE,true,false,0);
+        gate.tick(2_000_000_002L,false,false,NONE,true,true,1);assertFalse(gate.active());
+        gate.request(3_000_000_000L);gate.tick(3_000_000_001L,false,true,NONE,true,false,0);
+        gate.lostFocus(3_100_000_000L);gate.tick(3_300_000_000L,false,true,NONE,true,true,0);assertFalse(gate.active()); // callback records time even if unfocused client ticks pause
+    }
     @Test void closingPauseBeforeMinecraftRecomputesItsPauseFlagDoesNotDropArming(){
         var gate=new ControlArming();gate.request(0);gate.tick(1,false,true,NONE,true,false,0);
         gate.tick(1_100_000_000L,true,true,PAUSE,true,true,0);int generation=gate.generation();
@@ -19,7 +30,8 @@ class ControlArmingTests {
         gate.tick(11_000_000_001L,true,true,PAUSE,true,true,1);assertFalse(gate.active());
         gate.tick(11_000_000_002L,false,true,NONE,true,true,0);assertFalse(gate.active());
         gate.request(12_000_000_000L);gate.tick(12_000_000_001L,false,true,NONE,true,false,0);
-        gate.tick(12_000_000_002L,true,false,PAUSE,true,true,0);assertFalse(gate.active());
+        gate.tick(12_000_000_002L,true,false,PAUSE,true,true,0);assertTrue(gate.active());
+        gate.tick(12_200_000_002L,true,false,PAUSE,true,true,0);assertFalse(gate.active());
     }
     @Test void commandChatDoesNotSendArmedInputAndDeadlineStartsAfterClosure() {
         var gate = new ControlArming();
@@ -78,8 +90,9 @@ class ControlArmingTests {
         int generation=gate.generation();gate.tick(1_000_000_002L,false,true,INVENTORY,true,true,0);
         assertTrue(gate.active());assertEquals(generation,gate.generation());assertTrue(gate.reason().contains("inventario"));
         gate.tick(1_000_000_003L,false,true,NONE,true,true,0);assertTrue(gate.active());
-        gate.tick(1_000_000_004L,false,false,INVENTORY,true,true,0);assertFalse(gate.active());
-        gate.tick(1_000_000_005L,false,true,NONE,true,true,0);assertFalse(gate.active());
+        gate.tick(1_000_000_004L,false,false,INVENTORY,true,true,0);assertTrue(gate.active());
+        gate.tick(1_200_000_004L,false,false,INVENTORY,true,true,0);assertFalse(gate.active());
+        gate.tick(1_200_000_005L,false,true,NONE,true,true,0);assertFalse(gate.active());
         gate.request(2_000_000_000L);gate.tick(2_000_000_001L,false,true,NONE,true,false,0);
         gate.tick(3_000_000_002L,false,true,INVENTORY,true,true,1);assertFalse(gate.active());
     }

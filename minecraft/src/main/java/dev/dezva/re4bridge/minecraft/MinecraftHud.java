@@ -46,6 +46,9 @@ final class MinecraftHud implements AutoCloseable {
     void render(MinecraftClient client,RenderTickCounter ticks){
         if(!requested || System.nanoTime()-requestedAt>=200_000_000L || failure!=null || client.player==null || client.world==null || !client.isWindowFocused() || client.currentScreen!=null && !menu(client))return;
         boolean menu=menu(client);long now=Util.getMeasuringTimeMs();
+        // A skipped capture must not query/restore dozens of GL states at the
+        // Minecraft render rate. Readback polling remains bounded to this cadence.
+        if(menu==wasMenu && renderedAt!=0 && now-renderedAt<16)return;
         double reduction=Math.min(1.,Math.min((double)HudFrame.MAX_WIDTH/requestedWidth,(double)HudFrame.MAX_HEIGHT/requestedHeight));
         int width=Math.max(32,(int)Math.round(requestedWidth*reduction)),height=Math.max(32,(int)Math.round(requestedHeight*reduction));
         try(GuiRenderState saved=new GuiRenderState()){
@@ -56,7 +59,6 @@ final class MinecraftHud implements AutoCloseable {
                     else encoder.recycle(pixels.bytes());
                 }
                 if(!readback.available()){gpuBusy++;return;}
-                if(menu==wasMenu && renderedAt!=0 && now-renderedAt<16)return;
                 if(buffers==null)buffers=new HudVertexBuffers();
                 if(target!=null && (target.textureWidth!=width || target.textureHeight!=height)){target.delete();target=null;}
                 if(target==null){target=new SimpleFramebuffer(width,height,true,MinecraftClient.IS_SYSTEM_MAC);target.setClearColor(0,0,0,0);}

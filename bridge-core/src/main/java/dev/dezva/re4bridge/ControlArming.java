@@ -11,16 +11,19 @@ public final class ControlArming {
     private String reason = "desarmado";
     private Screen previousScreen=Screen.NONE;
     private long pauseClosedAt=Long.MIN_VALUE;
+    private long focusLostAt=Long.MIN_VALUE;
+    public boolean focusSuspended(){return active && focusLostAt!=Long.MIN_VALUE;}
+    public void lostFocus(long now){if(active && focusLostAt==Long.MIN_VALUE)focusLostAt=now;}
 
     public void request(long now) {
-        previousScreen=Screen.NONE;pauseClosedAt=Long.MIN_VALUE;
+        previousScreen=Screen.NONE;pauseClosedAt=focusLostAt=Long.MIN_VALUE;
         pending = true;
         active = false;
         ++generation;
         requestedNs = now;
         reason = "esperando cerrar el chat";
     }
-    public void stop(String cause) { pending = false; active = false; reason = cause; }
+    public void stop(String cause) { pending = false; active = false;focusLostAt=Long.MIN_VALUE; reason = cause; }
     public boolean active() { return active; }
     public boolean pending() { return pending; }
     public int generation() { return generation; }
@@ -29,7 +32,15 @@ public final class ControlArming {
     public void tick(long now, boolean paused, boolean focused, Screen screen,
             boolean freshSample, boolean nativeArmed, int nativeStop) {
         if (!pending && !active) return;
-        if (!focused) { stop("Minecraft perdio el foco"); return; }
+        if (!focused) {
+            if(active && nativeArmed && nativeStop==0 && freshSample){
+                if(focusLostAt==Long.MIN_VALUE)focusLostAt=now;
+                if(now-focusLostAt<200_000_000L){previousScreen=screen;reason="foco transitorio; entrada suspendida";return;}
+            }
+            stop("Minecraft perdio el foco"); return;
+        }
+        if(focusLostAt!=Long.MIN_VALUE && now-focusLostAt>=200_000_000L){stop("Minecraft perdio el foco");return;}
+        focusLostAt=Long.MIN_VALUE;
         if(active && previousScreen==Screen.PAUSE && screen==Screen.NONE)pauseClosedAt=now;
         boolean closingPause=active && screen==Screen.NONE && pauseClosedAt!=Long.MIN_VALUE && now-pauseClosedAt<200_000_000L;
         previousScreen=screen;

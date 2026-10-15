@@ -43,9 +43,17 @@ def snapshot(read,base,size,slot, hazards=False):
         if entry[0]==0xE9:address+=5+struct.unpack_from('<i',entry,1)[0]
         if base<=address<=base+size-768:result['code'][name]=dict(rva=hex(address-base),bytes=read(address,768).hex(' '))
     if hazards:
-        # Bounded read-only code around the cEm2a update, including direct call
-        # targets. Bytes are for diagnosis only; never interpreted as permission
-        # to call or patch an unverified address.
+        # The observed cEm2a update selects two impact handlers by subtype.
+        # Read only their bounded bodies; never call either function.
+        move=result['code'].get('trap_move')
+        if move:
+            start=base+int(move['rva'],16);body=bytes.fromhex(move['bytes'])
+            prefix=bytes.fromhex('56 8b f1 80 be fc 00 00 00 00 74 1b 0f b6 86 01 01 00 00 48 74 0a 48 74 07')
+            if body.startswith(prefix):
+                for name,offset in [('trap_impact',0x19),('mine_impact',0x22)]:
+                    if body[offset]!=0xe8:continue
+                    target=start+offset+5+struct.unpack_from('<i',body,offset+1)[0]
+                    if base<=target<=base+size-2048:result['code'][name]=dict(rva=hex(target-base),bytes=read(target,2048).hex(' '))
         result['trap_details']=[]
         for row in result['pools']:
             for actor in row['actors']:

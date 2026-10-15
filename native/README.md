@@ -1,3 +1,22 @@
+# Native build453
+
+Combat v3 is5324 bytes. Owned messages may complete on a different native thread;
+the callback claims once under combat_lock and releases it around native damage.
+Only owned melee clears native nonlethal flag bit0. Foreign damage is unchanged.
+The cEmBox completion observer checks native intact→broken state, HP0 and the
+cleared intact flag, including updates that bypass ApplyDamage. It writes no
+actor HP, flags, routines, sounds or items. ZeroHP alone does not acknowledge a
+box kill. User's read-only snapshot confirmed cEmBox0x53, routines(1,0)/(1,1).
+
+Runtime v5 is160 bytes. Pickup navigation uses GLOBAL STATUS[1]&2 (STA_ITEM_GET),
+confirmed in the user's Yes/No snapshot. Arrow/confirm/cancel kinds2..7 remain
+gated to this native state, live generation and normal menu/F8/TTL guards.
+Only actually injected key bits are restored. See [0.4.53 guide](../docs/RE4-BLOCK-0.4.53.md).
+Windows gameplay/audio still require live verification; all local tests use
+simulated native APIs, not a running bio4.exe.
+
+Historical notes follow.
+
 # Native bridge
 
 Build 452 uses Combat v2 (5296 bytes). It submits the game's own hit-part ray and

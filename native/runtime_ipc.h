@@ -6,12 +6,15 @@ typedef struct {
     float lift;uint32_t lift_token;float scale;uint32_t vertical_enabled;
     uint32_t action_kind,enemy_reason,enemy_scanned,enemy_eligible,skips;float view_lift;uint32_t enemy_capacity,enemy_stride;
     float feet_y,actor_y;uint32_t vertical_active,vertical_writes;
+    uint32_t dialog_active,dialog_actions,dialog_flags1,action_ack,action_generation,dialog_source,reserved[2];
 } RuntimeShared;
-_Static_assert(sizeof(RuntimeShared)==128,"Runtime IPC v4");
+_Static_assert(sizeof(RuntimeShared)==160,"Runtime IPC v5");
 static RuntimeShared *runtime_shared;static HANDLE runtime_mapping;
 static SRWLOCK runtime_report_lock=SRWLOCK_INIT;
 static uint32_t enemy_manager,runtime_enemy_available,runtime_enemy_contacts,runtime_enemy_corrections;
 static uint32_t runtime_actions,runtime_skips,action_generation,action_consumed;
+static uint32_t runtime_dialog_active,runtime_dialog_actions,runtime_dialog_flags1;
+static uint64_t action_injected_mask;
 static uint32_t runtime_pad_stamp,action_stamp;
 static uint32_t action_pending_id,action_pending_generation,action_pending_kind;
 static uint32_t runtime_enemy_reason=1,runtime_enemy_scanned,runtime_enemy_eligible,runtime_enemy_capacity,runtime_enemy_stride;
@@ -58,18 +61,22 @@ static void runtime_vertical_tick(const ControlFrame *control,int complete,uint3
     runtime_vertical_interpolate(now);
 }
 static unsigned runtime_scene_code(uint32_t *flags){
-    *flags=0;
+    *flags=0;runtime_dialog_active=runtime_dialog_flags1=0;
     if(!global_slot || !readable((void*)global_slot,4))return 2;
     uint32_t global=*global_slot;
     if(global<0x10000 || global>0xFFFF7000 || (global&3u)
         || !readable((void*)(uintptr_t)(global+0x20),1)
-        || !readable((void*)(uintptr_t)(global+0x501C),4))return 2;
+        || !readable((void*)(uintptr_t)(global+0x501C),8))return 2;
     memcpy(flags,(void*)(uintptr_t)(global+0x501C),4);
-    return re4_scene_code(*(uint8_t*)(uintptr_t)(global+0x20),*flags);
+    memcpy(&runtime_dialog_flags1,(void*)(uintptr_t)(global+0x5020),4);
+    unsigned routine=*(uint8_t*)(uintptr_t)(global+0x20);
+    runtime_dialog_active=re4_dialog_flags(routine,*flags,runtime_dialog_flags1);
+    return runtime_dialog_active?1:re4_scene_code(routine,*flags);
 }
 static void runtime_publish(unsigned scene,uint32_t flags){
     if(!runtime_shared || !TryAcquireSRWLockExclusive(&runtime_report_lock))return;
     InterlockedIncrement(&runtime_shared->sequence);MemoryBarrier();
+    runtime_shared->dialog_active=runtime_dialog_active;runtime_shared->dialog_actions=runtime_dialog_actions;runtime_shared->dialog_flags1=runtime_dialog_flags1;runtime_shared->action_ack=action_consumed;runtime_shared->action_generation=action_generation;runtime_shared->dialog_source=runtime_dialog_active?1:0;
     runtime_shared->stamp=GetTickCount();runtime_shared->scene=scene;runtime_shared->flags=flags;
     runtime_shared->capabilities=runtime_enemy_available|(key_trigger?2u:0u);runtime_shared->enemy_contacts=runtime_enemy_contacts;
     runtime_shared->enemy_corrections=runtime_enemy_corrections;runtime_shared->actions=runtime_actions;
@@ -96,13 +103,13 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=4;p->build=452;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=5;p->build=453;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){
     if(!action_injected)return;
-    if(key_on)*key_on=(*key_on&~RE4_BORROWED_BITS)|action_saved_on;
-    if(key_trigger)*key_trigger=(*key_trigger&~RE4_BORROWED_BITS)|action_saved_trigger;
+    if(key_on)*key_on=(*key_on&~action_injected_mask)|action_saved_on;
+    if(key_trigger)*key_trigger=(*key_trigger&~action_injected_mask)|action_saved_trigger;
     action_injected=0;
 }
 static void runtime_action_apply(const ControlFrame *control,int complete,uint32_t now){
@@ -116,7 +123,8 @@ static void runtime_action_apply(const ControlFrame *control,int complete,uint32
     unsigned live=stable && complete && state->armed && control->armed && !state->stop && control->generation==state->arm_id && now-control->stamp<500
         && !(GetAsyncKeyState(VK_F8)&0x8000);
     if(!live || (control->flags&8u) || request.generation!=control->generation || now-request.request_stamp>=500
-        || !request.action_id || request.action_kind>1
+        || !request.action_id || request.action_kind>7
+        || (request.action_kind>=2 && (!runtime_scripted() || !runtime_dialog_active))
         || (request.action_kind==1 && (!runtime_scripted() || !(runtime_cache_flags&(0x10000000u|0x04000000u|0x00001000u)))) || runtime_death()){
         action_pending_id=0;runtime_action_restore();return;
     }
@@ -127,13 +135,13 @@ static void runtime_action_apply(const ControlFrame *control,int complete,uint32
     }else if(action_pending_id!=request.action_id || action_pending_generation!=request.generation
         || action_pending_kind!=request.action_kind || now-action_stamp>=RE4_ACTION_HOLD_MS){runtime_action_restore();return;}
     else if(action_injected)return; // auxiliary projection calls must not erase this pad frame's rising edge
-    uint64_t bits=request.action_kind?RE4_SKIP_BITS:RE4_ACTION_BITS;
+    uint64_t bits=request.action_kind>=2?re4_dialog_bits(request.action_kind):request.action_kind?RE4_SKIP_BITS:RE4_ACTION_BITS;
     runtime_action_restore();
-    action_saved_on=*key_on&RE4_BORROWED_BITS;action_saved_trigger=*key_trigger&RE4_BORROWED_BITS;action_injected=1;
+    action_injected_mask=bits;action_saved_on=*key_on&bits;action_saved_trigger=*key_trigger&bits;action_injected=1;
     *key_on|=bits;
     /* One rising edge, then a short held input across subsequent native pad
        polls. Never turn a single R/F6 press into repeated trigger events. */
-    if(first){*key_trigger|=bits;if(request.action_kind)runtime_skips++;else runtime_actions++;}
+    if(first){*key_trigger|=bits;if(request.action_kind>=2)runtime_dialog_actions++;else if(request.action_kind)runtime_skips++;else runtime_actions++;}
 }
 
 static void runtime_action_projection(void){

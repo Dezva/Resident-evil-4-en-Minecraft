@@ -10,6 +10,7 @@ typedef int32_t LONG;
 typedef struct {unsigned held;} SRWLOCK;
 #define SRWLOCK_INIT {0}
 static int TryAcquireSRWLockExclusive(SRWLOCK *p){if(p->held)return 0;p->held=1;return 1;}
+static void AcquireSRWLockExclusive(SRWLOCK *p){assert(!p->held);p->held=1;}
 static void ReleaseSRWLockExclusive(SRWLOCK *p){assert(p->held);p->held=0;}
 static void MemoryBarrier(void){}
 static void InterlockedIncrement(volatile LONG *p){++*p;}
@@ -57,7 +58,7 @@ static void consume(void){live_control.stamp=now;combat_damage_hook(actors[0],15
 static ControlFrame reset(void){
  memset(&report,0,sizeof(report));combat_shared=&report;combat_lock.held=collision_tick_lock.held=0;combat_consumed=combat_generation=combat_ack=combat_hits=combat_kills=combat_attempts=0;combat_reason=1;
  memset(&combat_pending,0,sizeof(combat_pending));memset(combat_hurt,0,sizeof(combat_hurt));memset(actors,0,sizeof(actors));memset(extra_part,0,sizeof(extra_part));memset(player,0,sizeof(player));
- combat_engine_ready=1;combat_original_damage=original_damage;combat_native_ray=engine_ray;combat_native_message=engine_message;combat_queued=combat_expired=0;
+ combat_engine_ready=1;combat_original_damage=original_damage;combat_native_ray=engine_ray;combat_native_message=engine_message;combat_queued=combat_expired=combat_boxes_broken=0;
  player_value=(uint32_t)(uintptr_t)player;assert((uintptr_t)player<=UINT32_MAX);*state=(Shared){1,0,7};now=1000;thread_id=1;scripted=f8=torn=bad=race=late_f8=polls=ray_miss=ray_calls=message_calls=damage_calls=0;
  enemy_manager=(uint32_t)(uintptr_t)manager;enemy_candidate_count=0;manager[0]=0x1234;manager[1]=(uint32_t)(uintptr_t)actors;manager[2]=3;manager[3]=0x408;
  for(unsigned i=0;i<3;i++){uint32_t vt=0x1234,flags=0x21,guid=10+i;int16_t value=1000;float pos[3]={2000-i*300.f,0,0};memcpy(actors[i],&vt,4);memcpy(actors[i]+4,&flags,4);memcpy(actors[i]+0xf8,&guid,4);memcpy(actors[i]+0x324,&value,2);memcpy(actors[i]+0x326,&value,2);memcpy(actors[i]+0x94,pos,12);actors[i][0x100]=0x12;actors[i][0xfc]=1;actors[i][0x102]=20;actors[i][0x368]=1;actors[i][0x36A]=6;}
@@ -116,10 +117,36 @@ int main(void){
  c=reset();combat_tick(&c,1,now);state->stop=1;consume();combat_tick(&c,1,now);assert(hp(0)==1000 && report.hits==0 && report.reason==4);
  c=reset();combat_tick(&c,1,now);uint32_t different=99;memcpy(actors[0]+0xF8,&different,4);assert(combat_damage_hook(actors[0],50,0,0)==950);assert(combat_ack==0 && !combat_hits); // foreign/recycled damage passes unchanged
  c=reset();combat_tick(&c,1,now);live_control.flags=11;consume();assert(hp(0)==1000 && !combat_hits); // menu arriving after submission blocks native damage
+ c=reset();combat_tick(&c,1,now);thread_id=2;consume();combat_tick(&c,1,now);assert(hp(0)==900 && report.ack==1 && report.hits==1 && report.callback_thread_changed); // native update on a different thread must not receive zero damage
+ c=reset();report.damage=1500;combat_tick(&c,1,now);combat_damage_hook(actors[0],150,0,1);combat_tick(&c,1,now);assert(hp(0)==0 && report.kills==1 && actors[0][0xFC]==1); // native nonlethal flag cannot make our Minecraft hit immortal
+ c=reset();assert(combat_damage_hook(actors[1],1500,0,1)==1 && !combat_hits); // ordinary nonlethal native shots retain the policy
  c=reset();assert(combat_damage_hook(actors[1],50,0,0)==950 && !combat_hits); // ordinary native bullets untouched
  for(unsigned kind=0;kind<3;kind++){
   c=reset();actors[0][0x100]=(uint8_t)(kind==0?0x23:kind==1?0x53:0x58);report.start[1]=report.end[1]=300;c.eye=300;combat_tick(&c,1,now);assert(message_calls==1 && hp(0)==1000);consume();combat_tick(&c,1,now);assert(hp(0)==900 && report.target_kind==actors[0][0x100]);
  }
+ // cEmBox native update can break without invoking the HP helper. The bridge
+ // must wait for the observed broken state, never manufacture HP/routine writes.
+ for(unsigned stage=0;stage<4;stage++){
+  c=reset();actors[0][0x100]=0x53;actors[0][4]|=2;combat_tick(&c,1,now);
+  assert(message_calls==1 && hp(0)==1000 && actors[0][0xFD]==0 && !report.hits);
+  int16_t zero=0;memcpy(actors[0]+0x324,&zero,2);
+  if(stage>=1)actors[0][0xFD]=1;
+  if(stage>=2)actors[0][4]&=(uint8_t)~2u;
+  if(stage>=3)actors[0][0x32C]=actors[0][0x32D]=0;
+  unsigned char native_after[0x408];memcpy(native_after,actors[0],sizeof(native_after));
+  combat_tick(&c,1,now);
+  assert(!memcmp(native_after,actors[0],sizeof(native_after)));
+  assert(report.hits==(stage==3) && report.boxes_broken==(stage==3));
+  if(stage==3){assert(report.ack==1 && report.reason==0 && report.hp_before==1000 && !report.hp_after && !report.kills);combat_tick(&c,1,now);assert(report.boxes_broken==1);}
+ }
+ c=reset();actors[0][0x100]=0x53;actors[0][4]|=2;report.damage=1500;combat_tick(&c,1,now);
+ combat_damage_hook(actors[0],150,0,1);assert(!hp(0) && !combat_ack && combat_pending.active==3 && !combat_hits);
+ actors[0][0xFD]=1;actors[0][4]&=(uint8_t)~2u;actors[0][0x32C]=actors[0][0x32D]=0;
+ combat_tick(&c,1,now);assert(report.ack==1 && report.boxes_broken==1 && !report.kills);
+ c=reset();actors[0][0x100]=0x53;actors[0][4]|=2;report.damage=1500;combat_tick(&c,1,now);combat_damage_hook(actors[0],150,0,0);
+ now=1500;combat_tick(&c,1,now);assert(!combat_pending.active && report.reason==8 && report.ack==1 && !report.boxes_broken && !hp(0) && actors[0][0xFD]==0); // no forced broken state, no indefinitely occupied queue
+ c=reset();actors[0][0x100]=0x23;int16_t crow_hp=10;memcpy(actors[0]+0x324,&crow_hp,2);memcpy(actors[0]+0x326,&crow_hp,2);report.start[1]=report.end[1]=300;c.eye=300;
+ combat_tick(&c,1,now);thread_id=2;combat_damage_hook(actors[0],5,0,1);combat_tick(&c,1,now);assert(!hp(0) && report.kills==1 && report.hp_before==10);
  for(unsigned bone=1;bone<=12;bone++){
   c=reset();uint32_t ptr=(uint32_t)(uintptr_t)extra_part;memcpy(actors[0]+0x374,&ptr,4);extra_part[0x24]=1;memcpy(extra_part+0x26,&bone,2);
   combat_tick(&c,1,now);assert(combat_pending.part==ptr && report.hit_part==bone);consume();assert(hp(0)==900);

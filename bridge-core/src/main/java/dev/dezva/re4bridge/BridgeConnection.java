@@ -42,14 +42,14 @@ public final class BridgeConnection implements AutoCloseable {
         control.updateAndGet(old->{if(old==null || !old.frame().get("armed").getAsBoolean() || old.frame().get("arm_id").getAsInt()!=generation || old.frame().get("menu").getAsBoolean() || !old.frame().has("look"))return old;
             var frame=old.frame().deepCopy();var j=new JsonObject();j.addProperty("enabled",look.enabled());j.addProperty("first_person",look.firstPerson());j.addProperty("total_yaw",look.totalYaw());j.addProperty("pitch",look.pitch());j.addProperty("eye_height",look.eyeHeight());j.addProperty("absolute_yaw",look.absoluteYaw());frame.add("look",j);return new ControlFrame(frame,old.hud(),old.createdNs());});
     }
-    private record ActionRequest(int generation,int id,boolean skip,long createdNs){}
-    private volatile ActionRequest actionRequest;private int actionGeneration,actionCounter;
+    private final NativeActionQueue nativeActions=new NativeActionQueue();
     public RuntimeState runtimeState(){return runtimeState;}
     public boolean scripted(){var state=runtimeState;return state!=null && state.scripted(System.nanoTime());}
-    public void clearAction(){actionRequest=null;}
-    public void requestAction(int generation){requestAction(generation,false);}
-    public void requestSkip(int generation){requestAction(generation,true);}
-    private void requestAction(int generation,boolean skip){if(generation<=0)return;if(actionGeneration!=generation){actionGeneration=generation;actionCounter=0;}if(actionCounter==Integer.MAX_VALUE)return;actionRequest=new ActionRequest(generation,++actionCounter,skip,System.nanoTime());}
+    public boolean nativeDialog(){var state=runtimeState;return state!=null && state.dialog(System.nanoTime());}
+    public void clearAction(){nativeActions.clear();}
+    public void requestAction(int generation){if(generation>0)nativeActions.offer(generation,0,System.nanoTime());}
+    public void requestSkip(int generation){if(generation>0)nativeActions.offer(generation,1,System.nanoTime());}
+    public void requestDialog(int generation,int kind){if(generation>0 && nativeDialog() && kind>=2 && kind<=7)nativeActions.offer(generation,kind,System.nanoTime());}
     public void healthRequest(HealthRequest request){healthRequest=request;}
     public HealthState healthState(){return healthState;}
     public void menuRequested(boolean value){menuRequested=value;}
@@ -222,9 +222,10 @@ public final class BridgeConnection implements AutoCloseable {
                             frame = latest.frame().deepCopy();
                             var v=vertical;
                             if(v!=null && frame.get("armed").getAsBoolean() && v.generation()==frame.get("arm_id").getAsInt() && (System.nanoTime()-v.stamp()<200_000_000L || frame.get("menu").getAsBoolean())){var j=new JsonObject();j.addProperty("lift",v.lift());j.addProperty("scale",v.scale());j.addProperty("token",v.token());j.addProperty("feet_y",v.feetY());j.addProperty("native_ground",v.nativeGround());frame.add("vertical",j);}
-                            var action=actionRequest;
+                            var activity=runtimeState;
+                            var action=nativeActions.next(frame.get("arm_id").getAsInt(),System.nanoTime(),activity==null?0:activity.actionGeneration(),activity==null?0:activity.actionAcknowledgement());
                             if(action!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean()
-                                && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L){frame.addProperty("action_id",action.id());frame.addProperty("action_kind",action.skip()?1:0);}
+                                && action.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-action.createdNs()<500_000_000L){frame.addProperty("action_id",action.id());frame.addProperty("action_kind",action.kind());}
                             frame.addProperty("combat_enabled",combatEnabled);frame.addProperty("combat_scale",combatScale);frame.addProperty("combat_reach",combatReach);frame.addProperty("combat_terrain_revision",combatTerrain==null?0:combatTerrain.revision());
                             var swing=combatRequest;if(combatEnabled && swing!=null && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean() && swing.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-swing.createdNs()<200_000_000L)frame.add("combat",swing.toJson());
                             var health=healthRequest;
@@ -275,7 +276,7 @@ public final class BridgeConnection implements AutoCloseable {
                                 || !state.getAsJsonPrimitive("stop").isNumber() || !state.getAsJsonPrimitive("hook_ticks").isNumber())
                             throw new IOException("Invalid control acknowledgement");
                         nativeArmed = state.get("armed").getAsBoolean();
-                        if(state.has("runtime_state"))runtimeState=RuntimeState.parse(state.getAsJsonObject("runtime_state"),System.nanoTime());
+                        if(state.has("runtime_state")){var previous=runtimeState;runtimeState=RuntimeState.parse(state.getAsJsonObject("runtime_state"),System.nanoTime());if(previous!=null && previous.dialogActive() && !runtimeState.dialogActive())clearAction();}
                         if(state.has("health_state"))healthState=HealthState.parse(state.getAsJsonObject("health_state"));
                         if(state.has("terrain"))terrain=TerrainSnapshot.parse(state.getAsJsonObject("terrain"),System.nanoTime());
                         if(state.has("terrain_state")){var value=state.getAsJsonPrimitive("terrain_state");if(!value.isString() || value.getAsString().length()>160)throw new IOException("Invalid terrain state");terrainState=value.getAsString();}

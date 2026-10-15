@@ -63,8 +63,12 @@ def control_summary(state):
     if isinstance(combat, dict):
         result['combat'] = {key: combat[key] for key in (
             'active', 'fresh', 'ack', 'reason', 'hp_before', 'hp_after', 'hits', 'kills',
-            'engine_supported', 'profile_reason', 'pending', 'queued', 'expired', 'hit_part', 'target_kind') if key in combat}
+            'engine_supported', 'profile_reason', 'pending', 'queued', 'expired', 'hit_part', 'target_kind',
+            'callback_seen', 'callback_owned', 'callback_thread_changed', 'callback_foreign', 'last_native_flags', 'last_message', 'boxes_broken') if key in combat}
         result['combat']['enemies'] = len(combat.get('enemies', ()))
+    runtime = state.get('runtime_state')
+    if isinstance(runtime, dict):
+        result['dialog'] = {key: runtime[key] for key in ('dialog_active', 'dialog_actions', 'action_ack') if key in runtime}
     return result
 
 

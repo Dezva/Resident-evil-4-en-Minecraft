@@ -34,7 +34,7 @@ def setup_logging():
 def main():
     terrain=None
     log,log_handler=setup_logging()
-    log.info('Host 0.4.52 iniciado')
+    log.info('Host 0.4.53 iniciado')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
@@ -66,7 +66,7 @@ def main():
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            print('Host 0.4.52: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            print('Host 0.4.53: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 print(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)

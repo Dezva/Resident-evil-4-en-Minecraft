@@ -26,6 +26,7 @@ class ControlTests {
             bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
             bridge.requestAction(7);await(()->bridge.runtimeState()!=null && bridge.runtimeState().actions()==1);
             assertTrue(Files.readString(log).contains("ACTION generation=7 id=1 kind=0"));
+            bridge.publishControl(true,65,7,new MouseLook.Input(true,true,0,0,1620));
             bridge.requestSkip(7);await(()->bridge.runtimeState().skips()==1);assertTrue(Files.readString(log).contains("ACTION generation=7 id=2 kind=1"));
             bridge.suspendForMenu();await(()->bridge.nativeArmed() && bridge.nativeButtons()==0);
             long seq=bridge.status().acknowledgedSequence();Thread.sleep(350);assertTrue(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());assertTrue(bridge.status().acknowledgedSequence()>seq);
@@ -39,6 +40,25 @@ class ControlTests {
             assertFalse(Files.readString(log).contains("ACTION generation=8")); // action from another generation cannot cross the wire
             // Movement still expires at the ordinary 200 ms deadline.
             await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
+        }finally{peer.destroyForcibly();}
+    }
+    @Test void pickupDialogTransmitsArrowThenEnterAndClearsLaterInputWhenItCloses() throws Exception {
+        int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
+        var config=new BridgeConfig(1,port,"a".repeat(64));var file=temp.resolve("dialog-config.json");var log=temp.resolve("dialog-peer.log");
+        Files.writeString(file,new Gson().toJson(config));
+        var peer=new ProcessBuilder(System.getenv().getOrDefault("RE4BRIDGE_PYTHON","python3"),Path.of("../tools/fixtures/control_peer.py").toAbsolutePath().toString(),"--config",file.toString(),"--dialog")
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        try(var bridge=new BridgeConnection(config,BridgeConnection.Mode.CONTROL)){
+            await(()->{try{return Files.readString(log).contains("READY");}catch(Exception e){return false;}});bridge.start();await(()->bridge.nativeTicks()==123);
+            var look=new MouseLook.Input(true,true,0,0,1620);bridge.publishControl(true,0,7,look);await(bridge::nativeArmed);
+            assertFalse(bridge.nativeDialog());bridge.requestAction(7);
+            await(bridge::nativeDialog);bridge.requestDialog(7,5);bridge.requestDialog(7,6);bridge.requestDialog(7,4);
+            long deadline=System.nanoTime()+2_000_000_000L;
+            while(System.nanoTime()<deadline && bridge.runtimeState().dialogActions()<2){bridge.publishControl(true,0,7,look);Thread.sleep(10);}
+            assertEquals(2,bridge.runtimeState().dialogActions());await(()->!bridge.nativeDialog());
+            for(int i=0;i<25;i++){bridge.publishControl(true,0,7,look);Thread.sleep(10);}
+            var text=Files.readString(log);int arrow=text.indexOf("id=2 kind=5"),enter=text.indexOf("id=3 kind=6");
+            assertTrue(arrow>=0 && enter>arrow,text);assertFalse(text.contains("id=4 kind=4"));assertEquals(2,bridge.runtimeState().dialogActions());
         }finally{peer.destroyForcibly();}
     }
     @TempDir Path temp;

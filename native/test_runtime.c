@@ -106,6 +106,26 @@ int main(void){
     runtime_action_projection();assert(runtime_skips==1); // active pad owns input
     now=2200;report.request_stamp=now;runtime_action_projection();assert(runtime_skips==2 && (on&RE4_SKIP_BITS));
     now+=RE4_ACTION_HOLD_MS;runtime_action_projection();assert(runtime_skips==2 && !(on&RE4_SKIP_BITS)); // bounded pulse even without pad
+    // User's actual Yes/No snapshot: STATUS[1] has STA_ITEM_GET (bit 1).
+    flags=0x03000110;uint32_t item_flags=0x10000202;memcpy(globals+0x501C,&flags,4);memcpy(globals+0x5020,&item_flags,4);block_camera_epoch++;
+    assert(runtime_scripted() && runtime_dialog_active && report.dialog_active && report.dialog_flags1==item_flags);
+    for(unsigned kind=2;kind<=7;kind++){
+        runtime_action_restore();now+=200;report.request_stamp=control.stamp=now;report.action_id=kind+10;report.action_kind=kind;
+        uint64_t saved_on=on,saved_trigger=trigger,bits=re4_dialog_bits(kind);
+        runtime_action_apply(&control,1,now);assert((on&bits)==bits && (trigger&bits)==bits);
+        assert((on&~bits)==(saved_on&~bits) && (trigger&~bits)==(saved_trigger&~bits));
+        runtime_action_restore();assert(on==saved_on && trigger==saved_trigger);
+        runtime_action_apply(&control,1,now);assert((on&bits)==bits && trigger==saved_trigger);runtime_action_restore();
+    }
+    runtime_publish(1,flags);assert(report.dialog_actions==6 && report.action_ack==17 && report.action_generation==7);
+    // Item flag alone must not admit arrows into movies, death, doors or Minecraft GUI.
+    for(unsigned gate=0;gate<6;gate++){
+        flags=gate==1?0x10000000:gate==2?0x100000:0x03000110;globals[0x20]=gate==3?4:3;
+        item_flags=gate==0?0:2;memcpy(globals+0x501C,&flags,4);memcpy(globals+0x5020,&item_flags,4);block_camera_epoch++;
+        now+=200;report.request_stamp=control.stamp=now;report.action_id=30+gate;report.action_kind=6;control.flags=gate==4?11:3;f8=gate==5;
+        uint64_t old_on=on,old_trigger=trigger;runtime_action_apply(&control,1,now);assert(runtime_dialog_actions==6 && on==old_on && trigger==old_trigger);
+    }
+    f8=0;control.flags=3;globals[0x20]=3;item_flags=0;memcpy(globals+0x5020,&item_flags,4);block_camera_epoch++;
     state->armed=0;queries=0;assert(!runtime_scripted() && !queries);
     flags=50331920;memcpy(globals+0x501C,&flags,4);now+=16;
     assert(runtime_refresh()==0 && report.scene==0 && report.flags==flags); // no stale cinematic report after F8

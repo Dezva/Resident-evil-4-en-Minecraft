@@ -12,6 +12,8 @@ static void combat_publish(unsigned active,uint32_t now){
  if(!combat_shared)return;
  InterlockedIncrement(&combat_shared->sequence);MemoryBarrier();
  memcpy(combat_shared->hit_position,combat_hit_position,12);combat_shared->target_kind=combat_target_kind;
+ combat_shared->callback_seen=combat_callback_seen;combat_shared->callback_owned=combat_callback_owned;combat_shared->callback_thread_changed=combat_callback_thread_changed;combat_shared->last_native_flags=combat_last_native_flags;combat_shared->last_message=combat_last_message;combat_shared->callback_foreign=combat_callback_foreign;
+ combat_shared->boxes_broken=combat_boxes_broken;
  combat_shared->engine_ready=combat_engine_ready;combat_shared->queued=combat_queued;combat_shared->expired=combat_expired;combat_shared->hit_part=combat_last_part;combat_shared->hook_reason=combat_hook_reason;combat_shared->pending_id=combat_pending.active?combat_pending.id:0;
  combat_shared->observed_stamp=now;combat_shared->observed_generation=combat_generation;combat_shared->ack=combat_ack;combat_shared->reason=combat_reason;
  combat_shared->target_guid=combat_target_guid;combat_shared->target_slot=combat_target_slot;combat_shared->hp_before=combat_hp_before;combat_shared->hp_after=combat_hp_after;
@@ -50,7 +52,8 @@ static int combat_blocks_clear(const CombatShared *r,float hit){
 static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
  if(!combat_shared || !TryAcquireSRWLockExclusive(&combat_lock))return;
  CombatShared r={0};int stable=0;unsigned active=0;
- if(combat_pending.active && (now-combat_pending.stamp>=500 || !complete || !combat_session_valid(combat_pending.generation,now)))combat_cancel_pending();
+ if(complete)combat_observe_box(now);
+ if((combat_pending.active==1 || combat_pending.active==3) && (now-combat_pending.stamp>=500 || !complete || !combat_session_valid(combat_pending.generation,now)))combat_cancel_pending();
  if(!combat_engine_ready){combat_reason=6;goto done;}
  for(unsigned i=0;i<3;i++){LONG before=combat_shared->request_sequence;if(before&1)continue;MemoryBarrier();memcpy((char*)&r+20,(const char*)combat_shared+20,60);MemoryBarrier();if(before==combat_shared->request_sequence){stable=1;break;}}
  if(!stable || !complete || !state->armed || !control->armed || state->stop || (control->flags&11u)!=3u || control->generation!=state->arm_id
@@ -101,7 +104,7 @@ static void combat_ipc_open(void){
  HANDLE map=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CombatShared),name);if(!map)return;
  if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(map);return;}
  CombatShared *p=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));if(!p){CloseHandle(map);return;}
- memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=2;p->build=452;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
+ memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=3;p->build=453;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
 }
 
 #include "combat_install.h"

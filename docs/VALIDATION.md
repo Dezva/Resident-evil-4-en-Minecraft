@@ -1,3 +1,32 @@
+# Validación 0.4.53 — daño, cajas y recogida
+
+Linux cloud, 2026-10-15. El log del usuario contiene20 solicitudes/20 caducadas,
+sin daño confirmado. Su diagnóstico identifica cajas cEmBox0x53 intactas con
+HP1000/rutina(1,0)/flags0x200686f y una rota HP0/(1,1)/0x200686d. El menú muestra
+STA_ITEM_GET en STATUS[1]0x10000202 y dos opciones. No se publican logs ni dumps.
+
+- Core51 pruebas, Minecraft87 y Python181, sin fallos ni omisiones. Compilación
+  JDK21/Gradle8.11.1, remapeo y access widener pasan. remapSourcesJar continúa
+  omitida por la configuración existente.
+- Callback nativo real compilado contra APIs simuladas: daño desde otro hilo,
+  golpe letal con bandera no letal, cuervo HP10, conservación de disparos ajenos,
+  y confirmación de caja solo después de HP0+estado roto+bandera+mensaje consumido.
+  Prueba también la ruta de caja que sí llama al helper y evita ack prematuro.
+- Runtime nativo real contra APIs simuladas: los seis pulsos, un trigger,
+  preservación/restauración de bits ajenos, ack/generación, rechazo fuera de
+  recogida y en muerte/movie/puerta/Minecraft GUI/F8. Guardas previas siguen pasando.
+- TCP autenticado: R abre diálogo simulado, flecha→Enter llega en orden, cerrar
+  el diálogo elimina una flecha posterior. Cola/TTL/generación y teclas de
+  confirmación sin repetición tienen pruebas separadas.
+- Cinco fixtures C adicionales pasan con warnings como errores. DLL PE32 de
+  MinGW14.2 compilada; instalación/retirada y actualización desde DLL452 publicada
+  comprobadas mediante PowerShell y archivos sintéticos, sin modificar un juego.
+- La comprobación dentro de RE4/Windows sigue pendiente: muertes, sonido/fragmentos
+  y botín de caja, menús reales y compatibilidad con escenas y otros mods.
+  No se afirma una mejora de FPS ni cobertura de todos los objetos destruibles.
+
+Validación histórica debajo.
+
 # Validación 0.4.52 — impactos y recuperación
 
 Linux cloud, 2026-10-15. El usuario confirma HP y drops en 0.4.51, pero los cuerpos

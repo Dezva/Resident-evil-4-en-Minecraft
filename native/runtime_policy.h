@@ -11,7 +11,14 @@ static inline unsigned re4_scene_code(unsigned routine,uint32_t flags){return ro
    No fire/aim; skip is separately gated to native movies/events. */
 #define RE4_ACTION_BITS (UINT64_C(0x400)|UINT64_C(0x80000))
 #define RE4_SKIP_BITS UINT64_C(0x20000000) /* KEY_EV_CANCEL */
-#define RE4_BORROWED_BITS (RE4_ACTION_BITS|RE4_SKIP_BITS)
+#define RE4_DIALOG_MASK (UINT64_C(0xF000000)|UINT64_C(0xC00C0000))
+#define RE4_BORROWED_BITS (RE4_ACTION_BITS|RE4_SKIP_BITS|RE4_DIALOG_MASK)
+static inline uint64_t re4_dialog_bits(unsigned kind){
+ switch(kind){case 2:return UINT64_C(0x1000000);case 3:return UINT64_C(0x2000000);case 4:return UINT64_C(0x8000000);case 5:return UINT64_C(0x4000000);case 6:return UINT64_C(0x80080000);case 7:return UINT64_C(0x40040000);default:return 0;}
+}
+static inline unsigned re4_dialog_flags(unsigned routine,uint32_t flags,uint32_t flags1){
+ return routine==3 && (flags1&2u) && !(flags&(0x10000000u|0x08000000u|0x04000000u|0x00100000u));
+}
 #define RE4_ACTION_HOLD_MS 120u
 static inline int re4_action_pulse(uint32_t now,uint32_t stamp,uint32_t generation,uint32_t request_generation,
     uint32_t id,uint32_t *last_generation,uint32_t *last_id,unsigned live,unsigned menu){

@@ -7,7 +7,7 @@ from test_re4_control import Writer
 from test_cube_test import Function
 class Kernel:
  def __init__(self):
-  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,2,452,42);self.closed=[]
+  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,3,453,42);self.closed=[]
   self.OpenFileMappingW=Function(lambda a,b,n:7);self.MapViewOfFile=Function(lambda a,b,c,d,n:ctypes.addressof(self.buffer) if n==SIZE else 0)
   self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a));self.GetTickCount=Function(lambda:1000)
  def report(self):
@@ -31,6 +31,12 @@ class CombatTests(unittest.TestCase):
   self.assertEqual(before,k.buffer.raw[80:]);self.assertEqual(k.words[6:10],[1,7,1,50]);self.assertEqual(k.words[12:14],[0,10]);self.assertEqual(struct.unpack_from('<3f',k.buffer,56),(0,1000,0));self.assertEqual(k.words[4]%2,0)
   status=native.status();self.assertEqual(status['ack'],1);self.assertEqual(status['enemies'][0]['position'],[2000,0,0]);self.assertEqual(status['hp_after'],950)
   native.close();self.assertEqual(k.words[6],0);self.assertEqual(len(k.closed),2)
+ def test_report_keeps_impact_kind_independent_of_last_actor_and_reads_callback_diagnostics(self):
+  k=Kernel();native=NativeCombat(42,k);k.report();k.words[33]=2
+  struct.pack_into('<5I5f',k.buffer,176,1,11,0x53,1000,1000,2300,0,0,700,1800)
+  struct.pack_into('<7I',k.buffer,5296,2,1,1,1,0x20a01,1,3)
+  status=native.status();self.assertEqual(status['target_kind'],0x12);self.assertEqual(status['enemies'][-1]['kind'],0x53)
+  self.assertEqual(status['callback_thread_changed'],1);self.assertEqual(status['boxes_broken'],3);native.close()
  def test_control_policy_stops_watch_and_attacks_in_menus_disarm_and_script(self):
   k=Kernel();native=NativeCombat(42,k);writer=Writer();writer.status=lambda:dict(stop=0,ticking=True,hook_ticks=10,capabilities=31)
   class Runtime:
@@ -52,5 +58,5 @@ class CombatTests(unittest.TestCase):
   state=native.status();self.assertFalse(state['active']);self.assertFalse(state['fresh']);self.assertEqual(state['enemies'],[]);native.close()
  def test_build_mismatch_releases_both_mapping_resources(self):
   k=Kernel();k.words[2]=451
-  with self.assertRaisesRegex(ReaderError,'DLL0.4.52'):NativeCombat(42,k)
+  with self.assertRaisesRegex(ReaderError,'DLL0.4.53'):NativeCombat(42,k)
   self.assertEqual(len(k.closed),2)

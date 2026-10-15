@@ -77,7 +77,7 @@ class GraphicsCaptureTests(unittest.TestCase):
         struct.pack_into('<I',data,12,424)
         newer=capture.decode_capture(bytes(data),42)
         self.assertEqual(newer['build'],'0.4.24');self.assertIsNone(newer['rendering_enabled'])
-        for build in (426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443,444,445,446,447,448,449,450,451,452):
+        for build in (426,427,428,429,430,432,433,434,435,436,437,438,439,441,442,443,444,445,446,447,448,449,450,451,452,453):
             struct.pack_into('<I',data,12,build)
             newer=capture.decode_capture(bytes(data),42)
             self.assertEqual(newer['build'],f'0.4.{build-400}');self.assertIsNone(newer['rendering_enabled'])
@@ -157,7 +157,7 @@ class GraphicsCaptureTests(unittest.TestCase):
 
     def test_main_keeps_depth_matrices_without_process_access_or_mapping_writes(self):
         from test_depth import Kernel as DepthKernel
-        for build in ('0.4.35','0.4.36','0.4.37','0.4.38','0.4.39','0.4.41','0.4.42','0.4.43','0.4.44','0.4.45','0.4.46','0.4.47','0.4.48','0.4.49','0.4.50','0.4.51','0.4.52'):
+        for build in ('0.4.35','0.4.36','0.4.37','0.4.38','0.4.39','0.4.41','0.4.42','0.4.43','0.4.44','0.4.45','0.4.46','0.4.47','0.4.48','0.4.49','0.4.50','0.4.51','0.4.52','0.4.53'):
             kernel=DepthKernel();before=bytes(kernel.buffer)
             state={'build':build,'hook_description':'importacion interceptada','device_success':1}
             cube={'live_devices':1,'frames':2,'draws':1,'reason':'activo'}

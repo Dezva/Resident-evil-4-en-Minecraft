@@ -18,7 +18,7 @@ def validate_control(frame):
     validate_combat(frame)
     if type(frame.get("combat_terrain_revision",0)) is not int or not 0<=frame.get("combat_terrain_revision",0)<=2147483647:raise ProtocolError("Invalid combat terrain revision")
     if type(frame.get('action_id',0)) is not int or not 0<=frame.get('action_id',0)<=2147483647 or frame.get('action_id',0) and (not frame.get('armed') or frame.get('menu',False)):raise ProtocolError('Invalid action request')
-    if type(frame.get('action_kind',0)) is not int or frame.get('action_kind',0) not in (0,1) or frame.get('action_kind',0) and not frame.get('action_id',0):raise ProtocolError('Invalid action kind')
+    if type(frame.get('action_kind',0)) is not int or not 0<=frame.get('action_kind',0)<=7 or frame.get('action_kind',0) and not frame.get('action_id',0):raise ProtocolError('Invalid action kind')
     vertical=frame.get('vertical')
     if vertical is not None:
         if not isinstance(vertical,dict) or set(vertical)!={'lift','scale','token','feet_y','native_ground'} or type(vertical['token']) is not int or not 1<=vertical['token']<=2147483647:raise ProtocolError('Invalid vertical request')

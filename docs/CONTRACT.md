@@ -1,3 +1,29 @@
+# Build453: Combat v3 y Runtime v5
+
+Combat: 5324 bytes, magic0x52453446/version3/build453/PID. Conserva offsets de
+comando [16,80), seqlock80, catálogo136 y tail5256. Añade siete u32 en5296:
+callback_seen/owned/thread_changed, last_native_flags, last_message,
+callback_foreign, boxes_broken. target_kind pertenece al impacto, no al último
+actor del catálogo. La identidad GUID/vtable/tipo, parte y origen del mensaje
+siguen siendo obligatorios; el hilo emisor no lo es. Se reclama una sola vez
+bajo bloqueo y se libera durante la llamada nativa. Solo al mensaje propio se
+le quita flags bit0 (no letal); el resto de daño no cambia. Una caja0x53 que
+llegue a HP0 espera además rutina (1,1), mensaje consumido y flags&0x603==1.
+Se observa la transición intacta→rota; no se escribe HP/rutina/bandera del objeto.
+
+Runtime: 160 bytes, magic0x52453452/version5/build453/PID. Conserva comando48..83,
+feet_y112 y reportes previos. Reporte128: ocho u32 dialog_active,dialog_actions,
+dialog_flags1,action_ack,action_generation,dialog_source,reserved[2]. El seqlock16
+cubre el reporte. GLOBAL routine3/STATUS[1]&2 (STA_ITEM_GET) habilita recogida,
+salvo movie/cut/death; lo mantiene como escena pausada1 para movimiento/combate.
+action_kind:0 contextual,1 skip;2 arriba,3 abajo,4 izquierda,5 derecha,
+6 aceptar(KEY_OK|KEY_A),7 cancelar(KEY_CANCEL|KEY_B). Solo recogida permite2..7.
+Cada pulso tiene un trigger, hold120ms y restaura exclusivamente sus bits.
+La cola cliente limita16 pendientes, edad1s, espera ack/generación e intervalo
+150ms entre envíos y un comando cero durante al menos30ms antes del siguiente; timeout500ms, cierre de diálogo/menú/F8/generación la vacían.
+
+Contratos históricos conservados debajo.
+
 # Combat v2 / build 452
 
 Combat mapping is 5296 bytes, magic 0x52453446/version2/build452/PID. The command

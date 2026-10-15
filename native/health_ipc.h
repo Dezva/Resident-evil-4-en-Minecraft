@@ -15,7 +15,7 @@ static void health_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     HealthShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453448;p->version=1;p->build=452;p->pid=GetCurrentProcessId();p->reason=1;
+    memset(p,0,sizeof(*p));p->magic=0x52453448;p->version=1;p->build=453;p->pid=GetCurrentProcessId();p->reason=1;
     health_mapping=mapping;health_shared=p;
 }
 /* Existing game-thread pad callback only. No external process memory writes,

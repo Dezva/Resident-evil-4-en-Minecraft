@@ -1,3 +1,17 @@
+## 0.4.53 — daño letal, estado de cajas y menús de recogida
+
+El callback de daño reclama el mensaje propio bajo bloqueo, sin exigir el hilo
+que lo envió. La llamada nativa ocurre fuera del bloqueo. Un golpe propio puede
+matar aunque llegue la bandera no letal; disparos ajenos mantienen sus argumentos.
+Las cajas esperan el estado roto nativo, incluso cuando no pasan por ApplyDamage;
+no se fuerzan HP, rutinas, audio ni drops. Corrige el tipo de impacto del host.
+STA_ITEM_GET habilita flechas, Enter/R para aceptar y Retroceso para cancelar.
+Cola limitada con confirmación, intervalo entre pulsos y descarte al cerrar menú.
+Combat v3/5324 bytes y Runtime v5/160 bytes; build453 en todos los canales.
+51 pruebas core, 87 Minecraft, 181 Python y cinco fixtures C pasan en Linux.
+Actualización desde DLL452 comprobada con el artefacto publicado. Prueba en el
+juego Windows pendiente. Ver [guía 0.4.53](docs/RE4-BLOCK-0.4.53.md).
+
 ## 0.4.52 — impactos nativos, nuevos objetivos y host
 
 Sustituye HP/Die directos por Bullet_RayTest, EmDmgMsg_Set y un ajuste limitado

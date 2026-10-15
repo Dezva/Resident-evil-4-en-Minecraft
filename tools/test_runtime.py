@@ -9,10 +9,10 @@ from re4_reader import ReaderError
 
 class Kernel:
     def __init__(self):
-        self.buffer=ctypes.create_string_buffer(128);self.words=(ctypes.c_uint32*32).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,4,452,42);self.closed=[]
+        self.buffer=ctypes.create_string_buffer(160);self.words=(ctypes.c_uint32*40).from_buffer(self.buffer)
+        self.words[:4]=(MAGIC,5,453,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
-        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==128 else 0)
+        self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==160 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
@@ -27,15 +27,23 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(policy.apply(dict(frame,menu=True,buttons=0),{'state':'player'})['armed'])
         self.assertTrue(policy.apply(frame,{'state':'player'})['armed']);self.assertEqual(writer.writes[-1],(True,65));native.close()
     def test_old_broken_dll_rejected_with_update_message(self):
-        for build in (442,445,446,447,448,449,450):
+        for build in (442,445,446,447,448,449,450,451,452):
             k=Kernel();k.words[2]=build
-            with self.assertRaisesRegex(ReaderError,'DLL0.4.52'):NativeRuntime(42,k)
+            with self.assertRaisesRegex(ReaderError,'DLL0.4.53'):NativeRuntime(42,k)
             self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])
         native.publish(7,8);self.assertEqual(before,list(k.words[4:12]));self.assertEqual(tuple(k.words[12:16]),(4,1000,8,7))
         state=native.status();self.assertEqual(state['scene'],1);self.assertTrue(state['action_available']);self.assertTrue(state['enemies_available'])
         k.words[4]=3;self.assertFalse(native.status()['fresh']);native.close();self.assertEqual(k.words[14],0);self.assertEqual(len(k.closed),2)
+    def test_dialog_arrows_confirm_and_cancel_preserve_native_reports_and_publish_ack(self):
+        k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x03000110,3,0,0,0]
+        k.words[32:38]=[1,6,0x10000202,10,7,1];before=bytes(k.buffer[128:])
+        for kind in range(2,8):
+            native.publish(7,kind,None,kind)
+            self.assertEqual(k.words[20],kind);self.assertEqual(bytes(k.buffer[128:]),before)
+        state=native.status();self.assertTrue(state['dialog_active']);self.assertEqual(state['action_ack'],10);self.assertEqual(state['action_generation'],7)
+        self.assertEqual(state['dialog_actions'],6);native.close()
     def test_cinematic_missing_player_and_idle_pad_keep_existing_generation_but_not_a_new_arm(self):
         class Runtime:
             scene=0;fresh=True
@@ -80,7 +88,7 @@ class RuntimeTests(unittest.TestCase):
         k.words[21:28]=[0,300,3,2,0,300,0x408]
         native.publish(7,3,None,1);self.assertEqual(k.words[20],1);self.assertEqual(k.words[21],0)
         state=native.status();self.assertEqual(state['enemy_scanned'],300);self.assertEqual(state['enemy_eligible'],3);self.assertEqual(state['skips'],2)
-        for frame in (dict(action_id=1,action_kind=True),dict(action_id=1,action_kind=2),dict(action_kind=1)):
+        for frame in (dict(action_id=1,action_kind=True),dict(action_id=1,action_kind=8),dict(action_kind=1)):
             with self.assertRaises(ProtocolError):validate_control(dict(type='re4_control',armed=True,buttons=0,arm_id=7,**frame))
         native.close()
     def test_action_validation_never_sends_in_menus_or_disarmed(self):

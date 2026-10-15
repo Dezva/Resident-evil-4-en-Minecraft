@@ -84,6 +84,17 @@ class SurvivalTests {
             assertEquals(1,checks);
         }
     }
+ @Test void pickupDialogKeysConfirmOnceAndLeaveOtherKeysToMinecraft(){
+        var sent=new java.util.ArrayList<Integer>();
+        assertFalse(BridgeKeys.consumeDialogKey(false,257,1,sent::add));
+        for(int key:new int[]{257,335,82,259})for(int phase:new int[]{1,2,2,0})assertTrue(BridgeKeys.consumeDialogKey(true,key,phase,sent::add));
+        assertEquals(java.util.List.of(6,6,6,7),sent);sent.clear();
+        for(int key:new int[]{265,264,263,262})assertTrue(BridgeKeys.consumeDialogKey(true,key,1,sent::add));
+        assertEquals(java.util.List.of(2,3,4,5),sent);
+        for(int i=0;i<20;i++)assertTrue(BridgeKeys.consumeDialogKey(true,262,2,sent::add));
+        assertEquals(4,sent.size());assertFalse(BridgeKeys.consumeDialogKey(true,256,1,sent::add));
+        assertFalse(BridgeKeys.consumeDialogKey(true,87,1,sent::add));
+    }
  @Test void contextualAndSkipKeysProduceOneRequestPerPressAndKeepEscFree(){
         var action=new java.util.concurrent.atomic.AtomicInteger();var skip=new java.util.concurrent.atomic.AtomicInteger();
         for(int phase:new int[]{1,2,2,0}){

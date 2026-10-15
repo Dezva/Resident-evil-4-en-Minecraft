@@ -7,7 +7,7 @@ class CombatProbeTests(unittest.TestCase):
   base=0x400000;memory=bytearray(0x200000)
   struct.pack_into('<I',memory,0x3C,0x100);struct.pack_into('<I',memory,0x108,0x5A6192E5)
   for j,(name,rva) in enumerate(FUNCTIONS.items()):
-   entry=0x1000+j*0x100;memory[entry-5]=memory[entry]=memory[entry+5]=0xE9
+   entry=0x1100+j*0x100;memory[entry-5]=memory[entry]=memory[entry+5]=0xE9
    struct.pack_into('<i',memory,entry+1,rva-entry-5);memory[rva:rva+3]=b'\x55\x8b\xec'
    for i in range(3):
     call=0x5000+j*0x100+i*10;memory[call]=0xE8;struct.pack_into('<i',memory,call+1,entry-call-5)

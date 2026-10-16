@@ -177,6 +177,17 @@ de guardar una copia restaurable y validar su hash. La operación necesitó UAC
 una vez; no se cambió UAC global, ningún otro valor de compatibilidad, el EXE,
 la DLL ni las partidas. Evidencia/restauración en
 `D:\logs\re4-privileges-20261016`. La lectura posterior confirma el valor ausente.
+
+El usuario informó que UAC seguía apareciendo. Se encontró además el mismo
+`RUNASADMIN` en HKCU del usuario real. La primera revisión de HKCU había usado
+la cuenta aislada del sandbox de comandos, aunque USERPROFILE apuntaba a la
+carpeta habitual. Se guardó otra copia restaurable y se retiró exclusivamente
+el valor de la ruta actual, sin UAC; se conservó una entrada de otra instalación.
+La comprobación final, ejecutada como el usuario real, confirma ausencia del
+ajuste para esa ruta en HKCU/HKLM y ambas vistas32/64. El hash del EXE no cambió.
+Para futuros diagnósticos por usuario, comprobar la identidad/SID del proceso
+de consulta; USERPROFILE por sí solo no identifica el hive HKCU consultado.
+
 La prueba pendiente es iniciar RE4 y el host normalmente y comprobar el token
 de proceso y el acceso real; retirar el ajuste no demuestra por sí solo que
 no exista otro problema de permisos o compatibilidad.

@@ -3,7 +3,10 @@
 Detectado RUNASADMIN global32 para bio4.exe, con manifiesto asInvoker y acceso
 directo sin flag elevado. Usuario autorizó retirar exclusivamente ese valor;
 copia restaurable verificada y operación UAC completada, sin cambiar archivos
-del juego ni UAC global. Falta validar inicio/acceso del host sin elevación.
+del juego ni UAC global. Al persistir UAC, se detectó otro RUNASADMIN en HKCU
+del usuario real: la consulta previa usó el usuario aislado de comandos. Copia
+restaurable y retirada de esa misma ruta sin UAC; verificación real de ambos
+hives/vistas32/64 y hash del EXE intacto. Falta validar inicio/acceso del host.
 Registrada preferencia: cada actualización para probar se entrega con enlace
 de descarga de paquete versionado en GitHub. Detalles en docs/LOCAL-WINDOWS.md.
 

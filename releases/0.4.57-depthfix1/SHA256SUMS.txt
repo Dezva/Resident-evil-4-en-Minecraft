@@ -1,0 +1,2 @@
+0f6ad20cadd18a2db1fe259d20bf65265bc3fca3bd48265f4a9bc5935bda939d  re4bridge-0.4.57-depthfix1-windows.zip
+2c8e4e4b9f7f84ec8102ad64cb83246bd0ccb5cbc6538417ea5072aaba7bfc12  re4bridge-0.4.57-depthfix1-source.zip

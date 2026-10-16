@@ -68,6 +68,7 @@ final class MinecraftHud implements AutoCloseable {
                 RenderSystem.setShaderColor(1,1,1,1);RenderSystem.getModelViewStack().identity();RenderSystem.applyModelViewMatrix();
                 // Native scene geometry remains in RE4. Capture confirmed hit particles and the hand.
                 if(!menu){
+                    BridgeProjectileRenderer.render(client,ticks.getTickDelta(false),width,height,BridgeCombat.visualFov(),buffers.consumers);
                     CombatEffects.render(client,ticks.getTickDelta(false),width,height,BridgeCombat.visualFov());
                     RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT,MinecraftClient.IS_SYSTEM_MAC);
                     RenderSystem.setProjectionMatrix(new Matrix4f().perspective((float)Math.toRadians(client.options.getFov().getValue()),(float)width/height,.05f,1000),VertexSorter.BY_DISTANCE);

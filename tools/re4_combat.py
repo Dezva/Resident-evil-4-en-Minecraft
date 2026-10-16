@@ -5,7 +5,7 @@ from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
 # Stable native ABI identifier (RE4F), independent of the release number.
 MAGIC=0x52453446
-SIZE=5324
+SIZE=5332
 
 def validate_combat(frame):
     enabled=frame.get('combat_enabled',False)
@@ -17,7 +17,10 @@ def validate_combat(frame):
     attack=frame.get('combat')
     if attack is None:return
     if not enabled or not frame.get('armed') or frame.get('menu',False) or not frame.get('look',{}).get('first_person'):raise ProtocolError('Melee requires armed first person gameplay')
-    if not isinstance(attack,dict) or set(attack)!={'id','slot','guid','damage','scale','reach','start','end'}:raise ProtocolError('Invalid melee request')
+    keys={'id','slot','guid','damage','scale','reach','start','end'}
+    if not isinstance(attack,dict) or set(attack) not in (keys,keys|{'kind','projectile'}):raise ProtocolError('Invalid combat request')
+    kind=attack.get('kind',0);projectile=attack.get('projectile',0)
+    if type(kind) is not int or kind not in (0,1) or type(projectile) is not int or not 0<=projectile<=2147483647 or (kind==0 and projectile!=0) or (kind==1 and projectile==0):raise ProtocolError('Invalid projectile identity')
     for key,low,high in [('id',1,2147483647),('slot',0,4095),('guid',0,0xffffffff),('damage',1,50000)]:
         if type(attack[key]) is not int or not low<=attack[key]<=high:raise ProtocolError('Invalid melee '+key)
     for key,low,high in [('scale',40,2500),('reach',.000001,6)]:
@@ -43,9 +46,9 @@ class NativeCombat:
         if not self.address:self.close();raise ReaderError('No se pudo mapear combate')
         self.words=(ctypes.c_uint32*(SIZE//4)).from_address(self.address)
         header=tuple(self.words[:4])
-        if header!=(MAGIC,3,455,pid):
+        if header!=(MAGIC,4,456,pid):
             self.close()
-            raise ReaderError(f'Combate requiere DLL0.4.55/IPC v3 para PID {pid}; recibido magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}')
+            raise ReaderError(f'Combate requiere DLL0.4.56/IPC v4 para PID {pid}; recibido magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}')
         self.available=True;self.publish(False,0)
     def publish(self,enabled,generation,scale=1000,request=None):
         if not self.available:return
@@ -57,6 +60,8 @@ class NativeCombat:
         self.words[12]=request['slot'] if request else 0;self.words[13]=request['guid'] if request else 0
         for offset,key in [(56,'start'),(68,'end')]:
             for i in range(3):ctypes.c_float.from_address(self.address+offset+4*i).value=request[key][i] if request else 0
+        self.words[1331]=request.get('kind',0) if request else 0
+        self.words[1332]=request.get('projectile',0) if request else 0
         self.words[4]=(seq+1)&0xffffffff
     def status(self):
         if not self.available:return dict(available=False)

@@ -36,7 +36,7 @@ def setup_logging():
 def main():
     terrain=None
     log,log_handler=setup_logging()
-    log.info('Host 0.4.55 iniciado')
+    log.info('Host 0.4.56 iniciado')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
@@ -70,7 +70,7 @@ def main():
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            say('Host 0.4.55: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            say('Host 0.4.56: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 say(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -106,7 +106,8 @@ def main():
                             result.update(terrain.observe(frame,sample,result))
                             result['combat_terrain_state']='consulta nativa por impacto'
                             client=result.get('client',{})
-                            key=(frame.get('arm_id'),result['armed'],result.get('reason'),result.get('stop'),client.get('reason'),client.get('focused'),client.get('screen'),result.get('runtime_state',{}).get('scene'))
+                            activity=result.get('runtime_state',{});impact=result.get('combat_state',{})
+                            key=(frame.get('arm_id'),result['armed'],result.get('reason'),result.get('stop'),client.get('reason'),client.get('focused'),client.get('screen'),activity.get('scene'),bool(activity.get('native_flags2',0)&0x40000000),impact.get('ack'),impact.get('reason'))
                             if key!=last_state:
                                 log.info('Cambio de control: %s',control_summary(result));last_state=key
                             return result

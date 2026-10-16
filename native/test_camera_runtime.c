@@ -1,12 +1,18 @@
 #define _GNU_SOURCE
+#ifdef _WIN32
+#include <stdlib.h>
+#else
 #include <sys/mman.h>
+#endif
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
 #include "look_logic.h"
 #include "control_logic.h"
+#ifndef _WIN32
 #define __cdecl
+#endif
 #define __attribute__(x)
 typedef int32_t LONG;
 typedef struct {uint32_t magic,version;LONG sequence;uint32_t stamp,armed,buttons;LONG stop,status,hook_ticks;uint32_t native_buttons;float look_total,pitch,eye_height;uint32_t look_flags,arm_id,capabilities;float applied_yaw;LONG camera_ticks,look_applied_count,camera_active;} Shared;
@@ -33,13 +39,13 @@ static float consumed_yaw,view_yaw,render_matrix[12],render_view[12],render_righ
 static CameraPoint render_point;static void *eye_matrix;static float saved_eye_matrix[12];
 static uint32_t hidden_player,hidden_vtable,saved_draw_bits;static HiddenWeapon hidden_weapons[2];
 static uint32_t now=1000;static int f8;static unsigned native_camera_calls,projection_calls;
-static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags;
+static volatile unsigned runtime_last_scene;static unsigned runtime_cache_valid;static uint32_t runtime_cache_flags,runtime_native_flags2;
 #include "runtime_policy.h"
 static float runtime_view_y,runtime_physics_y,runtime_support_skin=.1f,runtime_body_radius=250,runtime_body_height=1600;
 static uint32_t runtime_vertical_valid,runtime_lift_generation=1,runtime_request_stamp=1000,runtime_actor_active,runtime_vertical_writes,runtime_vertical_rebase;static float runtime_actor_y,runtime_vertical_scale=1000;
 static void runtime_vertical_interpolate(uint32_t stamp){(void)stamp;}
 static void runtime_vertical_tick(const ControlFrame *c,int complete,uint32_t stamp){(void)c;(void)complete;(void)stamp;}
-static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_code(3,runtime_cache_flags);return runtime_last_scene;}
+static unsigned runtime_refresh(void){runtime_last_scene=re4_scene_action_code(3,runtime_cache_flags,runtime_native_flags2);return runtime_last_scene;}
 static int runtime_scripted(void){return state->armed && !state->stop && runtime_refresh()!=0;}
 static uint32_t runtime_pad_stamp;
 static void runtime_action_restore(void){}
@@ -93,8 +99,13 @@ static void original_pad(void){}
 /* ACTUAL_CAMERA_RUNTIME */
 static void project(void){storage.sequence=(LONG)packet.sequence;projection_hook();}
 int main(void){
+#ifdef _WIN32
+    unsigned char *memory=calloc(1,65536); // fixture uses the project's 32-bit compiler
+    assert(memory && (uintptr_t)memory<UINT32_MAX);
+#else
     unsigned char *memory=mmap(NULL,65536,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_32BIT,-1,0);
     assert(memory!=MAP_FAILED && (uintptr_t)memory<UINT32_MAX);
+#endif
     global=(uint32_t)(uintptr_t)(memory+4096);camera_ctrl=memory+8192;slot=id=(uint32_t)(uintptr_t)(memory+24576);
     *(uint32_t *)(uintptr_t)id=0x1234;*(uint32_t *)(uintptr_t)(id+4)=0x12;
     float feet[3]={-103000,-400,1700};memcpy((void *)(uintptr_t)(id+0x94),feet,12);
@@ -130,6 +141,11 @@ int main(void){
     assert(!state->camera_active && state->armed && !state->stop && (*(uint32_t*)(uintptr_t)(id+4)&0x12)==0x12);
     assert(*(float*)(uintptr_t)(id+0xA4)==native_yaw && !state->native_buttons);
     runtime_cache_flags=50331920;packet.buttons=0;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();assert(state->camera_active);
+    runtime_native_flags2=0x40000000; // native player/enemy action restores Leon's body and camera
+    pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
+    assert(!state->camera_active && state->armed && !state->stop && (*(uint32_t*)(uintptr_t)(id+4)&0x12)==0x12);
+    runtime_native_flags2=0;pad_hook();camera_hook(camera_ctrl+0x278,NULL,matrix,offset,&point);project();
+    assert(state->camera_active && state->armed && !state->stop && (*(uint32_t*)(uintptr_t)(id+4)&0x12)==0);
     // Absolute mapped gaze cannot inherit an idle/tank body yaw or lose the first mouse delta.
     packet.flags=7;packet.total=135;packet.sequence+=2;packet.generation++;
     *(float*)(uintptr_t)(id+0xA4)=1.2f;pad_hook();assert(fabsf(view_yaw+2.35619449f)<1e-5f);
@@ -225,5 +241,11 @@ int main(void){
     storage.stop=0;storage.armed=packet.armed=1;packet.generation=1;pad_hook();project();assert(state->camera_active);
     storage.stop=1;project();assert(!diag.applied && !render_saved && !hidden_player && !state->camera_active);
     old_queries=memory_queries;for(unsigned i=0;i<1000;i++)project();assert(memory_queries==old_queries);
-    assert(projection_calls>11000);munmap(memory,65536);puts("Camera callbacks: active gaze/restoration; 10000 dormant projections do zero memory/key/control/collision work");
+    assert(projection_calls>11000);
+#ifdef _WIN32
+    free(memory);
+#else
+    munmap(memory,65536);
+#endif
+    puts("Camera callbacks: active gaze/restoration; 10000 dormant projections do zero memory/key/control/collision work");
 }

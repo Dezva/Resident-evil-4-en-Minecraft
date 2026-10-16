@@ -36,6 +36,11 @@ int main(void){
     flags=0x10000000|50331920;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;
     assert(runtime_scripted() && report.scene==1 && report.flags==flags);
     assert(re4_scene_code(3,0x4000)==0); // action prompt alone is not a cinematic
+    uint32_t action_flags=0x40000000;
+    flags=0x4000;memcpy(globals+0x501C,&flags,4);memcpy(globals+0x5024,&action_flags,4);block_camera_epoch++;
+    assert(runtime_scripted() && report.scene==1 && report.reserved[0]==action_flags);
+    action_flags=0;memcpy(globals+0x5024,&action_flags,4);block_camera_epoch++;
+    assert(!runtime_scripted() && report.reserved[0]==0); // return without a new generation
     assert(re4_scene_code(4,0)==1); // native door/loading routine
     for(unsigned bit=0;bit<32;bit++)if(RE4_SCRIPTED_MASK&(1u<<bit))assert(re4_scene_code(3,50331920|(1u<<bit))==1);
     flags=0x100000;memcpy(globals+0x501C,&flags,4);block_camera_epoch++;

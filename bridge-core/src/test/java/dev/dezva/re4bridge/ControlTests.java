@@ -21,7 +21,7 @@ class ControlTests {
             assertTrue(bridge.status().connected());assertFalse(bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());
             long seq=bridge.status().acknowledgedSequence();await(()->bridge.status().acknowledgedSequence()>seq);
             assertTrue(bridge.status().connected());assertEquals(8,bridge.nativeStop());
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @Test void movingToEscImmediatelyZeroesInputWhileKeepingGenerationThroughGuiInitialization() throws Exception {
         int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
@@ -54,7 +54,7 @@ class ControlTests {
             assertFalse(Files.readString(log).contains("ACTION generation=8")); // action from another generation cannot cross the wire
             // Stalled input is zeroed at200ms; a full second still ends the native session.
             await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @Test void shortTickStallStopsInputAt200msAndLongStallStillRequiresANewArm() throws Exception {
         int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
@@ -74,7 +74,7 @@ class ControlTests {
             await(()->!bridge.nativeArmed());assertEquals(0,bridge.nativeButtons());
             long sequence=bridge.status().acknowledgedSequence();bridge.publishSceneControl(true,1,7,look,scene);await(()->bridge.status().acknowledgedSequence()>sequence);assertFalse(bridge.nativeArmed());
             bridge.publishSceneControl(true,1,8,look,scene);await(bridge::nativeArmed);
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @Test void focusSuspensionKeepsSceneAndGenerationWithZeroButtonsAndReportsItsReason() throws Exception {
         int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
@@ -93,7 +93,7 @@ class ControlTests {
             bridge.menuRequested(false);bridge.clientState("activo",true,false,"NONE");bridge.publishSceneControl(true,1,7,look,scene);
             await(()->bridge.nativeButtons()==1);assertTrue(bridge.nativeArmed());
             assertThrows(IllegalArgumentException.class,()->bridge.clientState("bad\nline",true,false,"NONE"));
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @Test void pickupDialogTransmitsArrowThenEnterAndClearsLaterInputWhenItCloses() throws Exception {
         int port;try(var socket=new ServerSocket(0)){port=socket.getLocalPort();}
@@ -112,7 +112,7 @@ class ControlTests {
             for(int i=0;i<25;i++){bridge.publishControl(true,0,7,look);Thread.sleep(10);}
             var text=Files.readString(log);int arrow=text.indexOf("id=2 kind=5"),enter=text.indexOf("id=3 kind=6");
             assertTrue(arrow>=0 && enter>arrow,text);assertFalse(text.contains("id=4 kind=4"));assertEquals(2,bridge.runtimeState().dialogActions());
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @TempDir Path temp;
     private static HudFrame overlay(int width,boolean menu) throws Exception {
@@ -144,7 +144,7 @@ class ControlTests {
             image.set(overlay(128,true));
             for(int i=0;i<60;i++){bridge.refreshLook(1,look);Thread.sleep(5);}
             await(()->!bridge.nativeArmed());assertTrue(bridge.status().connected());
-        }finally{peer.destroyForcibly();}
+        }finally{peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));}
     }
     @Test void controlStartsDisarmedTransmitsOnlyFreshInputAndDisarmsAfterSamplingStops() throws Exception {
         int port;
@@ -220,7 +220,7 @@ class ControlTests {
             assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS));
             assertEquals(0, peer.exitValue(), Files.readString(log));
             assertFalse(Files.readString(log).contains(config.token()));
-        } finally { peer.destroyForcibly(); }
+        } finally { peer.destroyForcibly();assertTrue(peer.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)); }
     }
     private static void await(java.util.function.BooleanSupplier condition) throws Exception {
         long end=System.nanoTime()+5_000_000_000L;

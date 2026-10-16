@@ -3,6 +3,7 @@ Does not execute Windows, a real driver, or bio4.exe.
 """
 from pathlib import Path
 import subprocess
+import os
 import tempfile
 import unittest
 
@@ -23,7 +24,8 @@ class NativeCaptureTests(unittest.TestCase):
                 source.write_text(extra)
             binary=Path(directory)/'fixture'
             try:
-                subprocess.run(['gcc','-std=c11','-Wall','-Wextra','-Werror','-no-pie',
+                fp=['-msse2','-mfpmath=sse'] if os.name=='nt' else []
+                subprocess.run(['gcc',*fp,'-std=c11','-Wall','-Wextra','-Werror','-no-pie',
                                 '-I'+str(root/'native'),str(source),'-o',str(binary),'-lm'],check=True,capture_output=True,text=True)
                 subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             except subprocess.CalledProcessError as error:self.fail(error.stdout+'\n'+error.stderr)

@@ -10,15 +10,15 @@ from re4_reader import ReaderError
 class Kernel:
     def __init__(self):
         self.buffer=ctypes.create_string_buffer(160);self.words=(ctypes.c_uint32*40).from_buffer(self.buffer)
-        # Native Runtime v5 header, independently specified by the ABI and DLL455.
+        # Native Runtime v5 header, independently specified by the ABI and DLL456.
         # Do not import the host's magic: that concealed the startup mismatch.
-        self.words[:4]=(0x52453452,5,455,42);self.closed=[]
+        self.words[:4]=(0x52453452,5,456,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
         self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==160 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
-    def test_native_dll455_header_is_accepted_without_changing_the_report(self):
+    def test_native_dll456_header_is_accepted_without_changing_the_report(self):
         k=Kernel();before=bytes(k.buffer)
         native=NativeRuntime(42,k)
         self.assertTrue(native.available)
@@ -31,7 +31,7 @@ class RuntimeTests(unittest.TestCase):
         for index,value in ((0,0x52455452),(1,4),(2,453),(3,43)):
             with self.subTest(index=index):
                 k=Kernel();k.words[index]=value;before=bytes(k.buffer)
-                with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):
+                with self.assertRaisesRegex(ReaderError,'DLL0.4.56'):
                     NativeRuntime(42,k)
                 self.assertEqual(bytes(k.buffer),before)
                 self.assertEqual(len(k.closed),2)
@@ -49,7 +49,7 @@ class RuntimeTests(unittest.TestCase):
     def test_old_broken_dll_rejected_with_update_message(self):
         for build in (442,445,446,447,448,449,450,451,452,453):
             k=Kernel();k.words[2]=build
-            with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):NativeRuntime(42,k)
+            with self.assertRaisesRegex(ReaderError,'DLL0.4.56'):NativeRuntime(42,k)
             self.assertEqual(len(k.closed),2)
     def test_native_mapping_action_only_writes_request_and_preserves_scene(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,1,0x10000000,3,12,10,5];before=list(k.words[4:12])

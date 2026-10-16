@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll,[string]$TrapDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
@@ -24,6 +24,12 @@ try {
     & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
     if (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')) { throw 'Own DLL remains' }
     if (-not (Test-Path -LiteralPath $copy)) { throw 'Uninstall removed backup' }
+    if($TrapDll){
+        if((Get-FileHash -LiteralPath $TrapDll).Hash.ToLowerInvariant() -ne 'e034d92c2e4e79732da6f66efce630dced46003e80edec2e08f0653c0e3ad362'){throw 'Wrong published build455 fixture'}
+        Copy-Item -LiteralPath $TrapDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Known build455 upgrade removal failed'}
+    }
     if($LegacyDll){
         if((Get-FileHash -LiteralPath $LegacyDll).Hash.ToLowerInvariant() -ne '500f81beea5f537df72b2f979d241d3084bc82379614331508a47ae6cee11147'){throw 'Wrong published legacy fixture'}
         Copy-Item -LiteralPath $LegacyDll -Destination (Join-Path $game 'dinput8.dll')
@@ -123,5 +129,8 @@ try {
     Write-Host 'Installer fixtures passed: verified backup/install, no overwrite, own-only removal, empty saves rejection.'
 } finally {
     $env:LOCALAPPDATA = $previousLocalAppData
-    Remove-Item -LiteralPath $sandbox -Recurse -Force
+    $fixtureAbsolute = [IO.Path]::GetFullPath($sandbox)
+    $fixtureParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $fixtureAbsolute.StartsWith($fixtureParent,[StringComparison]::OrdinalIgnoreCase) -or -not [IO.Path]::GetFileName($fixtureAbsolute).StartsWith('re4-installer-test-',[StringComparison]::Ordinal)) { throw 'Unsafe fixture cleanup path' }
+    Remove-Item -LiteralPath $fixtureAbsolute -Recurse -Force
 }

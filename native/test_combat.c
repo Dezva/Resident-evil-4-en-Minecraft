@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "block_collision.h"
+#ifndef _WIN32
 #define __cdecl
+#endif
 static uint32_t thread_id=1;
 static uint32_t GetCurrentThreadId(void){return thread_id;}
 typedef int32_t LONG;
@@ -50,7 +52,7 @@ static int engine_ray(float *start,float *end,unsigned char **pairs,unsigned max
  float distance=0;for(unsigned i=0;i<3;i++){hit[i]=start[i]+.6f*(end[i]-start[i]);float d=hit[i]-start[i];distance+=d*d;}
  memcpy(pairs[1]+0xC,hit,12);memcpy(pairs[1]+0x28,&distance,4);return 1;
 }
-static void engine_message(void *address,void *edx,unsigned type,unsigned kind,unsigned weapon,const float *source,float distance,void *part){
+static void COMBAT_FASTCALL engine_message(void *address,void *edx,unsigned type,unsigned kind,unsigned weapon,const float *source,float distance,void *part){
  assert(!edx && type==0 && kind==10 && weapon==2);message_calls++;unsigned char *p=address;
  memset(p,0,0x1C);p[4]=1;p[5]=(uint8_t)kind;p[6]=(uint8_t)weapon;memcpy(p+8,source,12);memcpy(p+0x14,&distance,4);uint32_t ptr=(uint32_t)(uintptr_t)part;memcpy(p+0x18,&ptr,4);
 }
@@ -68,6 +70,41 @@ static ControlFrame reset(void){
  live_control=(ControlFrame){.armed=1,.generation=7,.stamp=1000,.flags=3,.eye=1000};return live_control;
 }
 int main(void){
+ // A distant arrow segment is not a distant melee swing. Native ray, identity,
+ // pending-message confirmation, one-projectile ownership and stops still apply.
+ for(unsigned fail=0;fail<14;fail++){
+  ControlFrame shot=reset();float target[3]={14000,0,0};memcpy(actors[0]+0x94,target,12);
+  report.kind=1;report.projectile=80;report.start[0]=12000;report.end[0]=15000;
+  if(fail==1)report.kind=0;
+  if(fail==2)report.projectile=0;
+  if(fail==3)report.kind=2;
+  if(fail==4)report.end[0]=19000;
+  if(fail==5)f8=1;
+  if(fail==6)ray_miss=1;
+  if(fail==7)report.guid=99;
+  if(fail==8)now=1500;
+  if(fail==9)report.generation=8;
+  if(fail==10){published=(CubeCommand){.enabled=1,.epoch=1,.mode=2,.stamp=now,.arm_generation=7,.count=1};float wall[6]={13000,0,-500,13100,2000,500};memcpy(published.boxes[0],wall,24);}
+  if(fail==11){target[0]=67000;memcpy(actors[0]+0x94,target,12);report.start[0]=65000;report.end[0]=68000;}
+  if(fail==12)report.request_sequence=1;
+  if(fail==13)shot.flags=11;
+  combat_tick(&shot,1,now);
+  if(fail){assert(!message_calls && hp(0)==1000);continue;}
+  assert(message_calls==1 && hp(0)==1000);consume();combat_tick(&shot,1,now);
+  assert(hp(0)==900 && report.ack==1 && report.reason==0);
+  now=1600;shot.stamp=report.stamp=live_control.stamp=now;report.id=2;
+  combat_tick(&shot,1,now);assert(message_calls==1 && hp(0)==900); // replay, new request ID
+  report.projectile=81;report.id=3;combat_tick(&shot,1,now);assert(message_calls==2);
+ }
+ {
+  ControlFrame shot=reset();report.kind=1;report.damage=1;
+  for(unsigned i=1;i<=130;i++){
+   now=1000+600*i;shot.stamp=report.stamp=live_control.stamp=now;report.id=report.projectile=i;
+   combat_tick(&shot,1,now);assert(message_calls==i);consume();combat_tick(&shot,1,now);
+  }
+  assert(combat_projectile_count==128 && combat_projectile_high==2);
+  report.id=131;report.projectile=1;combat_tick(&shot,1,now);assert(message_calls==130); // eviction never permits replay
+ }
  {
   ControlFrame low=reset();actors[0][0x100]=0x2A;float feet=-500;memcpy(player+0x98,&feet,4);
   report.start[1]=report.end[1]=-200;low.eye=300;live_control=low;

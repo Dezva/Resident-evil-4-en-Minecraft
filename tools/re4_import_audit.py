@@ -25,7 +25,7 @@ class Budget:
         self.deadline=time.monotonic()+seconds
 
     def get(self,address,length):
-        if self.reads>=self.max_reads or length>self.max_bytes-self.bytes or time.monotonic()>self.deadline:
+        if self.reads>=self.max_reads or length>self.max_bytes-self.bytes or time.monotonic()>=self.deadline:
             raise AuditFailure('audit_resource_limit')
         self.reads+=1;self.bytes+=length
         return self.read(address,length)

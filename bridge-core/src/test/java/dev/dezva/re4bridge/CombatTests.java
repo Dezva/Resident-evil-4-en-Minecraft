@@ -4,6 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.google.gson.*;
 import java.io.IOException;
 class CombatTests {
+ @Test void projectileTickCarriesItsOwnIdentityWithoutIncreasingSegmentLength(){
+  var r=new CombatRequest(7,2,0,10,300,1000,3,p(12000,1000,0),p(15000,1000,0),0,1,88);
+  assertEquals(1,r.toJson().get("kind").getAsInt());assertEquals(88,r.toJson().get("projectile").getAsInt());
+  assertThrows(IllegalArgumentException.class,()->new CombatRequest(7,2,0,10,300,1000,3,p(12000,1000,0),p(19000,1000,0),0,1,88));
+  assertThrows(IllegalArgumentException.class,()->new CombatRequest(7,2,0,10,300,1000,3,p(12000,1000,0),p(15000,1000,0),0,1,0));
+  assertThrows(IllegalArgumentException.class,()->new CombatRequest(7,2,0,10,300,1000,3,p(12000,1000,0),p(15000,1000,0),0,0,88));
+ }
  @Test void lowTrapBodyCanBeTargetedBelowItsModelOriginWithoutLoweringLivingHitboxes() throws Exception {
   var json=state();var actor=json.getAsJsonArray("enemies").get(0).getAsJsonObject();actor.addProperty("kind",0x2A);actor.addProperty("radius",1000);
   assertNotNull(CombatState.parse(json,0).raycast(p(0,-200,0),p(3000,-200,0)));

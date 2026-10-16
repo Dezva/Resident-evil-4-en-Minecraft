@@ -1,4 +1,32 @@
-# Cliente/host0.4.55 — trampas, altura y renderizado
+# Cliente/host0.4.56 — flechas y acciones nativas
+
+Combat v4/5332bytes/build456 conserva reportes/catálogo y comandos previos;
+añade u32 kind5324 y projectile5328, cubiertos por request_sequence16. kind0
+exige projectile0 y conserva origen a<=1 bloque del ojo; kind1 exige entidad
+1..INT_MAX y segmento<=6 bloques con origen a<=64 bloques del ojo. No convierte
+reach en alcance total del arco. Servidor Minecraft autoriza segmentos solo
+en terreno conocido, valida propietario/dimensión/sesión y calcula daño.
+
+JSON combat admite campos anteriores, o esos mismos más kind/projectile juntos;
+sin extensión significa melee. scale/reach/damage/identidad/finite conservan sus
+límites. El host escribe la extensión dentro del mismo seqlock. Una flecha se
+consume por generación incluso si su impacto se rechaza. Historial128 más
+marca inferior monotónica evita replay tras expulsión; IDs antiguos pueden
+rechazarse conservadoramente. Catálogo sigue limitado a128, pool<=4096; consulta
+de actores<=64*scale+2000, sin nuevas clases ni escrituras de HP/rutina.
+
+Runtime v5/160bytes/build456: reserved[0]/offset152 reporta GLOBAL STATUS[2].
+STA_PL_EM_ACTION0x40000000 devuelve scene1, restituyendo cuerpo/cámara nativos,
+sin convertir el aviso STATUS[0]/0x4000 en escena. Se mantiene el resto del IPC,
+incluidos diálogos, recuperación, F8 y generación. Todos los canales de esta
+DLL anuncian456; Runtime/Combat exigen la pareja exacta. Host0.4.56 conserva
+las firmas ABI corregidas y mensajes de error con cabecera observada.
+
+No se transmiten texturas originales del juego en el paquete: render de flechas
+usa modelos del Minecraft instalado. Efectos especiales de proyectiles y
+retargeting del jugador no forman parte de este contrato.
+
+# Histórico cliente/host0.4.55 — trampas, altura y renderizado
 
 Combate v3/5324bytes y runtime v5/160bytes exigen build455. cEm2a se publica
 solo con los perfiles de ambos manejadores verificados. Usa el mensaje nativo

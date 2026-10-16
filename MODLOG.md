@@ -1,3 +1,30 @@
+## 0.4.56 — arco/ballesta y devolución de acciones a la cámara nativa
+
+Base0.4.55-hostfix2 confirmada por el usuario: inicio sin administrador,
+estabilidad y activación correcta de trampas de osos/bombas. Se conservan esas
+mecánicas y correcciones; no se restauran ajustes de elevación.
+
+Flechas vanilla de arco/ballesta del jugador local solicitan daño al cruzar el
+actor nativo, desde el servidor integrado. Conservan carga/munición/desgaste y
+trayectoria; daño por velocidad/base/crítico y Poder1.21.1. Confirmación nativa,
+un impacto por entidad, paredes, TTL/F8/generación e invulnerabilidad previos.
+Renderer vanilla de flechas en el overlay existente, máximo16. Cobertura local
+de terreno, falta de Z compartido y efectos especiales pendientes documentados.
+
+Combat IPCv4/5332bytes/build456 añade kind/projectile en5324/5328 bajo el seqlock
+de comandos; no mueve reportes/catálogo. Todos los canales anuncian build456;
+host/DLL/JAR se actualizan juntos. Runtimev5 conserva160bytes: STATUS[2] en
+reserved[0] y cámara/modelo nativos mientras STA_PL_EM_ACTION está activo.
+Restauración y regreso a FP pasan en fixtures; patada real pendiente. Modelo y
+skin Minecraft sobre el esqueleto de Leon evaluados como etapa posterior.
+
+Compilación local MinGW x86 preparada en caché, sin instalación del sistema;
+tools/build_native.ps1 genera la DLL en el repo. Fixtures Windows usan SSE2
+para precisión float consistente; limpieza Java espera procesos hijos y el
+presupuesto temporal cero Python vence también con reloj de resolución gruesa.
+Ver [guía0.4.56](docs/RE4-BLOCK-0.4.56.md) y VALIDATION para evidencia/límites.
+No se instalaron DLL/JAR ni se modificaron ejecutables o partidas reales.
+
 ## 0.4.55 hostfix2 — bytecode antiguo y verificación del BAT real
 
 El BAT seguía fallando tras hostfix1: Python3.13 cargaba .pyc con firmas antiguas,

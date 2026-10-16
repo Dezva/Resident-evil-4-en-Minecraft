@@ -9,7 +9,7 @@ static void depth_initialize(DWORD pid){
  HANDLE map=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(DepthShared),name);if(!map)return;
  if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(map);return;}
  DepthShared *p=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));if(!p){CloseHandle(map);return;}
- memset(p,0,sizeof(*p));p->magic=0x52453444;p->version=1;p->build=455;p->pid=pid;p->reason=1;depth_shared=p;depth_mapping=map;
+ memset(p,0,sizeof(*p));p->magic=0x52453444;p->version=1;p->build=456;p->pid=pid;p->reason=1;depth_shared=p;depth_mapping=map;
 }
 static int depth_requested(uint32_t *generation){
  if(!depth_shared)return 0;

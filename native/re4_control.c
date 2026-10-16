@@ -691,7 +691,7 @@ static void install_hook(void) {
                 diagnostic_mapping=telemetry;
                 memset(diagnostics,0,sizeof(*diagnostics));
                 diagnostics->magic=0x52453444; diagnostics->version=1;
-                diagnostics->build=455; diagnostics->pid=GetCurrentProcessId();
+                diagnostics->build=456; diagnostics->pid=GetCurrentProcessId();
             }
         }
     }

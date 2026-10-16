@@ -14,6 +14,7 @@ static SRWLOCK runtime_report_lock=SRWLOCK_INIT;
 static uint32_t enemy_manager,runtime_enemy_available,runtime_enemy_contacts,runtime_enemy_corrections;
 static uint32_t runtime_actions,runtime_skips,action_generation,action_consumed;
 static uint32_t runtime_dialog_active,runtime_dialog_actions,runtime_dialog_flags1;
+static uint32_t runtime_native_flags2;
 static uint64_t action_injected_mask;
 static uint32_t runtime_pad_stamp,action_stamp;
 static uint32_t action_pending_id,action_pending_generation,action_pending_kind;
@@ -61,21 +62,23 @@ static void runtime_vertical_tick(const ControlFrame *control,int complete,uint3
     runtime_vertical_interpolate(now);
 }
 static unsigned runtime_scene_code(uint32_t *flags){
-    *flags=0;runtime_dialog_active=runtime_dialog_flags1=0;
+    *flags=0;runtime_dialog_active=runtime_dialog_flags1=runtime_native_flags2=0;
     if(!global_slot || !readable((void*)global_slot,4))return 2;
     uint32_t global=*global_slot;
     if(global<0x10000 || global>0xFFFF7000 || (global&3u)
         || !readable((void*)(uintptr_t)(global+0x20),1)
-        || !readable((void*)(uintptr_t)(global+0x501C),8))return 2;
+        || !readable((void*)(uintptr_t)(global+0x501C),12))return 2;
     memcpy(flags,(void*)(uintptr_t)(global+0x501C),4);
     memcpy(&runtime_dialog_flags1,(void*)(uintptr_t)(global+0x5020),4);
+    memcpy(&runtime_native_flags2,(void*)(uintptr_t)(global+0x5024),4);
     unsigned routine=*(uint8_t*)(uintptr_t)(global+0x20);
     runtime_dialog_active=re4_dialog_flags(routine,*flags,runtime_dialog_flags1);
-    return runtime_dialog_active?1:re4_scene_code(routine,*flags);
+    return runtime_dialog_active?1:re4_scene_action_code(routine,*flags,runtime_native_flags2);
 }
 static void runtime_publish(unsigned scene,uint32_t flags){
     if(!runtime_shared || !TryAcquireSRWLockExclusive(&runtime_report_lock))return;
     InterlockedIncrement(&runtime_shared->sequence);MemoryBarrier();
+    runtime_shared->reserved[0]=runtime_native_flags2;
     runtime_shared->dialog_active=runtime_dialog_active;runtime_shared->dialog_actions=runtime_dialog_actions;runtime_shared->dialog_flags1=runtime_dialog_flags1;runtime_shared->action_ack=action_consumed;runtime_shared->action_generation=action_generation;runtime_shared->dialog_source=runtime_dialog_active?1:0;
     runtime_shared->stamp=GetTickCount();runtime_shared->scene=scene;runtime_shared->flags=flags;
     runtime_shared->capabilities=runtime_enemy_available|(key_trigger?2u:0u);runtime_shared->enemy_contacts=runtime_enemy_contacts;
@@ -103,7 +106,7 @@ static void runtime_ipc_open(void){
     if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(mapping);return;}
     RuntimeShared *p=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));
     if(!p){CloseHandle(mapping);return;}
-    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=5;p->build=455;p->pid=GetCurrentProcessId();p->scene=2;
+    memset(p,0,sizeof(*p));p->magic=0x52453452;p->version=5;p->build=456;p->pid=GetCurrentProcessId();p->scene=2;
     runtime_shared=p;runtime_mapping=mapping;
 }
 static void runtime_action_restore(void){

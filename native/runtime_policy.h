@@ -6,6 +6,9 @@
    neither it nor a contextual action prompt proves an active cutscene. */
 #define RE4_SCRIPTED_MASK (0x10000000u|0x08000000u|0x04000000u|0x00100000u|0x00001000u)
 static inline unsigned re4_scene_code(unsigned routine,uint32_t flags){return routine==3 && !(flags&RE4_SCRIPTED_MASK)?0u:1u;}
+/* SDK GameFlags.h: STATUS[2] / STA_PL_EM_ACTION. Unlike STATUS[0]'s
+   contextual prompt, this identifies the native player/enemy action phase. */
+static inline unsigned re4_scene_action_code(unsigned routine,uint32_t flags,uint32_t flags2){return (flags2&0x40000000u)?1u:re4_scene_code(routine,flags);}
 /* Actual E capture from UHD1.1.0: Key_btn_on/trg=0x80400 (KEY_CK|KEY_A).
    The old synthetic combination omitted KEY_A and was not equivalent to E.
    No fire/aim; skip is separately gated to native movies/events. */

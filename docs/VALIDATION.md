@@ -1,3 +1,50 @@
+# 0.4.56 — desarrollo y compilación local Windows, 2026-10-16
+
+El usuario confirma gameplay de0.4.55-hostfix2: inicio sin administrador,
+estabilidad y trampas de osos/bombas funcionando. Es la base conservada.
+No se ha ejecutado gameplay0.4.56 ni instalado la nueva DLL/JAR/host en el juego.
+
+- JDK21.0.7/Gradle8.11.1, un trabajador y heap768MB: core58/58 y Minecraft92/92,
+  build/remap del JAR y validación del access widener correctos. Tras contrastar
+  Poder con el encantamiento registrado del juego se añade una prueba específica;
+  pasan sus9 casos y se remapea el JAR:93 casos Minecraft distintos cubiertos.
+- Python3.12:191 casos ejecutados,190 pasan inicialmente. El caso restante detectó
+  que el diagnóstico de captura aceptaba build456 pero etiquetaba mal su estado.
+  Corregido;32 casos afectados (combate/runtime/captura y callbacks reales C)
+  pasan después. Python3.13.14 elegido por el BAT:35 casos finales de host,
+  combate, runtime, protocolo, recuperación y presupuesto pasan.
+- MinGW x86 GCC14.2.0 oficial, hash del archivo de distribución comprobado.
+  DLL compila con -Wall/-Wextra/-Werror, SSE2, Win7 API y libgcc estática.
+  PE32/i386 e imports KERNEL32/USER32/msvcrt verificados. No instala herramientas
+  del sistema ni requiere elevación de Windows.
+- Fixtures ejecutan el callback C real extraído del fuente: flecha lejana frente
+  a melee, parte nativa, confirmación diferida de HP, GUID, paredes, alcance por
+  segmento, menú, generación, seqlock, TTL y F8. Replay rechazado con otro ID de
+  comando y después de130 proyectiles; historial permanece en128 entradas.
+  Regresiones anteriores de trampas/cajas/muerte/colisiones y renderer pasan.
+- Runtime real contra memoria simulada publica STATUS[2] dentro del seqlock;
+  callback de cámara real restaura Leon durante STA_PL_EM_ACTION y vuelve a FP
+  conservando la sesión. No identifica por observación real el inicio/final de
+  la patada: falta la prueba visual descrita en la guía.
+- PowerShell5.1: instalador/desinstalador contra EXE/partidas sintéticos, hash
+  de DLL455 publicada y DLL456 nueva. Copia verificada, preservación de partidas,
+  rechazo de DLL ajena/sobrescritura/partidas vacías y retirada propia pasan.
+- Paquete entregable: checksum DLL y arquitectura x86, metadata JAR0.4.56,
+  renderer propio incluido, ausencia de clases/archivos del juego y de logs,
+  partidas/config privada; fuente sin cachés ni compilados. Una prueba adicional
+  importa los módulos del ZIP sobre bytecode original0.4.55 y ejecuta22 casos
+  Combat/Runtime en un intérprete nuevo. Son192 pruebas Python distintas cubiertas
+  con esta validación del paquete, además de las repeticiones afectadas.
+- Fixtures Windows corrigen la espera del cierre de procesos hijo, asignación
+  de memoria32bits y precisión float SSE2; presupuesto Python cero agota con >=.
+
+Evidencia privada en D:\logs\re4-0.4.56-20261016. Sin medición de FPS ni captura
+visual de esta versión. Flechas en terreno desconocido se pausan; overlay sin
+Z nativo, efectos especiales/perforación/cohetes y modelo/skin MC pendientes.
+Ver [guía y prueba concreta](RE4-BLOCK-0.4.56.md).
+
+---
+
 # 0.4.55 hostfix2 — Python3.13 y BAT real, 2026-10-16
 
 El usuario siguió viendo el error. La lectura del fuente mostraba las firmas

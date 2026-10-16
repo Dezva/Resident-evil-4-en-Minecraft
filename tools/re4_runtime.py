@@ -20,9 +20,9 @@ class NativeRuntime:
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
         self.words=(ctypes.c_uint32*40).from_address(self.address)
         header=tuple(self.words[:4])
-        if header!=(MAGIC,5,455,pid):
+        if header!=(MAGIC,5,456,pid):
             self.close()
-            raise ReaderError(f'Canal de escenas incompatible: magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}; requiere Runtime v5/DLL0.4.55 para PID {pid}')
+            raise ReaderError(f'Canal de escenas incompatible: magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}; requiere Runtime v5/DLL0.4.56 para PID {pid}')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')
@@ -47,13 +47,14 @@ class NativeRuntime:
             actor_y=ctypes.c_float.from_address(self.address+116).value
             vertical_active,vertical_writes=list(self.words[30:32])
             dialog,dialog_actions,flags1,action_ack,action_generation,source=list(self.words[32:38])
+            native_flags2=self.words[38]
             if before!=self.words[4]:continue
             if dialog>1 or source>2 or action_ack>2147483647 or action_generation>2147483647:raise ReaderError("Estado de menu incompatible")
             if scene>2 or caps>3 or enemy_reason>6 or scanned>4096 or eligible>4096:raise ReaderError('Estado de escenas no valido')
             return dict(available=True,fresh=((self.k.GetTickCount()-stamp)&0xffffffff)<500,scene=scene,flags=flags,
                 enemies_available=bool(caps&1),action_available=bool(caps&2),enemy_contacts=contacts,enemy_corrections=corrections,actions=actions,enemy_reason=enemy_reason,enemy_scanned=scanned,enemy_eligible=eligible,
                 skips=skips,view_lift=view_lift,enemy_capacity=capacity,enemy_stride=stride,
-                actor_y=actor_y,vertical_active=bool(vertical_active),vertical_writes=vertical_writes,dialog_active=bool(dialog),dialog_actions=dialog_actions,dialog_flags1=flags1,action_ack=action_ack,action_generation=action_generation)
+                actor_y=actor_y,vertical_active=bool(vertical_active),vertical_writes=vertical_writes,dialog_active=bool(dialog),dialog_actions=dialog_actions,dialog_flags1=flags1,action_ack=action_ack,action_generation=action_generation,native_flags2=native_flags2)
         return dict(available=True,fresh=False)
     def close(self):
         if self.available:self.publish(0,0)

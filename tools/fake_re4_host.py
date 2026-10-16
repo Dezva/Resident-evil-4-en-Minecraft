@@ -72,7 +72,7 @@ def control_summary(state):
         result['graphics']={key:preview[key] for key in ('reason','blocked','last_hresult','failures','stop_reason','telemetry_stale') if key in preview}
         if isinstance(preview.get('collision_state'),dict):result['collision']=preview['collision_state']
     if isinstance(runtime, dict):
-        result['scene']={key:runtime[key] for key in ('scene','flags','fresh') if key in runtime}
+        result['scene']={key:runtime[key] for key in ('scene','flags','native_flags2','fresh') if key in runtime}
         result['dialog'] = {key: runtime[key] for key in ('dialog_active', 'dialog_actions', 'action_ack') if key in runtime}
     return result
 

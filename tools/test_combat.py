@@ -7,8 +7,8 @@ from test_re4_control import Writer
 from test_cube_test import Function
 class Kernel:
  def __init__(self):
-  # Native Combat v3 ABI; keep independent from the host's magic constant.
-  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(0x52453446,3,455,42);self.closed=[]
+  # Native Combat v4 ABI; keep independent from the host's magic constant.
+  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(0x52453446,4,456,42);self.closed=[]
   self.OpenFileMappingW=Function(lambda a,b,n:7);self.MapViewOfFile=Function(lambda a,b,c,d,n:ctypes.addressof(self.buffer) if n==SIZE else 0)
   self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a));self.GetTickCount=Function(lambda:1000)
  def report(self):
@@ -17,18 +17,27 @@ class Kernel:
   struct.pack_into('<3fI',self.buffer,5280,1800,1000,0,0x12)
   struct.pack_into('<5I5f',self.buffer,136,0,10,0x12,950,1000,2000,0,0,250,1600)
 class CombatTests(unittest.TestCase):
- def test_dll455_header_is_accepted_and_native_report_is_preserved(self):
+ def test_projectile_extension_is_atomic_and_preserves_every_native_report_byte(self):
+  frame=self.frame();frame['combat'].update(kind=1,projectile=80,start=[12000,1000,0],end=[15000,1000,0]);validate_combat(frame)
+  k=Kernel();k.report();native=NativeCombat(42,k);before=k.buffer.raw[80:5324]
+  native.publish(True,7,1000,frame['combat'])
+  self.assertEqual(k.words[1331:1333],[1,80]);self.assertEqual(before,k.buffer.raw[80:5324]);self.assertEqual(k.words[4]%2,0)
+  native.publish(False,0);self.assertEqual(k.words[1331:1333],[0,0]);native.close()
+  for change in (dict(kind=True),dict(kind=2),dict(projectile=True),dict(projectile=0),dict(kind=0),dict(projectile=-1),dict(projectile=2147483648)):
+   with self.subTest(change=change):
+    with self.assertRaises(ProtocolError):validate_combat(dict(frame,combat=dict(frame['combat'],**change)))
+ def test_dll456_header_is_accepted_and_native_report_is_preserved(self):
   k=Kernel();k.report();before=bytes(k.buffer)
   native=NativeCombat(42,k)
   self.assertTrue(native.available)
   self.assertEqual(bytes(k.buffer[:16]),before[:16])
-  self.assertEqual(bytes(k.buffer[80:]),before[80:])
+  self.assertEqual(bytes(k.buffer[80:5324]),before[80:5324])
   native.close()
  def test_wrong_magic_version_build_or_pid_never_mutates_the_mapping(self):
   for index,value in ((0,0x52455446),(1,2),(2,453),(3,43)):
    with self.subTest(index=index):
     k=Kernel();k.words[index]=value;before=bytes(k.buffer)
-    with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):NativeCombat(42,k)
+    with self.assertRaisesRegex(ReaderError,'DLL0.4.56'):NativeCombat(42,k)
     self.assertEqual(bytes(k.buffer),before);self.assertEqual(len(k.closed),2)
  def frame(self):return dict(type='re4_control',armed=True,buttons=0,arm_id=7,combat_enabled=True,combat_scale=1000,look=dict(enabled=True,first_person=True,total_yaw=0,pitch=0,eye_height=1000),combat=dict(id=1,slot=0,guid=10,damage=50,scale=1000,reach=3,start=[0,1000,0],end=[3000,1000,0]))
  def test_validation_rejects_bad_ray_damage_identity_and_session_before_any_write(self):
@@ -40,9 +49,9 @@ class CombatTests(unittest.TestCase):
   for change in [dict(combat_enabled=False),dict(armed=False),dict(menu=True),dict(combat_scale=800),dict(combat_enabled=1),dict(look=dict(enabled=True,first_person=False))]:
    with self.assertRaises(ProtocolError):validate_combat(dict(base,**change))
  def test_host_commands_preserve_native_actors_hp_ack_and_count(self):
-  k=Kernel();native=NativeCombat(42,k);k.report();before=k.buffer.raw[80:]
+  k=Kernel();native=NativeCombat(42,k);k.report();before=k.buffer.raw[80:5324]
   frame=self.frame();native.publish(True,7,1000,frame['combat'])
-  self.assertEqual(before,k.buffer.raw[80:]);self.assertEqual(k.words[6:10],[1,7,1,50]);self.assertEqual(k.words[12:14],[0,10]);self.assertEqual(struct.unpack_from('<3f',k.buffer,56),(0,1000,0));self.assertEqual(k.words[4]%2,0)
+  self.assertEqual(before,k.buffer.raw[80:5324]);self.assertEqual(k.words[6:10],[1,7,1,50]);self.assertEqual(k.words[12:14],[0,10]);self.assertEqual(struct.unpack_from('<3f',k.buffer,56),(0,1000,0));self.assertEqual(k.words[4]%2,0)
   status=native.status();self.assertEqual(status['ack'],1);self.assertEqual(status['enemies'][0]['position'],[2000,0,0]);self.assertEqual(status['hp_after'],950)
   native.close();self.assertEqual(k.words[6],0);self.assertEqual(len(k.closed),2)
  def test_report_keeps_impact_kind_independent_of_last_actor_and_reads_callback_diagnostics(self):
@@ -72,5 +81,5 @@ class CombatTests(unittest.TestCase):
   state=native.status();self.assertFalse(state['active']);self.assertFalse(state['fresh']);self.assertEqual(state['enemies'],[]);native.close()
  def test_build_mismatch_releases_both_mapping_resources(self):
   k=Kernel();k.words[2]=451
-  with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):NativeCombat(42,k)
+  with self.assertRaisesRegex(ReaderError,'DLL0.4.56'):NativeCombat(42,k)
   self.assertEqual(len(k.closed),2)

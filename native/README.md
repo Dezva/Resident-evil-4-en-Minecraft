@@ -1,4 +1,27 @@
-# Native build455
+# Native build456
+
+Combat v4/5332 bytes adds request kind/projectile at5324/5328, inside the
+request seqlock. Melee keeps its eye-origin guard; arrow segments keep the
+6-block length bound with a64-block origin envelope. One impact per projectile
+and generation, with bounded128-ID history plus a monotonic replay floor.
+Native ray/body-part, actor identity, placed walls, TTL/F8/menu and confirmed
+engine-owned damage remain mandatory. No new HP/routine writes.
+
+Runtime v5 still160 bytes: reserved[0] reports STATUS[2]. STA_PL_EM_ACTION
+0x40000000 yields camera/body/HUD ownership to the native action and restores
+FP after it clears. A contextual prompt alone still does not yield.
+Flags come from re4_tweaks@92c0208bd09c29c9640e13a2493b8e6bd6edd700,
+dllmain/GameFlags.h. Actual kick timing still needs in-game verification.
+
+Windows: `./tools/build_native.ps1` with RE4_MINGW_CC or -Compiler pointing to
+MinGW x86. The verified local toolchain is Winlibs GCC14.2.0/MinGW12.0.0,
+i686 POSIX/DWARF/MSVCRT r1, kept only in ignored .gradle/native-toolchain.
+Official archive SHA25639bdc7ba140672f1543c57e846b1f2efc1952a5135779e7fa6916a1caca2c379.
+Uses SSE2 float math, Win7 API declarations, -Wall/-Wextra/-Werror and static
+libgcc. Runtime imports are KERNEL32, USER32 and msvcrt only. No installer or
+admin access is used to compile. See [0.4.56 guide](../docs/RE4-BLOCK-0.4.56.md).
+
+# Historical native build455
 
 Combat v3 is5324 bytes. Owned messages may complete on a different native thread;
 the callback claims once under combat_lock and releases it around native damage.

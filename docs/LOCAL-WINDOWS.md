@@ -205,3 +205,20 @@ original, permitiendo reutilizar bytecode incorrecto en3.13. Hostfix2 invalida
 esa caché y añade una prueba de extracción/importación con el Python real.
 Evitar atribuir un error de versión IPC a privilegios sin comparar primero
 cabecera observada, constantes importadas, intérprete y fuente efectivo.
+
+## Continuación0.4.56
+
+El usuario confirmó el arranque normal y el gameplay estable de0.4.55-hostfix2,
+incluidas trampas de osos y bombas. No se restaura RUNASADMIN. Compilador C
+local preparado en .gradle/native-toolchain (ignorado), archivo oficial verificado
+por SHA256, sin instalación ni cambios de PATH persistidos. build_native.ps1
+compila x86 con declaraciones Win7 y SSE2, sin DLLs de GCC adicionales.
+Loom/Fabric/Minecraft se resuelven en la caché local del proyecto; JDK21 y
+Gradle se usan con un trabajador y heap768MB, tras cerrar el usuario los juegos.
+
+Fixtures C de cámara adaptados a memoria32bits de Windows y calling convention
+del motor; cálculo float de fixtures usa SSE2. Limpieza de ControlTests espera
+el cierre del hijo antes de borrar sus logs; auditoría Python considera agotado
+un presupuesto temporal cero aun si monotonic repite el mismo valor.
+Resultados privados en D:\logs\re4-0.4.56-20261016. Las pruebas automatizadas no
+equivalen a validación visual, daño/foco de gameplay real ni medición de FPS.

@@ -1,0 +1,2 @@
+62d6280bab5f6a358364c0d7e8ea5cc2a0501b8eeec9e04e6eec22c73b624b7e  re4bridge-0.4.57-impactfix2-windows.zip
+a63d390ae82f2d3d5bb4ccf6fc5017c00e4ea33c6b081aa5f7a64addd513a7a2  re4bridge-0.4.57-impactfix2-source.zip

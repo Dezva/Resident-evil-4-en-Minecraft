@@ -78,7 +78,14 @@ class Combat:
         if enabled and request and request['id']!=self.ack:
             self.ack=request['id'];self.hits+=1;print(f"MELEE generation={generation} id={self.ack} damage={request['damage']} slot={request['slot']}",flush=True)
     def status(self):return dict(engine_supported=True,available=True,active=self.enabled,fresh=True,generation=self.generation,ack=self.ack,reason=0,hp_before=1000,hp_after=950,hits=self.hits,kills=0,enemies=[])
-policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime(),Combat())
+class WorldVisuals:
+    available=True
+    last=None
+    def publish(self,enabled,generation,decoded):
+        key=(bool(enabled and decoded),generation if enabled and decoded else 0)
+        if key!=self.last:
+            print(f'WORLD enabled={key[0]} generation={key[1]}',flush=True);self.last=key
+policy = ControlPolicy(Writer(),Preview(),Hud(),Health(),Runtime(),Combat(),WorldVisuals())
 last_client=None
 def apply_with_client_diagnostic(frame,sample):
     global last_client

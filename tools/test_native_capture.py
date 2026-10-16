@@ -24,10 +24,14 @@ class NativeCaptureTests(unittest.TestCase):
                 source.write_text(extra)
             binary=Path(directory)/'fixture'
             try:
+                if os.name=='nt':
+                    if extra is None:extra=source.read_text()
+                    source=Path(directory)/name
+                    source.write_text('#include <stdlib.h>\n__attribute__((constructor)) static void fixture_no_dialog(void){_set_error_mode(2); }\n'+extra)
                 fp=['-msse2','-mfpmath=sse'] if os.name=='nt' else []
                 subprocess.run(['gcc',*fp,'-std=c11','-Wall','-Wextra','-Werror','-no-pie',
                                 '-I'+str(root/'native'),str(source),'-o',str(binary),'-lm'],check=True,capture_output=True,text=True)
-                subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+                subprocess.run([str(binary)],check=True,capture_output=True,text=True,timeout=30)
             except subprocess.CalledProcessError as error:self.fail(error.stdout+'\n'+error.stderr)
 
     def hud_fixture(self,extra_name):
@@ -71,6 +75,31 @@ class NativeCaptureTests(unittest.TestCase):
 
     def test_observed_virtual_four_three_projection_matches_block_and_outline(self):
         self.compile_run("test_block_projection.c")
+
+    def test_actual_world_mesh_draw_guards_cache_and_state_restoration(self):
+        root=Path(__file__).resolve().parents[1]
+        fixture=(root/'native/test_depth_draw.c').read_text()
+        fixture=fixture[:fixture.index('int main(void){')]
+        fixture=fixture.replace('uint32_t player;float depth_gx[16];','uint32_t player;void *world_visuals;unsigned world_drawn,depth_gpu_valid;float depth_gpu[16];float depth_gx[16];')
+        fixture=fixture.replace('!flags && size==sizeof(BlockSurfaceMesh)','((flags==8) || (!flags && size==sizeof(BlockSurfaceMesh)))').replace('return malloc(size);','return flags==8?calloc(1,size):malloc(size);')
+        fixture=fixture.replace('width==(command.style==3?256:16) && height==width','width==128 && height==128')
+        fixture=fixture.replace('out->Pitch=texture_bad_pitch?60:command.style==3?1040:80','out->Pitch=texture_bad_pitch?60:520')
+        start=fixture.index('static HRESULT draw(');end=fixture.index('static void depth_fallback_draw',start)
+        fixture=fixture[:start]+"""static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const void *data,UINT stride){
+         (void)d;assert(type==D3DPT_TRIANGLELIST && count==2 && stride==28);
+         const BlockSurfaceVertex *v=data;for(unsigned i=0;i<count*3;i++)assert(isfinite(v[i].x+v[i].y+v[i].z) && v[i].z>0 && v[i].z<1 && v[i].rhw>0);
+         assert(current.render[D3DRS_ZENABLE]==1 && current.render[D3DRS_ZWRITEENABLE]==1 && current.render[D3DRS_ZFUNC]==4);
+         assert(!current.render[D3DRS_DEPTHBIAS] && !current.render[D3DRS_SLOPESCALEDEPTHBIAS]);
+         assert(current.render[D3DRS_ALPHATESTENABLE]==1 && current.render[D3DRS_ALPHAREF]==0);
+         draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
+        }
+        """+fixture[end:]
+        ipc=(root/'native/world_mesh_ipc.h').read_text();ipc=ipc[:ipc.index('static void world_mesh_initialize')].replace('static HANDLE world_mesh_mapping;','')+ipc[ipc.index('static int world_mesh_requested'):]
+        extra=(root/'native/test_world_mesh_extra.c').read_text().replace('/* ACTUAL_WORLD_IPC */',ipc)
+        self.compile_run('world_mesh_fixture.c',fixture+extra)
+
+    def test_world_drawing_runs_in_opaque_pass_with_gpu_projection_and_bounded_queries(self):
+        self.compile_run("test_depth_device.c")
 
     def test_actual_native_depth_draw_and_restore(self):
         self.compile_run("test_depth_draw.c")

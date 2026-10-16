@@ -236,7 +236,12 @@ static HRESULT WINAPI cube_Clear(IDirect3DDevice9 *iface, DWORD rect_count, cons
     HRESULT result=f->inner->lpVtbl->Clear(f->inner, rect_count, rects, flags, color, z, stencil);
 #ifdef RE4_DEPTH_RUNTIME
     if(SUCCEEDED(result) && (flags&D3DCLEAR_ZBUFFER))f->depth_seen=0;
-    if(SUCCEEDED(result) && (flags&D3DCLEAR_TARGET))f->depth_drawn=0;
+    if(SUCCEEDED(result) && (flags&D3DCLEAR_TARGET)){
+        f->depth_drawn=0;
+#ifdef RE4_WORLD_MESH_RUNTIME
+        f->world_drawn=0;
+#endif
+    }
 #endif
     DWORD error=GetLastError();cube_method_leave(f,error);
     return result;
@@ -475,9 +480,13 @@ static HRESULT WINAPI cube_DrawPrimitive(IDirect3DDevice9 *iface, D3DPRIMITIVETY
     HRESULT result=f->inner->lpVtbl->DrawPrimitive(f->inner, PrimitiveType, StartVertex, PrimitiveCount);
     DWORD error=GetLastError();
 #ifdef RE4_DEPTH_RUNTIME
+#ifdef RE4_WORLD_MESH_RUNTIME
+    if(SUCCEEDED(result))cube_depth_after_draw(f);
+#else
     if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
         if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
     }
+#endif
 #endif
     cube_method_leave(f,error);
     return result;
@@ -487,9 +496,13 @@ static HRESULT WINAPI cube_DrawIndexedPrimitive(IDirect3DDevice9 *iface, D3DPRIM
     HRESULT result=f->inner->lpVtbl->DrawIndexedPrimitive(f->inner, arg0, BaseVertexIndex, MinVertexIndex, NumVertices, startIndex, primCount);
     DWORD error=GetLastError();
 #ifdef RE4_DEPTH_RUNTIME
+#ifdef RE4_WORLD_MESH_RUNTIME
+    if(SUCCEEDED(result))cube_depth_after_draw(f);
+#else
     if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
         if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
     }
+#endif
 #endif
     cube_method_leave(f,error);
     return result;
@@ -499,9 +512,13 @@ static HRESULT WINAPI cube_DrawPrimitiveUP(IDirect3DDevice9 *iface, D3DPRIMITIVE
     HRESULT result=f->inner->lpVtbl->DrawPrimitiveUP(f->inner, primitive_type, primitive_count, data, stride);
     DWORD error=GetLastError();
 #ifdef RE4_DEPTH_RUNTIME
+#ifdef RE4_WORLD_MESH_RUNTIME
+    if(SUCCEEDED(result))cube_depth_after_draw(f);
+#else
     if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
         if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
     }
+#endif
 #endif
     cube_method_leave(f,error);
     return result;
@@ -511,9 +528,13 @@ static HRESULT WINAPI cube_DrawIndexedPrimitiveUP(IDirect3DDevice9 *iface, D3DPR
     HRESULT result=f->inner->lpVtbl->DrawIndexedPrimitiveUP(f->inner, primitive_type, min_vertex_idx, vertex_count, primitive_count, index_data, index_format, data, stride);
     DWORD error=GetLastError();
 #ifdef RE4_DEPTH_RUNTIME
+#ifdef RE4_WORLD_MESH_RUNTIME
+    if(SUCCEEDED(result))cube_depth_after_draw(f);
+#else
     if(SUCCEEDED(result) && f->scene && f->depth_z==1 && f->depth_write==1 && depth_requested(NULL)){
         if(!f->depth_seen){if(cube_projection(f->depth_gx)){f->depth_world_compare=f->depth_compare;f->depth_seen=1;}}
     }
+#endif
 #endif
     cube_method_leave(f,error);
     return result;

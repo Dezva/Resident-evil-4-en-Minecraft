@@ -1,3 +1,32 @@
+# 0.4.57 — geometría del mundo separada del HUD
+
+WorldMesh: Local\\RE4Bridge-WorldMesh-PID, magic0x52453457/version1/build457,
+77888bytes. Cabecera u32 magic0/version4/build8/PID12, command seqlock16,
+stamp20/enabled24/generation28/quads32, siete reserved36..63=0.
+Vertices64: máximo128 quads ×4 vértices ×24bytes (float xyzuv + ARGBu32,
+little endian); atlas12352:128×128 ARGBu32. Lease500ms, sesión FP nativa válida,
+sin escena/menú, F8 y restauración obligatoria. No admite punteros/comandos.
+
+JSON opcional world_mesh={encoding:"world-quads-v1",vertices:base64,texture:base64}.
+Vertices no vacíos, múltiplo96, máximo12288bytes; XYZ finitos ±20M, UV0..1.
+Textura zlib máximo32768bytes comprimidos y exactamente65536 descomprimidos,
+sin cola ni segundo stream. Se valida antes de cualquier publicación IPC.
+Cliente solo envía un snapshot <200ms, de la misma generación y sin suspensión.
+El host deshabilita en ausencia del campo, parada, menú o escena. Si añadir
+la malla excede524288bytes, el emisor omite solo esa malla durante la trama;
+conserva controles/escena/HUD y el límite estricto del protocolo.
+
+Depth conserva256bytes/version1. Build457 admite stage2 (inserción tras draw
+opaco) y source3 (matriz D3D validada en constantes GPU). Tail nativo224:
+world_reason,world_quads,world_attempts,world_draws; el comando208..223 no cambia.
+Los contadores describen envíos, nunca prueban visibilidad ni contenido del Z.
+Runtime v5 y Combat v4 conservan ABI de456; lectores aceptan456/457 y el nuevo
+canal WorldMesh exige457. Todos los canales de la DLL nueva anuncian457.
+
+No se amplía la cobertura del terreno ni se relajan las guardias de daño.
+La flecha pausada por cobertura desconocida se oculta; una flecha incrustada
+en geometría conocida conserva su representación. Patada nativa sin cambios.
+
 # Mod0.4.56-arrowfix1 — sin cambios IPC
 
 La primera invocación del tick de una flecha vanilla ocurre con age1 porque

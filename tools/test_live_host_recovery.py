@@ -40,7 +40,7 @@ class HostRecoveryTests(unittest.TestCase):
    with contextlib.ExitStack() as stack:
     stack.enter_context(patch.object(host,'__file__',str(root/'tools/re4_live_host.py')))
     stack.enter_context(patch('sys.argv',['host','--control','--game-dir',d]))
-    for name in ('WindowsProcess','NativeControl','NativeRuntime','NativeCombat','NativeHealth','NativePreview','NativeOverlay'):stack.enter_context(patch.object(host,name,Native))
+    for name in ('WindowsProcess','NativeControl','NativeRuntime','NativeCombat','NativeHealth','NativePreview','NativeOverlay','NativeWorldMesh'):stack.enter_context(patch.object(host,name,Native))
     stack.enter_context(patch.object(host,'ControlPolicy',Policy));stack.enter_context(patch.object(host,'TerrainFeed',Feed))
     stack.enter_context(patch.object(host,'find_pid',return_value=42));stack.enter_context(patch.object(host,'locate_player_slot',return_value=1))
     stack.enter_context(patch.object(host,'sample_player',return_value={'state':'player','position_raw':[0,0,0]}))

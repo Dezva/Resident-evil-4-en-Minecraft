@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stddef.h>
+#include <string.h>
 #include "block_depth.h"
 static void check(float a,float b,unsigned reverse){
  float m[16]={.75,0,0,0,0,1,0,0,0,0,a,1,0,0,b,0};BlockProjection p;
@@ -24,5 +25,13 @@ int main(void){
  bad[0]=.01f;assert(!block_gx_projection(bad,50,1366,768,4,&p));
  int32_t rect[4]={10,20,1376,788};assert(block_depth_full_clear(0,NULL,10,20,1366,768));assert(block_depth_full_clear(1,rect,10,20,1366,768));
  rect[2]--;assert(!block_depth_full_clear(1,rect,10,20,1366,768));assert(!block_depth_full_clear(2,rect,10,20,1366,768));assert(!block_depth_full_clear(1,NULL,10,20,1366,768));
+ float constants[256*4]={0};float actual[16]={.75,0,0,0,0,1,0,0,0,0,10000.f/9990,-1,0,0,-100000.f/9990,0};
+ // Right-handed D3D: A changes sign with clip W.
+ actual[10]=-actual[10];for(unsigned i=0;i<16;i++)constants[48+i]=actual[i];
+ assert(block_shader_projection(constants,256,90,640,480,4,&p));assert(fabsf(p.near_plane-10)<.001);
+ assert(!block_shader_projection(constants,256,90,640,480,7,&p));
+ memset(constants,0,sizeof(constants));for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)constants[32+r*4+c]=actual[c*4+r];
+ assert(block_shader_projection(constants,256,90,640,480,4,&p));
+ memset(constants,0,sizeof(constants));assert(!block_shader_projection(constants,256,90,640,480,4,&p));
  gx[5]=NAN;assert(!block_gx_projection(gx,90,640,480,4,&p));
 }

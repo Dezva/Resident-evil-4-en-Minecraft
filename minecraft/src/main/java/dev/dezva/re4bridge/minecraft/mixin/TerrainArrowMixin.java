@@ -17,6 +17,8 @@ abstract class TerrainArrowMixin implements BridgeArrow {
  @Unique private boolean re4bridge$surfacePending,re4bridge$embedded;
  @Unique private int re4bridge$generation,re4bridge$heldTicks;
  @Unique private boolean re4bridge$spawnChecked,re4bridge$rendered;
+ @Unique private boolean re4bridge$visible=true;
+ @Override public boolean re4bridge$visible(){return re4bridge$visible;}
  @Override public boolean re4bridge$managed(){return re4bridge$generation!=0;}
  @Override public boolean re4bridge$markRendered(){if(re4bridge$rendered)return false;re4bridge$rendered=true;return true;}
  @Inject(method="onBlockHit",at=@At("TAIL"))
@@ -34,11 +36,13 @@ abstract class TerrainArrowMixin implements BridgeArrow {
   if(re4bridge$generation!=0){
    if(generation!=0 && generation!=re4bridge$generation){if(!arrow.getWorld().isClient)arrow.discard();ci.cancel();return;}
    String hold=generation==0?"session":(re4bridge$embedded && inGround)?"embedded":TerrainInteraction.freeze(arrow)?TerrainInteraction.projectilePauseReason(arrow):BridgeCombat.projectile(arrow)?"combat":null;
+   re4bridge$visible=BridgeArrow.visibleDuringPause(hold);
    if(hold!=null){
     if(re4bridge$heldTicks==0)ProjectileTrace.event(re4bridge$generation,"hold",arrow.getId(),hold);
     if(++re4bridge$heldTicks>=1200 && !arrow.getWorld().isClient)arrow.discard();ci.cancel();return;
    }
   }
+  re4bridge$heldTicks=0;
   re4bridge$surfacePending=false;
   if(TerrainInteraction.freeze(arrow))ci.cancel();
  }

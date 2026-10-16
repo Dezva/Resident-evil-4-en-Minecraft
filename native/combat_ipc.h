@@ -119,7 +119,7 @@ static void combat_ipc_open(void){
  HANDLE map=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CombatShared),name);if(!map)return;
  if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(map);return;}
  CombatShared *p=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,sizeof(*p));if(!p){CloseHandle(map);return;}
- memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=4;p->build=456;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
+ memset(p,0,sizeof(*p));p->magic=COMBAT_MAGIC;p->version=4;p->build=457;p->pid=GetCurrentProcessId();p->reason=1;combat_shared=p;combat_mapping=map;
 }
 
 #include "combat_install.h"

@@ -17,6 +17,8 @@ public final class BridgeConnection implements AutoCloseable {
     private final Mode mode;
     private record ControlFrame(JsonObject frame, HudFrame hud, long createdNs) {}
     private volatile Supplier<HudFrame> overlaySource;
+    private volatile WorldMesh worldMesh;
+    public void worldMesh(WorldMesh value){worldMesh=value;}
     private volatile boolean terrainRequested;private volatile TerrainSnapshot terrain;private volatile String terrainState="sin host de mapa";
     private volatile boolean depthRequested,depthAvailable;private volatile String depthReason="sin canal de profundidad";private volatile long depthDraws,depthFallbackDraws;
     private volatile boolean menuRequested;
@@ -247,6 +249,8 @@ public final class BridgeConnection implements AutoCloseable {
                                 hud=visual!=null && visual.menu()==hud.menu()?hud.visual(visual):null;
                             }
                             if(hud!=null)frame.add("hud",hud.toJson());
+                            var mesh=worldMesh;
+                            if(mesh!=null && !tickSuspended && frame.get("armed").getAsBoolean() && !frame.get("menu").getAsBoolean() && mesh.generation()==frame.get("arm_id").getAsInt() && System.nanoTime()-mesh.createdNs()<200_000_000L)frame.add("world_mesh",mesh.toJson());
                             frame.addProperty("terrain",terrainRequested && !tickSuspended && frame.get("armed").getAsBoolean());frame.addProperty("terrain_revision",terrain==null?0:terrain.revision());
                             frame.addProperty("depth",depthRequested && frame.get("armed").getAsBoolean());
                         }
@@ -277,7 +281,7 @@ public final class BridgeConnection implements AutoCloseable {
                 frame.addProperty("protocol", LineProtocol.VERSION);
                 frame.addProperty("session", session);
                 frame.addProperty("seq", ++sequence);
-                peer.getOutputStream().write(LineProtocol.encode(frame));
+                peer.getOutputStream().write(controllerMode()?LineProtocol.encodeControl(frame):LineProtocol.encode(frame));
                 lastSend = System.nanoTime();
                 JsonObject ack = LineProtocol.read(input);
                 if (!"ack".equals(string(ack, "type")) || !session.equals(string(ack, "session"))
@@ -400,6 +404,7 @@ public final class BridgeConnection implements AutoCloseable {
             Thread.currentThread().interrupt();
         } finally {
             running = false;
+        worldMesh = null;
             re4Sample = null;
             nativeArmed = false;
             previewRequested = false;
@@ -427,6 +432,7 @@ public final class BridgeConnection implements AutoCloseable {
 
     @Override public void close() {
         running = false;
+        worldMesh = null;
         previewRequested = false;
         Socket peer = socket;
         if (peer != null) {

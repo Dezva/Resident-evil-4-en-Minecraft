@@ -10,6 +10,9 @@ typedef struct {
     unsigned method_depth,deferred_releases;
     CubeGate gate;unsigned scene,escaped,resetting;uint32_t player,hud_generation,hud_blocked_generation;
     void *overlay;
+#ifdef RE4_WORLD_MESH_RUNTIME
+    void *world_visuals;unsigned world_drawn;float depth_gpu[16];unsigned depth_gpu_valid;
+#endif
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
     BlockDebris debris;
@@ -20,6 +23,10 @@ static const GUID cube_iid_device={0xd0223b96,0xbf7a,0x43fd,{0x92,0xbd,0xa4,0x3b
 #ifndef CUBE_TEST_DRAW_STUB
 #include "cube_draw.h"
 #include "hud_draw.h"
+#ifdef RE4_WORLD_MESH_RUNTIME
+#include "world_mesh_draw.h"
+#include "depth_device.h"
+#endif
 #else
 static void cube_render_device(CubeDevice *f);
 static void hud_render_device(CubeDevice *f);
@@ -35,7 +42,11 @@ static void cube_method_enter(CubeDevice *f) {
 }
 static void cube_method_leave(CubeDevice *f,DWORD error) {
     LONG refs=InterlockedDecrement(&f->references);f->method_depth--;
-    if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}
+    if(!refs){hud_release_texture(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);}
     if(!f->method_depth){
         unsigned pending=f->deferred_releases;f->deferred_releases=0;
         while(pending--)f->inner->lpVtbl->Release(f->inner);
@@ -53,7 +64,11 @@ static ULONG WINAPI cube_Release(IDirect3DDevice9 *iface) {
     CubeDevice *f=(CubeDevice *)iface;EnterCriticalSection(&f->lock);
     LONG refs=InterlockedDecrement(&f->references);
     if(f->method_depth)f->deferred_releases++;
-    else {if(!refs){hud_release_texture(f);block_texture_cache_release(&f->block_texture);}f->inner->lpVtbl->Release(f->inner);}
+    else {if(!refs){hud_release_texture(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);}f->inner->lpVtbl->Release(f->inner);}
     DWORD error=GetLastError();LeaveCriticalSection(&f->lock);
     if (!refs) {DeleteCriticalSection(&f->lock);cube_record_wrap(-1,0);HeapFree(GetProcessHeap(),0,f);}
     SetLastError(error);return (ULONG)refs;
@@ -65,7 +80,11 @@ static HRESULT WINAPI cube_QueryInterface(IDirect3DDevice9 *iface,REFIID iid,voi
     }
     cube_method_enter(f);
     HRESULT hr=f->inner->lpVtbl->QueryInterface(f->inner,iid,out);DWORD error=GetLastError();
-    if (SUCCEEDED(hr) && *out) {f->escaped=1;block_camera_end();hud_release_texture(f);block_texture_cache_release(&f->block_texture);cube_record(CUBE_ESCAPE,0);}
+    if (SUCCEEDED(hr) && *out) {f->escaped=1;block_camera_end();hud_release_texture(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);cube_record(CUBE_ESCAPE,0);}
     cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_BeginScene(IDirect3DDevice9 *iface) {
@@ -74,6 +93,9 @@ static HRESULT WINAPI cube_BeginScene(IDirect3DDevice9 *iface) {
     if (SUCCEEDED(hr)) {f->scene=1;block_camera_begin();
 #ifdef RE4_DEPTH_RUNTIME
         f->depth_seen=f->depth_drawn=f->depth_stage=0;
+#ifdef RE4_WORLD_MESH_RUNTIME
+        f->world_drawn=f->depth_gpu_valid=0;
+#endif
         if(depth_requested(NULL)){
             f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZENABLE,&f->depth_z);
             f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZWRITEENABLE,&f->depth_write);
@@ -91,14 +113,25 @@ static HRESULT WINAPI cube_EndScene(IDirect3DDevice9 *iface) {
 #else
     cube_render_device(f);
 #endif
+#ifdef RE4_WORLD_MESH_RUNTIME
+    world_mesh_render(f);
+#endif
     hud_render_device(f);f->scene=0;block_camera_end();
     HRESULT hr=f->inner->lpVtbl->EndScene(f->inner);DWORD error=GetLastError();
-    if (FAILED(hr)) {hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_ACTIVE,0);}
+    if (FAILED(hr)) {hud_reset_device(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_ACTIVE,0);}
     cube_method_leave(f,error);return hr;
 }
 static HRESULT WINAPI cube_Reset(IDirect3DDevice9 *iface,D3DPRESENT_PARAMETERS *parameters) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
-    hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->scene=0;block_camera_end();f->resetting=1;f->gate.anchored=0;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_RESET,0);
+    hud_reset_device(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);f->scene=0;block_camera_end();f->resetting=1;f->gate.anchored=0;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_RESET,0);
     HRESULT hr=f->inner->lpVtbl->Reset(f->inner,parameters);DWORD error=GetLastError();
     f->resetting=0;f->gate.lost=FAILED(hr);if (FAILED(hr)) cube_record(CUBE_RESET_FAILURE,(uint32_t)hr);
     cube_method_leave(f,error);return hr;
@@ -106,7 +139,11 @@ static HRESULT WINAPI cube_Reset(IDirect3DDevice9 *iface,D3DPRESENT_PARAMETERS *
 static HRESULT WINAPI cube_Present(IDirect3DDevice9 *iface,const RECT *src,const RECT *dst,HWND window,const RGNDATA *dirty) {
     CubeDevice *f=(CubeDevice *)iface;cube_method_enter(f);
     HRESULT hr=f->inner->lpVtbl->Present(f->inner,src,dst,window,dirty);DWORD error=GetLastError();
-    if (FAILED(hr)) {hud_reset_device(f);block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_PRESENT_FAILURE,(uint32_t)hr);}
+    if (FAILED(hr)) {hud_reset_device(f);
+#ifdef RE4_WORLD_MESH_RUNTIME
+world_mesh_release(f);
+#endif
+block_texture_cache_release(&f->block_texture);f->gate.lost=1;f->gate.blocked=f->gate.epoch;f->gate.blocked_reason=CUBE_LOST;cube_record(CUBE_PRESENT_FAILURE,(uint32_t)hr);}
     cube_method_leave(f,error);return hr;
 }
 #include "device_forwarders.h"

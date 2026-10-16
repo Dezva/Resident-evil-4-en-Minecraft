@@ -1,3 +1,31 @@
+## 0.4.57 — profundidad del mundo y fin del overlay de flechas
+
+Usuario confirma arrowfix1: flechas visibles y daño de arco/ballesta. La patada
+nativa ya era visible. Reporta superposición de bloques/flechas y proyectiles
+pausados en el cielo al agotar la cobertura de terreno. Se conserva la base.
+
+Medición local de solo lectura: profundidad solicitada y estable, stage0 al
+final de escena, source2/GX,1366×768, near100/far≈1e6, sin fallos gráficos ni de
+restauración. No se encontró una simple opción desactivada. No se cambió la
+instalación ni se escribieron comandos durante esa medición.
+
+DLL457 inserta el dibujo después de un draw opaco del backbuffer, consulta Z
+real y busca proyección D3D en constantes GPU; GX validado permanece como
+alternativa. El dibujo propio pone bias0 y restaura D3DSBT_ALL. Depth solicitado
+sin proyección/superficie válida deja de hacer fallback plano. La oclusión debe
+confirmarse jugando: los tests con COM simulado no validan el buffer de NVIDIA.
+
+Flechas dejan el bitmap del HUD: exportan los quads del renderer vanilla a un
+canal separado con lease/generación/F8, textura local y límites128 quads/atlas128.
+Sin llamadas de daño nuevas ni ampliación de memoria nativa de actores.
+Las pausas por mapa desconocido se ocultan en RE4; no se simula un impacto ni
+se elimina la guardia de colisión. Alcance del terreno permanece limitado.
+
+Pruebas de protocolo, envío TCP real entre Java/Python, geometría, restauración,
+fallos de setters y recursos, F8/TTL/menú/escena y modelos vanilla. Paquete completo
+con DLL/host/mod coherentes; no se instala automáticamente.
+Ver [guía y límites](docs/RE4-BLOCK-0.4.57.md). Skin/modelo sobre Leon pendiente.
+
 ## 0.4.56-arrowfix1 — registro de flechas en el primer tick
 
 El usuario confirma que la patada de Leon ya se ve en0.4.56. También confirma

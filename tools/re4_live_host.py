@@ -13,6 +13,7 @@ from re4_control import NativeControl, ControlPolicy
 from re4_health import NativeHealth
 from re4_runtime import NativeRuntime
 from re4_combat import NativeCombat
+from re4_world_mesh import NativeWorldMesh
 from re4_combat_probe import describe_profile
 from re4_graphics_capture import read_capture
 from re4_block_preview import NativePreview
@@ -36,7 +37,7 @@ def setup_logging():
 def main():
     terrain=None
     log,log_handler=setup_logging()
-    log.info('Host 0.4.56 iniciado')
+    log.info('Host 0.4.57 iniciado')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-exe", default=DEFAULT_EXE)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("APPDATA", ".")) / ".minecraft")
@@ -51,6 +52,7 @@ def main():
     health = None
     runtime = None
     combat = None
+    world_mesh = None
     try:
         config = load_config(args.game_dir / "config" / "re4bridge.json")
         pid = find_pid()
@@ -63,6 +65,7 @@ def main():
             health = NativeHealth(pid,native.k)
             runtime = NativeRuntime(pid,native.k)
             combat = NativeCombat(pid,native.k)
+            world_mesh = NativeWorldMesh(native.k,pid)
             engine=combat.status()
             log.info('Perfil de reacciones nativas: %s',engine)
             if not engine.get('engine_supported'):log.warning('Perfil del ejecutable (solo lectura): %s',describe_profile(process.read,process.base,process.size))
@@ -70,7 +73,7 @@ def main():
             preview = NativePreview(pid,process.k)
             hud=NativeOverlay(pid,process.k)
             if not hud.available:hud.close();hud=NativeHud(pid,process.k)
-            say('Host 0.4.56: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
+            say('Host 0.4.57: Preparar Minecraft en VIEW y F9 para jugar. F8 detiene.',flush=True)
             try:
                 captured=read_capture(process.k,pid)
                 say(f"Captura grafica: {captured['hook_description']}; creaciones correctas={captured['device_success']}",flush=True)
@@ -97,7 +100,7 @@ def main():
             while True:
                 peer, _ = server.accept()
                 with peer:
-                    policy = ControlPolicy(native,preview,hud,health,runtime,combat) if native is not None else None
+                    policy = ControlPolicy(native,preview,hud,health,runtime,combat,world_mesh) if native is not None else None
                     try:
                         last_state=None
                         def apply(frame,sample):
@@ -134,6 +137,7 @@ def main():
         say('ERROR: revisa logs/re4bridge-host.log.',flush=True)
         return 1
     finally:
+        if world_mesh is not None:world_mesh.close()
         if combat is not None:combat.close()
         if runtime is not None:runtime.close()
         if health is not None:health.close()

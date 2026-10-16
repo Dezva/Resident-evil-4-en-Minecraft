@@ -48,6 +48,9 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         if(use_depth){
             float projection[16]={0};hr=device->lpVtbl->GetTransform(device,D3DTS_PROJECTION,(D3DMATRIX*)projection);
             unsigned source=1;
+#ifdef RE4_WORLD_MESH_RUNTIME
+            if(f->depth_gpu_valid){memcpy(projection,f->depth_gpu,64);hr=S_OK;source=3;}
+#endif
             if(FAILED(hr) || !block_projection(projection,fov,(float)viewport.Width,(float)viewport.Height,&depth)){
                 source=2;
                 if(!f->depth_seen || !block_gx_projection(f->depth_gx,fov,(float)viewport.Width,(float)viewport.Height,f->depth_world_compare,&depth)){
@@ -61,7 +64,11 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         }
         // Flat compatibility drawing belongs at the final pass, after world geometry.
         // Leave the validated depth path at the earlier pre-HUD depth clear.
-        if(depth_fallback && f->depth_stage==1)return;
+        // A requested world draw may never silently turn into an x-ray overlay.
+        if(depth_fallback){cube_record(CUBE_ACTIVE,0);return;}
+#ifdef RE4_WORLD_MESH_RUNTIME
+        if(!f->depth_seen)return;
+#endif
     }
 #endif
     if (command.mode==2) {
@@ -117,7 +124,11 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         if (surface) HeapFree(GetProcessHeap(),0,surface);
         // A fully validated scene outside the frustum is still a live collision
         // scene. Revalidate after a torn/omitted pass without inventing a draw.
-        cube_record(CUBE_ACTIVE,1);cube_record(CUBE_PASS_SKIP,0);return;
+        cube_record(CUBE_ACTIVE,1);cube_record(CUBE_PASS_SKIP,0);
+#ifdef RE4_DEPTH_RUNTIME
+        if(use_depth)f->depth_drawn=1;
+#endif
+        return;
     }
     for (unsigned i=0;i<count;++i) {
         if (solid) {
@@ -140,6 +151,8 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
         if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZENABLE,D3DZB_TRUE);
         if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZWRITEENABLE,TRUE);
         if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ZFUNC,depth.reverse?D3DCMP_GREATEREQUAL:D3DCMP_LESSEQUAL);
+        if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_DEPTHBIAS,0);
+        if(use_depth && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_SLOPESCALEDEPTHBIAS,0);
         if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHATESTENABLE,TRUE);
         if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHAFUNC,D3DCMP_GREATER);
         if(use_depth && atlas && SUCCEEDED(hr))hr=device->lpVtbl->SetRenderState(device,D3DRS_ALPHAREF,0);

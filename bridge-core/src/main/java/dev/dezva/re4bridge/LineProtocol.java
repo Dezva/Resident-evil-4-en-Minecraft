@@ -51,8 +51,15 @@ public final class LineProtocol {
         }
     }
 
-    public static byte[] encode(JsonObject frame) throws IOException {
+    public static byte[] encode(JsonObject frame) throws IOException {return encode(frame,false);}
+
+    /** World visuals may be omitted for one frame; input/scene data may not be truncated. */
+    public static byte[] encodeControl(JsonObject frame) throws IOException {return encode(frame,true);}
+    private static byte[] encode(JsonObject frame,boolean optionalWorldMesh) throws IOException {
         byte[] bytes = (frame.toString() + "\n").getBytes(StandardCharsets.UTF_8);
+        if(bytes.length-1>MAX_FRAME_BYTES && optionalWorldMesh && frame.has("world_mesh") && frame.has("type") && "re4_control".equals(frame.get("type").getAsString())){
+            var bounded=frame.deepCopy();bounded.remove("world_mesh");return encode(bounded,false);
+        }
         if (bytes.length - 1 > MAX_FRAME_BYTES) throw new IOException("Frame exceeds byte limit");
         return bytes;
     }

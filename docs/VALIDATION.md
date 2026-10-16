@@ -1,3 +1,61 @@
+# 0.4.57 — profundidad y malla de proyectiles, 2026-10-16
+
+El usuario confirma arrowfix1: flechas visibles y daño. Reporta superposición
+con árboles/paredes y flechas suspendidas al agotar la cobertura local.
+Patada de Leon visible; modelo/skin Minecraft sigue pendiente.
+
+Diagnóstico real de solo lectura en la vista preparada por el usuario:
+ocho muestras,1366×768, profundidad solicitada/generación3,90 intentos y90 dibujos
+más, fallback estable16, stage0/EndScene, source2/GX, FOV50, near100/far≈999934.
+Sin fallos gráficos/restauración. Es evidencia de comandos y matrices, no del
+contenido del depth buffer ni de oclusión correcta. Se emitió el pitido pedido.
+Informe privado: D:\logs\re4-occlusion-20261016\depth-active.json.
+
+Se pasa a insertar bloques/flechas durante el pase opaco, con estado real de Z,
+proyección GPU validada cuando existe y GX como alternativa. El modo solicitado
+sin profundidad válida deja de dibujar un fallback plano. Las flechas salen
+del bitmap del HUD y usan el modelo vanilla exportado como quads.
+
+Windows/JDK21:60 tests core pasan antes del nuevo caso de transporte; después
+pasan los8 casos de ControlTests con envío de WorldMesh por TCP real al host
+Python, TTL200ms y rechazo de generación distinta. Una prueba adicional
+verifica que exceder el presupuesto con la malla no desconecta ni trunca
+controles/escena.62 tests core distintos
+cubiertos.98 tests Minecraft pasan, incluido consumidor de vértices vanilla,
+transformación/UV/color y visibilidad durante pausas. Remap del JAR y access
+widener correctos, un trabajador/heap512MB. Un primer fallo fue limpieza del
+log temporal de un auxiliar: se espera su salida natural tras cerrar el socket
+antes de forzar su cierre en el fixture Windows.
+
+197 tests Python pasan en la batería inicial. Después se añaden y pasan un
+fixture del pase opaco/proyección GPU y otro de cabeceras457;199 casos distintos
+cubiertos antes de comprobar el paquete. Fixtures C ejecutan los lectores y
+renderers reales sobre COM/memoria simulados:128 quads, textura con pitch,
+200 frames sin otra subida de atlas,51 fallos de setters, restauración, fallo
+LockRect/Apply, F8, lease, menú/escena, generación, offscreen, NaN y límites.
+Los tests nativos evitan ventanas CRT en fallos y acotan su ejecución a30s.
+
+DLL PE32/i386 compilada con GCC14.2/SSE2 y -Wall/-Wextra/-Werror. Sin cambios
+en llamadas de daño, firmas de combate ni instalación del juego. Build457
+conserva Runtimev5/Combatv4; el canal nuevo de geometría exige457.
+
+El paquete se comprueba sin archivos privados/juegos/partidas/bytecode, con
+metadatos JAR0.4.57 y WorldMesh en core anidado. Se importa sobre una caché
+válida del host0.4.56 y pasan26 casos Runtime/Combat/WorldMesh en un intérprete
+nuevo:200 pruebas Python distintas cubiertas. PowerShell5.1 instala/retira
+solo una DLL propia contra EXE/partidas sintéticos, verifica el backup y rechaza
+sobrescritura/partidas vacías/DLL ajena; reconoce la DLL456 publicada para actualizar.
+Imports nativos limitados a KERNEL32/msvcrt/USER32. Python3.13.14 que usa
+START-RE4-CONTROLS ejecuta37 casos del paquete/host/world/runtime/combat
+correctamente, además de la batería principal de Python3.12.
+
+Pendiente: comprobar oclusión real en RE4/NVIDIA, FPS y gameplay del paquete.
+No se afirma que los tests COM simulen el contenido real de Z. El alcance del
+terreno, contorno de selección de interfaz y skin de Leon conservan los límites
+indicados en [la guía](RE4-BLOCK-0.4.57.md). No se instala DLL/JAR automáticamente.
+
+---
+
 # 0.4.56-arrowfix1 — primer tick real, 2026-10-16
 
 Prueba del usuario en0.4.56: patada de Leon visible correctamente. Arco y ballesta

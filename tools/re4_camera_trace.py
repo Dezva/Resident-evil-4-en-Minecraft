@@ -16,6 +16,7 @@ from re4_native_probe import CAMERA_CTRL_SIGNATURE, GLOBAL_SIGNATURE
 
 SMOOTH_CTRL_SIGNATURE = "56 B9 ? ? ? ? E8 ? ? ? ? 8D 53 60"
 KNOWN_DLLS = {
+    "be2d89e539bc9a4dc76421b93822ca7b8af73200cd6a033e6f795634117bd378": "0.4.57 (opaque world pass and separate vanilla projectile geometry)",
     "5b25e60dd954c1b5e7480418f406cce8ecd43ee8775ada587da4ecae3ee88e6d": "0.4.56 (arrow impact segments and native player/enemy action camera)",
     "e034d92c2e4e79732da6f66efce630dced46003e80edec2e08f0653c0e3ad362": "0.4.55 (native traps, horizontal-only displacement guard and distinct stops)",
     "46836d4f3e609cc9b127d99f6801b868c631cf4c604d2f040179483989a9d546": "0.4.53 (lethal hits, native box completion and pickup navigation)",

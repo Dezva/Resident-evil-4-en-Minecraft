@@ -10,12 +10,15 @@ from re4_block_preview import validate_preview
 from re4_hud import validate_hud
 from re4_health import validate_health
 from re4_combat import validate_combat
+from re4_world_mesh import decode_world_mesh
 
 MAGIC = 0x52453443
 STOP_REASONS={1:'F8 nativo',2:'lease nativo caducado',3:'colision: referencia sin actualizar durante 500 ms',4:'colision: desplazamiento horizontal fuera de rango',5:'altura: cambio de personaje',6:'altura: fuera de rango',7:'interfaz: reinicio o fallo del dispositivo grafico',8:'VIEW: retorno o perdida del foco'}
 
 
 def validate_control(frame):
+    mesh=decode_world_mesh(frame.get("world_mesh"))
+    if mesh is not None and (not frame.get("armed") or frame.get("menu",False) or (not isinstance(frame.get("look"),dict) or not frame["look"].get("first_person"))):raise ProtocolError("World mesh requires armed first person")
     client=frame.get('client')
     if client is not None:
         if not isinstance(client,dict) or set(client)!={'reason','focused','paused','screen','sample_age_ms','tick_age_ms'} or type(client['reason']) is not str or len(client['reason'])>160 or any(c in client['reason'] for c in '\r\n') or type(client['screen']) is not str or len(client['screen'])>32 or any(c in client['screen'] for c in '\r\n') or type(client['focused']) is not bool or type(client['paused']) is not bool or type(client['sample_age_ms']) is not int or not -1<=client['sample_age_ms']<=60000 or type(client['tick_age_ms']) is not int or not -1<=client['tick_age_ms']<=60000:raise ProtocolError('Invalid client diagnostic')
@@ -61,21 +64,24 @@ def validate_control(frame):
         if abs(look["eye_height"]) < 40:
             raise ProtocolError("Invalid eye height")
 
+    return mesh
+
 
 class ControlPolicy:
     """New explicit arm generation required after a stop. Tested with fake IPC."""
-    def __init__(self, writer, preview=None, hud=None, health=None, runtime=None, combat=None):
+    def __init__(self, writer, preview=None, hud=None, health=None, runtime=None, combat=None, world_mesh=None):
         self.writer = writer
         self.preview = preview
         self.hud = hud
         self.health = health
         self.runtime = runtime
         self.combat = combat
+        self.world_mesh = world_mesh
         self.generation = 0
         self.armed = False
 
     def apply(self, frame, sample):
-        validate_control(frame)
+        mesh=validate_control(frame)
         activity=self.runtime.status() if self.runtime is not None else {}
         scripted=activity.get('fresh',False) and activity.get('scene')==1
         reason = "requiere otro arm"
@@ -119,6 +125,8 @@ class ControlPolicy:
         if box and box.get('collisions',False) and (self.preview is None or not getattr(self.preview,'collision_available',False)):
             self.armed=False
             reason='canal de colision no disponible; reinicia RE4'
+        if mesh is not None and (self.world_mesh is None or not self.world_mesh.available):
+            self.armed=False;reason="flechas 3D requieren DLL0.4.57"
         hud=frame.get('hud')
         if hud is not None and (self.hud is None or not self.hud.available or not look or not look.get('first_person') or (hud.get("encoding")=="zlib-argb" and not getattr(self.hud,"supports_overlay",False))):
             self.armed=False;reason='interfaz requiere DLL/mod0.4.33 y primera persona'
@@ -145,7 +153,7 @@ class ControlPolicy:
             box=frame.get('preview')
             self.preview.publish(self.armed and box is not None,frame['arm_id'],(box if 'origin' in box else box['bounds']) if box else None)
             depth=getattr(self.preview,'depth',None)
-            if depth is not None:depth.publish(self.armed and bool(frame.get('depth')) and box is not None and box.get('style',0)>0,frame['arm_id'])
+            if depth is not None:depth.publish(self.armed and bool(frame.get('depth')) and ((box is not None and box.get('style',0)>0) or mesh is not None),frame['arm_id'])
             result['preview_state']=self.preview.status()
             if box is not None and self.armed and result['preview_state'].get('blocked',False):
                 self.armed=False
@@ -156,6 +164,7 @@ class ControlPolicy:
                 result['armed']=False
                 result['reason']='dibujo bloqueado; repite arm o reinicia RE4: '+result['preview_state'].get('reason','')
                 result['preview_state']=self.preview.status()
+        if self.world_mesh is not None:self.world_mesh.publish(self.armed and not scripted and not frame.get("menu",False),frame["arm_id"],mesh)
         if self.hud is not None and hasattr(self.hud,"status"):result.update(self.hud.status())
         if self.health is not None:
             self.health.publish(self.armed,frame['arm_id'],frame.get('health'))
@@ -170,6 +179,7 @@ class ControlPolicy:
         return result
 
     def stop(self):
+        if self.world_mesh is not None:self.world_mesh.publish(False,0,None)
         if self.combat is not None:self.combat.publish(False,0)
         if self.runtime is not None:self.runtime.publish(0,0)
         if self.health is not None:self.health.publish(False,0)

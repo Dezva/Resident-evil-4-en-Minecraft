@@ -31,6 +31,19 @@ static inline int block_gx_projection(const float *gx,float fov,float width,floa
     out->matrix[0]=out->matrix[5]*height/width;
     return 1;
 }
+/* Only accept a complete perspective matrix in actual GPU constants.
+ * GX-only matrices fail the D3D near/far checks rather than masquerading as Z. */
+static inline int block_shader_projection(const float *constants,unsigned registers,float fov,float width,float height,unsigned compare,BlockProjection *out){
+ if(compare!=2 && compare!=4 && compare!=5 && compare!=7)return 0;
+ for(unsigned start=0;start+4<=registers;start++)for(unsigned transpose=0;transpose<2;transpose++){
+  float matrix[16];for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)matrix[r*4+c]=constants[start*4+(transpose?c*4+r:r*4+c)];
+  BlockProjection candidate;
+  if(block_projection(matrix,fov,width,height,&candidate) && candidate.reverse==(compare==5 || compare==7)){
+   *out=candidate;return 1;
+  }
+ }
+ return 0;
+}
 /* Clear accepts either no rectangles or one absolute rectangle covering the viewport. */
 static inline int block_depth_full_clear(unsigned count,const int32_t *rect,uint32_t x,uint32_t y,uint32_t width,uint32_t height){
     if(!count)return 1;

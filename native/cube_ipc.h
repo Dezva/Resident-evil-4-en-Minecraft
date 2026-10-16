@@ -2,6 +2,7 @@
 #include "cube_policy.h"
 #include "hud_ipc.h"
 #include "depth_ipc.h"
+#include "world_mesh_ipc.h"
 typedef struct {
     uint32_t magic,version;volatile LONG sequence;
     uint32_t build,pid,live_devices,wrap_failures,escapes,begins,frames,draws,failures,
@@ -12,7 +13,7 @@ _Static_assert(sizeof(CubeTelemetry)==92,"Cube telemetry layout");
 typedef struct {uint32_t magic,version;volatile LONG sequence;uint32_t build,pid,ticks,contacts,corrections,rejections,reason,active,generation;} CollisionTelemetry;
 _Static_assert(sizeof(CollisionTelemetry)==48,"Collision telemetry layout");
 static CollisionTelemetry *collision_shared;static HANDLE collision_mapping;
-static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=456,.reason=CUBE_OFF};
+static CubeTelemetry cube_metrics={.magic=0x52453455,.version=1,.build=457,.reason=CUBE_OFF};
 static CubeTelemetry *cube_shared;
 static CubeCommand *cube_command;
 static HANDLE cube_telemetry_mapping,cube_command_mapping;
@@ -47,10 +48,11 @@ static BOOL CALLBACK cube_initialize(PINIT_ONCE once,PVOID parameter,PVOID *cont
     HANDLE barrier=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(CollisionTelemetry),name);
     if(barrier && GetLastError()!=ERROR_ALREADY_EXISTS) {
         CollisionTelemetry *report=MapViewOfFile(barrier,FILE_MAP_ALL_ACCESS,0,0,sizeof(*report));
-        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=456;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
+        if(report){memset(report,0,sizeof(*report));report->magic=0x52453456;report->version=1;report->build=457;report->pid=pid;report->reason=1;collision_shared=report;collision_mapping=barrier;}else CloseHandle(barrier);
     }else if(barrier)CloseHandle(barrier);
     hud_initialize(pid);
     depth_initialize(pid);
+    world_mesh_initialize(pid);
     return TRUE;
 }
 static int cube_ensure_mapping(void) {

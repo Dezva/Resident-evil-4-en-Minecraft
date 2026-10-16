@@ -20,9 +20,9 @@ class NativeRuntime:
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
         self.words=(ctypes.c_uint32*40).from_address(self.address)
         header=tuple(self.words[:4])
-        if header!=(MAGIC,5,456,pid):
+        if header not in ((MAGIC,5,456,pid),(MAGIC,5,457,pid)):
             self.close()
-            raise ReaderError(f'Canal de escenas incompatible: magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}; requiere Runtime v5/DLL0.4.56 para PID {pid}')
+            raise ReaderError(f'Canal de escenas incompatible: magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}; requiere Runtime v5/DLL0.4.56/0.4.57 para PID {pid}')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')

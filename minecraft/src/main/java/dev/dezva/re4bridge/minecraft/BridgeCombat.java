@@ -21,7 +21,7 @@ public final class BridgeCombat {
  private static void release(long lease){if(epoch.get()==lease)busy.set(false);}
  private static int generation,counter;
  static void bind(BridgeConnection bridge,ControllerMapping map,int gen,UUID player,String dimension,Set<net.minecraft.util.math.BlockPos> placed){context=new Context(bridge,map,gen,player,dimension,Set.copyOf(placed),System.nanoTime());bridge.combatRequested(true,map.scale());}
- public static void clear(){CombatEffects.clear();epoch.incrementAndGet();var c=context;var p=pending;context=null;pending=null;busy.set(false);if(c!=null)c.bridge.clearCombat();if(p!=null){p.context.bridge.clearCombat();retire(MinecraftClient.getInstance(),p);}}
+ public static void clear(){CombatEffects.clear();epoch.incrementAndGet();var c=context;var p=pending;context=null;pending=null;busy.set(false);if(c!=null){c.bridge.clearCombat();c.bridge.worldMesh(null);}if(p!=null){p.context.bridge.clearCombat();retire(MinecraftClient.getInstance(),p);}}
  private static boolean active(Context c){var live=context;return c!=null && live!=null && live.bridge==c.bridge && live.generation==c.generation && live.player.equals(c.player) && System.nanoTime()-live.stamp<200_000_000L && c.bridge.status().connected() && c.bridge.nativeArmed() && c.bridge.nativeStop()==0 && !c.bridge.scripted();}
  private static TerrainSnapshot.Point point(Vec3d p){return new TerrainSnapshot.Point(p.x,p.y,p.z);}
  static int wear(ItemStack stack){return stack.getItem() instanceof net.minecraft.item.SwordItem || stack.isIn(ItemTags.SWORDS)?1:stack.contains(DataComponentTypes.TOOL)?2:0;}
@@ -106,6 +106,8 @@ public final class BridgeCombat {
   * target/status effects require a native actor adapter and are not synthesized. */
  static double powerDamage(double base,int level){if(level<0 || level>255)throw new IllegalArgumentException("Invalid Power level");return base+(level==0?0:net.minecraft.enchantment.EnchantmentLevelBasedValue.linear(.5f).getValue(level));}
  public static int projectileGeneration(){var c=context;return active(c)?c.generation:0;}
+ static ControllerMapping visualMapping(){var c=context;return active(c)?c.map:null;}
+ static void visuals(WorldMesh mesh){var c=context;if(c!=null)c.bridge.worldMesh(active(c)?mesh:null);}
  static double visualFov(){var c=context;return c==null?50:c.bridge.verticalFov();}
  static void tick(MinecraftClient client){
   var p=pending;if(p==null)return;var state=p.context.bridge.combatState();long now=System.nanoTime();

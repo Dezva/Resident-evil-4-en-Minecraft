@@ -46,9 +46,9 @@ class NativeCombat:
         if not self.address:self.close();raise ReaderError('No se pudo mapear combate')
         self.words=(ctypes.c_uint32*(SIZE//4)).from_address(self.address)
         header=tuple(self.words[:4])
-        if header!=(MAGIC,4,456,pid):
+        if header not in ((MAGIC,4,456,pid),(MAGIC,4,457,pid)):
             self.close()
-            raise ReaderError(f'Combate requiere DLL0.4.56/IPC v4 para PID {pid}; recibido magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}')
+            raise ReaderError(f'Combate requiere DLL0.4.56/0.4.57/IPC v4 para PID {pid}; recibido magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}')
         self.available=True;self.publish(False,0)
     def publish(self,enabled,generation,scale=1000,request=None):
         if not self.available:return

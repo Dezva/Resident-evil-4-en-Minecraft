@@ -1,4 +1,5 @@
 #define RE4_DEPTH_RUNTIME 1
+#define RE4_WORLD_MESH_RUNTIME 1
 #define TRUE 1
 #define D3DZB_TRUE 1
 #define D3DCMP_LESSEQUAL 4
@@ -14,7 +15,7 @@
 #include "block_surface.h"
 #include "block_texture.h"
 #include "block_debris.h"
-typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;BlockDebris debris;} CubeDevice;
+typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;void *world_visuals;unsigned world_drawn,depth_gpu_valid;float depth_gpu[16];float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;BlockDebris debris;} CubeDevice;
 typedef struct {DWORD render[256],stage[2][32],sampler[16],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
@@ -268,19 +269,20 @@ void old_unused_main(void) {
     puts("Cube rendering: 200 stable frames reuse atlas; changed pixels/count/style, teardown, failures, full restoration, F8/TTL and world anchor passed");
 }
 
-static CubeDevice setup(void){CubeDevice f=reset();command.mode=2;command.style=1;command.count=1;command.arm_generation=9;
+static CubeDevice setup(void){CubeDevice f=reset();f.depth_seen=1;command.mode=2;command.style=1;command.count=1;command.arm_generation=9;
  float box[6]={-20,-20,-80,20,20,-40};memcpy(command.boxes[0],box,24);
  float m[16]={.75,0,0,0,0,1,0,0,0,0,10000.f/9990,1,0,0,-100000.f/9990,0};memcpy(projection,m,64);depth_on=1;depth_gen=9;depth_reason=depth_draws=no_depth=depth_compat=0;return f;}
 int main(void){
- CubeDevice f=setup();cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1 && f.depth_drawn);assert(!memcmp(&current,&original,sizeof(current)) && !surface_refs && !backup_refs);
+ CubeDevice f=setup();memcpy(f.depth_gpu,projection,64);f.depth_gpu_valid=1;projection[5]=4;cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1);
+ f=setup();cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1 && f.depth_drawn);assert(!memcmp(&current,&original,sizeof(current)) && !surface_refs && !backup_refs);
  f=setup();command.style=3;command.tile_count=1;command.pixels[0][0]=0xFF334455;cube_render_and_teardown(&f);assert(draws==1 && depth_draws==1 && !memcmp(&current,&original,sizeof(current)) && !texture_refs);
  f=setup();projection[10]=-10.f/9990;projection[14]=100000.f/9990;cube_render_and_teardown(&f);assert(depth_draws==1 && !memcmp(&current,&original,sizeof(current)));
- f=setup();projection[5]=4;cube_render_and_teardown(&f);assert(draws==1 && depth_reason==2 && depth_compat==1 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
- f=setup();projection[5]=4;command.style=3;command.tile_count=1;command.pixels[0][0]=0xFF334455;cube_render_and_teardown(&f);assert(draws==1 && depth_compat==1 && !texture_refs && !surface_refs && !backup_refs && !memcmp(&current,&original,sizeof(current)));
- f=setup();no_depth=1;cube_render_and_teardown(&f);assert(draws==1 && depth_reason==3 && depth_compat==1 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();projection[5]=4;cube_render_and_teardown(&f);assert(draws==0 && depth_reason==2 && depth_compat==0 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();projection[5]=4;command.style=3;command.tile_count=1;command.pixels[0][0]=0xFF334455;cube_render_and_teardown(&f);assert(draws==0 && depth_compat==0 && !texture_refs && !surface_refs && !backup_refs && !memcmp(&current,&original,sizeof(current)));
+ f=setup();no_depth=1;cube_render_and_teardown(&f);assert(draws==0 && depth_reason==3 && depth_compat==0 && depth_draws==0 && !surface_refs && !memcmp(&current,&original,sizeof(current)));
  f=setup();projection[5]=4;f.depth_stage=1;cube_render_and_teardown(&f);assert(!draws && depth_reason==2 && !f.depth_drawn);
- f.depth_stage=0;cube_render_and_teardown(&f);assert(draws==1 && depth_compat==1 && f.depth_drawn);
- f=setup();projection[5]=4;setter_fail=1;cube_render_and_teardown(&f);assert(!draws && !depth_compat && applies==1 && !memcmp(&current,&original,sizeof(current)));
+ f.depth_stage=0;cube_render_and_teardown(&f);assert(draws==0 && depth_compat==0 && !f.depth_drawn);
+ f=setup();projection[5]=4;setter_fail=1;cube_render_and_teardown(&f);assert(!draws && !depth_compat && applies==0 && !memcmp(&current,&original,sizeof(current)));
  f=setup();projection[5]=4;command.count=0;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
  f=setup();projection[5]=4;f8=1;cube_render_and_teardown(&f);assert(!draws && !depth_compat);
  f=setup();projection[5]=4;now=1500;cube_render_and_teardown(&f);assert(!draws && !depth_compat);

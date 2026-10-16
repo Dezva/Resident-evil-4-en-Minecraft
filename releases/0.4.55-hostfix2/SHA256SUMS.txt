@@ -1,0 +1,2 @@
+c7dc4cc8e70d3db377a5ac248bd4a9e8cddb1560515ed2faabc976c4ba027d89  re4bridge-0.4.55-hostfix2.zip
+3ce90ed82aa512b03ea4665839dae76e122be6d7f392341b26535c1a449dd70f  re4bridge-0.4.55-hostfix2-windows.zip

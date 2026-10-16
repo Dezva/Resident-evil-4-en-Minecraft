@@ -197,3 +197,11 @@ actuales usan rutas `/workspace`, paquetes Debian y apt/dpkg. El código está
 conservado en Git; preparar un toolchain local y adaptar los fixtures necesarios
 es independiente del juego. La prueba del simulador ya pasa con `PYTHONUTF8=1`;
 no exige instalar un simulador nuevo ni modificar RE4.
+
+Para verificar el arranque habitual hay que usar también el intérprete del BAT:
+en este equipo `python` abre Python3.13 de Microsoft Store; el runtime de Codex
+es3.12. Sus cachés son distintas. Hostfix1 conservaba tamaño/fecha del paquete
+original, permitiendo reutilizar bytecode incorrecto en3.13. Hostfix2 invalida
+esa caché y añade una prueba de extracción/importación con el Python real.
+Evitar atribuir un error de versión IPC a privilegios sin comparar primero
+cabecera observada, constantes importadas, intérprete y fuente efectivo.

@@ -3,6 +3,7 @@ import ctypes,math,struct
 from ctypes import wintypes as w
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
+# Stable native ABI identifier (RE4F), independent of the release number.
 MAGIC=0x52453446
 SIZE=5324
 
@@ -41,7 +42,10 @@ class NativeCombat:
         self.address=k.MapViewOfFile(self.handle,6,0,0,SIZE)
         if not self.address:self.close();raise ReaderError('No se pudo mapear combate')
         self.words=(ctypes.c_uint32*(SIZE//4)).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,3,455,pid):self.close();raise ReaderError('Combate requiere DLL0.4.55')
+        header=tuple(self.words[:4])
+        if header!=(MAGIC,3,455,pid):
+            self.close()
+            raise ReaderError(f'Combate requiere DLL0.4.55/IPC v3 para PID {pid}; recibido magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}')
         self.available=True;self.publish(False,0)
     def publish(self,enabled,generation,scale=1000,request=None):
         if not self.available:return

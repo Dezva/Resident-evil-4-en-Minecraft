@@ -1,3 +1,17 @@
+## 0.4.55 hostfix2 — bytecode antiguo y verificación del BAT real
+
+El BAT seguía fallando tras hostfix1: Python3.13 cargaba .pyc con firmas antiguas,
+mientras los fuentes eran correctos. La fecha y tamaño del ZIP coincidían con
+la caché original; la prueba previa usó Python3.12, con otra caché. Se cambian
+tamaño/fecha de los dos fuentes corregidos y se amplía el error con cabecera
+recibida. No se cambian firmas válidas, layout, checks ni mecánicas.
+34 tests pasan con Python3.13 del usuario, incluida extracción con fechas ZIP
+sobre caché antigua y comparación completa del paquete. El BAT habitual llega
+a READY, reacciones listas y token sin elevación; se detiene por KeyboardInterrupt
+antes de accept, exit0. Archivos locales respaldados/actualizados; RE4 sigue abierto.
+No se restauró RUNASADMIN: este fallo era de caché, no de permisos. Hostfix2
+publicado como parche y paquete completo; DLL455/JAR0.4.55 intactos.
+
 ## 0.4.55 hostfix1 — firmas IPC del host
 
 El inicio real en Windows rechazaba DLL455 con «Canal de escenas incompatible»

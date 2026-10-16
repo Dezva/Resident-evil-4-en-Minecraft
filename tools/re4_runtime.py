@@ -3,6 +3,7 @@ import ctypes
 from ctypes import wintypes as w
 from re4_reader import ReaderError
 from fake_re4_host import ProtocolError
+# Stable native ABI identifier (RE4R), independent of the release number.
 MAGIC=0x52453452
 
 class NativeRuntime:
@@ -18,7 +19,10 @@ class NativeRuntime:
         self.address=k.MapViewOfFile(self.handle,6,0,0,160)
         if not self.address:self.close();raise ReaderError('No se pudo mapear escenas')
         self.words=(ctypes.c_uint32*40).from_address(self.address)
-        if tuple(self.words[:4])!=(MAGIC,5,455,pid):self.close();raise ReaderError('Canal de escenas incompatible: instala la DLL0.4.55')
+        header=tuple(self.words[:4])
+        if header!=(MAGIC,5,455,pid):
+            self.close()
+            raise ReaderError(f'Canal de escenas incompatible: magic=0x{header[0]:08x}, version={header[1]}, build={header[2]}, PID={header[3]}; requiere Runtime v5/DLL0.4.55 para PID {pid}')
         self.available=True;self.publish(0,0)
     def publish(self,generation,action_id,vertical=None,action_kind=0):
         if type(action_id) is not int or not 0<=action_id<=2147483647:raise ProtocolError('Invalid action id')

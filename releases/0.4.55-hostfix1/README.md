@@ -1,5 +1,9 @@
 # 0.4.55 hostfix1 — inicio del host
 
+**Sustituido por [hostfix2](../0.4.55-hostfix2/README.md)**: al extraer encima de
+0.4.55, la misma fecha/tamaño podía conservar bytecode antiguo de Python. Usar
+hostfix2, que invalida esa caché y fue probado con el BAT/Python3.13 reales.
+
 Corrige dos constantes Python de identificación de los canales Runtime y Combat.
 El paquete0.4.55 rechazaba su propia DLL455 como incompatible: el host esperaba
 `0x52455452`/`0x52455446` en vez de `0x52453452`/`0x52453446`.

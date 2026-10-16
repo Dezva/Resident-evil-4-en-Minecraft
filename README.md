@@ -6,8 +6,8 @@ RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
 **Estado actual:** [0.4.55: trampas, altura y rendimiento](docs/RE4-BLOCK-0.4.55.md).
-**Corrección de inicio:** [descargas 0.4.55 hostfix1](releases/0.4.55-hostfix1/README.md).
-Corrige el rechazo erróneo de DLL455 en el host; no requiere reinstalar DLL/JAR.
+**Corrección de inicio:** [descargas 0.4.55 hostfix2](releases/0.4.55-hostfix2/README.md).
+Corrige el rechazo erróneo de DLL455 y la caché Python antigua; no requiere reinstalar DLL/JAR.
 Conecta golpes con la activación nativa de trampas de osos y bombas. Corrige
 paradas falsas al confundir una caída/cambio de suelo con un teletransporte
 horizontal. Limita Minecraft a60FPS durante el control para compartir CPU/GPU

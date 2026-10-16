@@ -1,3 +1,26 @@
+# 0.4.55 hostfix2 — Python3.13 y BAT real, 2026-10-16
+
+El usuario siguió viendo el error. La lectura del fuente mostraba las firmas
+correctas; la importación con el Python3.13 elegido por el BAT devolvía las
+antiguas. Sus .pyc tenían timestamp/tamaño iguales a los fuentes extraídos,
+frente a otra caché de Python3.12 usada en la comprobación previa.
+
+Los fuentes ahora cambian tamaño y los ZIP renuevan sus fechas.34 pruebas
+afectadas pasan con Python3.13.14 x64, incluida una regresión que compila el
+fuente0.4.55 original, extrae el parche preservando timestamps ZIP y verifica
+las firmas mediante un proceso nuevo. La comparación completa del ZIP prueba
+que DLL/JAR y demás entradas originales no cambian.
+
+Se ejecutó START-RE4-CONTROLS.bat habitual con el Python real que selecciona,
+sin elevación. Instrumentación solo en el entorno hijo: accept lanza
+KeyboardInterrupt antes de recibir conexiones y el handler de logs apunta al
+directorio de diagnóstico. Sin reemplazar lectores/canales Win32, llega a READY,
+reacciones listas, y cierra normalmente con exit0. RE4 no se cierra. Los dos
+archivos del host local están respaldados/actualizados. Evidencia privada en
+D:\logs\re4-host-cache-20261016. Esto valida arranque, no gameplay del puente.
+
+---
+
 # 0.4.55 hostfix1 — arranque real Windows, 2026-10-16
 
 DLL455 cargada desde la ruta documentada y hash publicado correcto. Lectura

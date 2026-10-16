@@ -17,7 +17,7 @@ class Release056Tests(unittest.TestCase):
     def test_delivered_components_and_upgrade_from_original_055_cache(self):
         root=Path(__file__).resolve().parents[1]
         release=root/'releases/0.4.56'
-        with zipfile.ZipFile(release/'re4bridge-0.4.56-windows.zip') as archive:
+        with zipfile.ZipFile(release/'re4bridge-0.4.56-windows.zip') as archive, zipfile.ZipFile(release/'re4bridge-0.4.56-source.zip') as source:
             names=archive.namelist()
             self.assertFalse(any(Path(n).name.lower() in {'bio4.exe','re4bridge.json'} or n.endswith(('.sav','.pyc','.log')) for n in names))
             dll=archive.read('native/dinput8.dll')
@@ -37,12 +37,14 @@ class Release056Tests(unittest.TestCase):
                 for name in names:
                     if name.startswith('tools/') and name.endswith('.py'):
                         path=stage/name;path.write_bytes(archive.read(name))
-                        self.assertEqual(path.read_bytes(),(root/name).read_bytes(),name)
+                        self.assertEqual(path.read_bytes().replace(b'\r\n',b'\n'),source.read(name).replace(b'\r\n',b'\n'),name)
                         stamp=time.mktime((*archive.getinfo(name).date_time,0,0,-1));os.utime(path,(stamp,stamp))
                 # Current independent ABI fixtures exercise the packaged modules in a new
                 # interpreter. Their original timestamp-valid cache must not survive.
+                for name in source.namelist():
+                    if name.startswith('tools/test_') and name.endswith('.py'):(stage/name).write_bytes(source.read(name))
                 code='import sys,unittest;sys.path[:0]=sys.argv[1:];s=unittest.defaultTestLoader.loadTestsFromNames(["test_combat","test_runtime"]);sys.exit(not unittest.TextTestRunner().run(s).wasSuccessful())'
-                result=subprocess.run([sys.executable,'-c',code,str(stage/'tools'),str(root/'tools')],capture_output=True,text=True,timeout=20)
+                result=subprocess.run([sys.executable,'-c',code,str(stage/'tools')],capture_output=True,text=True,timeout=20)
                 self.assertEqual(result.returncode,0,result.stdout+result.stderr)
                 jar=stage/'mod.jar';jar.write_bytes(archive.read('mods/re4bridge-0.4.56.jar'))
                 with zipfile.ZipFile(jar) as mod:

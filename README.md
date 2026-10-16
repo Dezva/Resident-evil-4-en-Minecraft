@@ -5,23 +5,24 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Versión de prueba:** [0.4.56: arco/ballesta y acciones visibles](docs/RE4-BLOCK-0.4.56.md).
-**Descarga:** [paquete Windows0.4.56](releases/0.4.56/README.md).
-Flechas vanilla conectadas al daño nativo y devolución de cámara/modelo a RE4
-durante acciones del jugador contra enemigos. Compilada y probada localmente
-en Windows; falta verificar flechas y patada en una partida real. Límites de
-cobertura, oclusión visual y efectos especiales en la guía.
+**Parche de prueba:** [0.4.56-arrowfix1](docs/RE4-ARROWFIX1.md).
+**Descarga:** [parche del mod y paquete completo](releases/0.4.56-arrowfix1/README.md).
+El usuario confirma la patada visible en0.4.56; el arco/ballesta fallaron.
+Arrowfix1 corrige el registro del primer tick que impedía tanto el daño como
+mostrar flechas en RE4. Pendiente de comprobar esta corrección jugando.
+Solo requiere sustituir el JAR; DLL456 y host0.4.56 se conservan.
 
 Base funcional confirmada por el usuario:0.4.55-hostfix2, estabilidad y
 activación de trampas de osos/bombas. Se conservan mecánicas y correcciones de
-inicio.0.4.56 requiere actualizar DLL/JAR/host juntos; no requiere administrador.
+inicio. Para actualizar desde0.4.55 hacen falta DLL/JAR/host0.4.56; arrowfix1
+cambia únicamente el mod. No requiere administrador.
 Modelo/skin Minecraft sobre la animación de Leon todavía pendiente.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | paquete/mod 0.4.56 |
+| RE4 Bridge | mod 0.4.56-arrowfix1; host/core0.4.56, DLL456 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |
@@ -47,7 +48,7 @@ py -3 -m unittest discover -s tools -p "test_*.py" -v
 Para la prueba Java/Python en Windows, si no existe `python3` en PATH, configurar
 `$env:RE4BRIDGE_PYTHON` con la ruta de `python.exe` (sin argumentos).
 En Linux, usar `./gradlew` y `python3` en los mismos comandos.
-El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.56.jar`.
+El JAR instalable se genera en `minecraft/build/libs/re4bridge-0.4.56-arrowfix1.jar`.
 Para control y construcción visual reales, sigue [la guía actual](docs/RE4-BLOCK-0.4.56.md).
 Compilar/probar el modulo y los instaladores:
 
@@ -63,7 +64,7 @@ El JAR `-sources` no se instala. El núcleo del puente se incluye en el JAR fina
 
 1. Crear una instancia/perfil de Minecraft separado, con Fabric 1.21.1. Usar un
    **mundo nuevo de prueba**, modo Creativo y terreno superplano.
-2. Copiar `re4bridge-0.4.56.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
+2. Copiar `re4bridge-0.4.56-arrowfix1.jar` y Fabric API para 1.21.1 a `mods` de esa instancia.
    Retirar el JAR anterior para que quede una sola version de RE4 Bridge.
 3. Abrir Minecraft una vez. El mod crea `config/re4bridge.json` con un token local.
 4. Abrir PowerShell en la carpeta del proyecto/paquete y arrancar el simulador,

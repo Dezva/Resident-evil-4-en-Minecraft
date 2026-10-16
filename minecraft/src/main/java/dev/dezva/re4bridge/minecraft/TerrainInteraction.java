@@ -80,6 +80,7 @@ public final class TerrainInteraction {
     private static Context arrow(PersistentProjectileEntity arrow){Context c=context;return active(c) && arrow.getOwner()!=null && arrow.getOwner().getUuid().equals(c.player) && arrow.getWorld().getRegistryKey().getValue().toString().equals(c.dimension)?c:null;}
     public static boolean managedArrow(PersistentProjectileEntity arrow){return arrow(arrow)!=null;}
     public static boolean freeze(PersistentProjectileEntity arrow){Context c=arrow(arrow);return c!=null && (!ready(c) || !covered(c,arrow.getPos()) || !covered(c,arrow.getPos().add(arrow.getVelocity())));}
+    public static String projectilePauseReason(PersistentProjectileEntity arrow){Context c=arrow(arrow);return c==null?"session":!ready(c)?"terrain="+c.bridge.terrainState():"outside terrain coverage";}
     public static BlockHitResult projectile(PersistentProjectileEntity arrow,World world,Vec3d start,Vec3d end,BlockHitResult original){
         Context c=arrow(arrow);if(c==null || !ready(c) || !covered(c,start) || !covered(c,end))return original;
         BlockHitResult best=placed(c,world,start,end,false);double distance=best==null?Double.POSITIVE_INFINITY:start.squaredDistanceTo(best.getPos());

@@ -92,7 +92,8 @@ public final class BridgeCombat {
    if(damage<1){release(lease);return false;}
    var request=new CombatRequest(c.generation,++counter,aim.enemy.slot(),aim.enemy.guid(),damage,c.map.scale(),Math.min(6,speed+.0001),aim.start,aim.end,System.nanoTime(),1,arrow.getId());
    if(epoch.get()!=lease || !active(c)){release(lease);return true;}
-   pending=new Pending(c,request,ItemStack.EMPTY,0,0,false,lease,arrow);c.bridge.combatRequest(request);return true;
+   pending=new Pending(c,request,ItemStack.EMPTY,0,0,false,lease,arrow);c.bridge.combatRequest(request);
+   ProjectileTrace.event(c.generation,"request",arrow.getId(),"id="+request.id()+" slot="+request.slot()+" damage="+request.damage());return true;
   }catch(IllegalArgumentException error){release(lease);return false;}
  }
  static int projectileDamage(double speed,double base,boolean critical,net.minecraft.util.math.random.Random random){
@@ -110,6 +111,7 @@ public final class BridgeCombat {
   var p=pending;if(p==null)return;var state=p.context.bridge.combatState();long now=System.nanoTime();
   if(!active(p.context) || now-p.request.createdNs()>1_000_000_000L){pending=null;p.context.bridge.combatRequest(null);retire(client,p);release(p.lease);return;}
   if(state==null || !state.available() || !state.fresh() || now-state.receivedNs()>=500_000_000L || state.generation()!=p.request.generation() || state.acknowledgement()!=p.request.id())return;
+  if(p.arrow!=null)ProjectileTrace.event(p.context.generation,"result",p.arrow.getId(),"id="+state.acknowledgement()+" reason="+state.reason()+" hp="+state.hpBefore()+"->"+state.hpAfter());
   pending=null;p.context.bridge.combatRequest(null);
   if(state.reason()==0 && state.hpAfter()<state.hpBefore())CombatEffects.hit(client,p.context.map,state,p.wear==1 && p.strong);
   var server=client.getServer();if(server==null){release(p.lease);return;}

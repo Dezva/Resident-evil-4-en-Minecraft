@@ -1,3 +1,23 @@
+## 0.4.56-arrowfix1 — registro de flechas en el primer tick
+
+El usuario confirma que la patada de Leon ya se ve en0.4.56. También confirma
+que arco/ballesta no dañan ni muestran flechas, con y sin paredes. Modelo/skin
+Minecraft sobre Leon pendiente, posterior a recuperar el combate a distancia.
+
+Reproducida la causa contra bytecode de Minecraft1.21.1: ServerWorld.tickEntity
+y ClientWorld.tickEntity incrementan Entity.age antes de llamar a tick. La
+guardia age==0 nunca registraba la flecha recién creada, que llega con edad1;
+ese registro habilita tanto el impacto como su inclusión en el overlay.
+Ahora admite0/1 durante una única comprobación y conserva la decisión también
+si nace sin sesión activa, evitando adoptar proyectiles viejos después.
+
+Solo cambia JAR:0.4.56-arrowfix1, core0.4.56 y host/DLL456 sin modificaciones.
+Diagnóstico acotado de registro, pausa, envío al overlay, solicitud y resultado
+en latest.log de Minecraft. Siguen vigentes terreno conocido, paredes, sesión,
+TTL/F8 y confirmación nativa. Paquete pequeño para sustituir únicamente el mod,
+y completo con los demás archivos de0.4.56 byte a byte idénticos.
+Ver [parche y prueba breve](docs/RE4-ARROWFIX1.md). No se instala en el juego.
+
 ## 0.4.56 — arco/ballesta y devolución de acciones a la cámara nativa
 
 Base0.4.55-hostfix2 confirmada por el usuario: inicio sin administrador,

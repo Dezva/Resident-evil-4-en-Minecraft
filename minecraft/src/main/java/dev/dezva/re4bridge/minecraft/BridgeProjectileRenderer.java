@@ -28,6 +28,7 @@ final class BridgeProjectileRenderer {
     if(++count>16)break;
     var position=arrow.getLerpedPos(delta).subtract(eye);
     dispatcher.render(arrow,position.x,position.y,position.z,arrow.getYaw(delta),delta,new MatrixStack(),consumers,15728880);
+    if(managed.re4bridge$markRendered())ProjectileTrace.event(BridgeCombat.projectileGeneration(),"overlay-submit",arrow.getId(),"vanilla renderer");
    }
    consumers.draw();
   }finally{

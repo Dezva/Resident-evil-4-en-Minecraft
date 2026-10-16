@@ -1,3 +1,13 @@
+# Mod0.4.56-arrowfix1 — sin cambios IPC
+
+La primera invocación del tick de una flecha vanilla ocurre con age1 porque
+ambos World incrementan el contador antes de Entity.tick. El mod registra edad
+0/1 una sola vez, con propietario/dimensión/sesión válidos; una primera
+comprobación desarmada no puede registrar esa entidad más adelante.
+Impacto y overlay usan la misma marca. Diagnóstico máximo128 eventos por sesión
+en el log normal de Minecraft, sin tramas, tokens ni geometría.
+Core0.4.56, host0.4.56 y DLL456 conservan contrato y bytes nativos anteriores.
+
 # Cliente/host0.4.56 — flechas y acciones nativas
 
 Combat v4/5332bytes/build456 conserva reportes/catálogo y comandos previos;

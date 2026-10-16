@@ -1,3 +1,37 @@
+# 0.4.56-arrowfix1 — primer tick real, 2026-10-16
+
+Prueba del usuario en0.4.56: patada de Leon visible correctamente. Arco y ballesta
+no causan daño a Ganados ni muestran flechas, con o sin paredes. Se registra
+como fallo real: las pruebas anteriores de fórmulas/selección no validaban la
+admisión de la entidad durante el primer tick del mundo.
+
+Leído latest.log de Minecraft: mod/core0.4.56 cargados, uso de ballesta registrado
+por el avance vanilla; host0.4.56 activo con terreno disponible durante parte
+de la prueba, e intervalos también de mapa incompleto/caducado. No se afirma
+que esos intervalos expliquen todo el fallo. Resumen privado sin tramas/tokens
+en D:\logs\re4-arrowfix1-20261016\host-summary.json.
+
+Bytecode de los ServerWorld.tickEntity y ClientWorld.tickEntity instalados en
+la caché fijada1.21.1: ambos hacen age++ antes de Entity.tick. Prueba nueva del
+primer tick falla con la condición anterior age==0; con admisión0/1 pasa para
+ambos mundos. Se comprueba además que el hook real usa la función probada y
+marca la comprobación una sola vez. La lectura del mixin en el test se realiza
+como recurso, sin cargar directamente una clase que Mixin prohíbe cargar.
+
+Tres casos de ciclo de vida, nueve de combate y uno de targets/mixins pasan;
+JAR remapeado y access widener validados en Windows/JDK21 con un trabajador y
+heap512MB. No se recompila la DLL, no se ejecutan fixtures nativos innecesarios
+y no se instala el mod. La entrega compara todos los archivos del ZIP completo
+con0.4.56: solo cambian el JAR y README; DLL, host y core anidado idénticos.
+
+Diagnóstico adicional acotado a128 eventos por sesión en latest.log: spawn,
+hold, overlay-submit, request y result. overlay-submit significa vértices
+enviados al renderer, no una captura que demuestre visibilidad. Conserva la
+parada por terreno desconocido y todos los checks de impacto/F8/TTL.
+Gameplay del parche pendiente; modelo/skin Minecraft durante la patada pendiente.
+
+---
+
 # 0.4.56 — desarrollo y compilación local Windows, 2026-10-16
 
 El usuario confirma gameplay de0.4.55-hostfix2: inicio sin administrador,

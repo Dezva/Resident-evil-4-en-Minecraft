@@ -3,7 +3,7 @@ import ctypes,math,struct
 from ctypes import wintypes as w
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
-MAGIC=0x52455446
+MAGIC=0x52453446
 SIZE=5324
 
 def validate_combat(frame):

@@ -3,7 +3,7 @@ import ctypes
 from ctypes import wintypes as w
 from re4_reader import ReaderError
 from fake_re4_host import ProtocolError
-MAGIC=0x52455452
+MAGIC=0x52453452
 
 class NativeRuntime:
     def __init__(self,pid,k):

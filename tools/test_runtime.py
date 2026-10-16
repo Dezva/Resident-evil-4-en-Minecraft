@@ -1,6 +1,6 @@
 import ctypes
 import unittest
-from re4_runtime import NativeRuntime,MAGIC
+from re4_runtime import NativeRuntime
 from re4_control import ControlPolicy,validate_control
 from test_re4_control import Writer
 from test_cube_test import Function
@@ -10,12 +10,32 @@ from re4_reader import ReaderError
 class Kernel:
     def __init__(self):
         self.buffer=ctypes.create_string_buffer(160);self.words=(ctypes.c_uint32*40).from_buffer(self.buffer)
-        self.words[:4]=(MAGIC,5,455,42);self.closed=[]
+        # Native Runtime v5 header, independently specified by the ABI and DLL455.
+        # Do not import the host's magic: that concealed the startup mismatch.
+        self.words[:4]=(0x52453452,5,455,42);self.closed=[]
         self.OpenFileMappingW=Function(lambda a,b,n:7)
         self.MapViewOfFile=Function(lambda a,b,c,d,s:ctypes.addressof(self.buffer) if s==160 else 0)
         self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a))
         self.GetTickCount=Function(lambda:1000)
 class RuntimeTests(unittest.TestCase):
+    def test_native_dll455_header_is_accepted_without_changing_the_report(self):
+        k=Kernel();before=bytes(k.buffer)
+        native=NativeRuntime(42,k)
+        self.assertTrue(native.available)
+        self.assertEqual(bytes(k.buffer[:48]),before[:48])
+        self.assertEqual(bytes(k.buffer[84:112]),before[84:112])
+        self.assertEqual(bytes(k.buffer[116:]),before[116:])
+        native.close()
+
+    def test_incompatible_headers_close_handles_without_writing_any_bytes(self):
+        for index,value in ((0,0x52455452),(1,4),(2,453),(3,43)):
+            with self.subTest(index=index):
+                k=Kernel();k.words[index]=value;before=bytes(k.buffer)
+                with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):
+                    NativeRuntime(42,k)
+                self.assertEqual(bytes(k.buffer),before)
+                self.assertEqual(len(k.closed),2)
+
     def test_corrected_gameplay_report_keeps_w_sprint_and_survives_menu(self):
         k=Kernel();native=NativeRuntime(42,k);k.words[4:12]=[2,1000,0,50331920,3,0,0,0]
         writer=Writer();status=writer.status;writer.status=lambda:dict(status(),capabilities=31)

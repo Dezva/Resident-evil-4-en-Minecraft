@@ -1,3 +1,26 @@
+# 0.4.55 hostfix1 — arranque real Windows, 2026-10-16
+
+DLL455 cargada desde la ruta documentada y hash publicado correcto. Lectura
+pasiva de cabeceras: Runtime0x52453452/v5/build455 y Combat0x52453446/v3/build455.
+El host esperaba0x52455452/0x52455446. Los fixtures compartían esas constantes y
+no detectaban la incompatibilidad. Se fijan firmas independientes del contrato;
+ambos tests de aceptación fallan antes del cambio y pasan después.
+
+33 tests Runtime/Combat/control/protocolo/recuperación pasan en Windows.
+Cabecera con magic/versión/build/PID ajenos se rechaza sin mutar bytes y libera
+los dos handles. No se cambia el layout IPC ni se recompila código Java/C.
+
+Dos archivos Python del host habitual corregidos con respaldo, sin tocar el
+juego. Comprobación real de main(), todos los lectores/canales y socket local:
+reacciones listas, capacidades activas y READY127.0.0.1:28741. El accept de la
+prueba emite KeyboardInterrupt antes de aceptar conexiones, ejercitando el
+finally normal; exit0, siempre desarmado. No hubo cliente, entrada ni combate.
+Logs privados en D:\logs\re4-host-startup-20261016. Paquetes y hashes publicados
+en [0.4.55-hostfix1](../releases/0.4.55-hostfix1/README.md); los demás bytes del
+paquete original, incluidos JAR/DLL, son idénticos. Gameplay todavía pendiente.
+
+---
+
 # Auditoría local Windows — 2026-10-16
 
 Ver [continuidad local](LOCAL-WINDOWS.md) para entorno, selección de tests,

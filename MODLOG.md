@@ -1,3 +1,18 @@
+## 0.4.55 hostfix1 — firmas IPC del host
+
+El inicio real en Windows rechazaba DLL455 con «Canal de escenas incompatible»
+y después «Combate requiere DLL0.4.55». Las cabeceras leídas por FILE_MAP_READ
+confirman Runtimev5/Combatv3/build455: dos constantes Python tenían0x524554xx
+en lugar de0x524534xx. Se corrigen únicamente esas firmas, sin relajar checks
+de versión/build/PID ni cambiar comandos, DLL, JAR o mecánicas.
+Fixtures independientes del MAGIC del host reproducen ambos rechazos y prueban
+cabeceras inválidas sin escritura.33 tests afectados pasan. Host real alcanza
+READY/«Reacciones nativas: listas», desarmado, y cierra normalmente antes de
+aceptar conexiones. Dos archivos del host local actualizados con copia previa.
+Parche pequeño y paquete completo en releases/0.4.55-hostfix1, con SHA256;
+comparación de ZIP confirma los demás archivos, incluida DLL/JAR, intactos.
+La validación de gameplay0.4.55 continúa pendiente.
+
 ## 2026-10-16 — compatibilidad y entregas de prueba (sin nueva versión)
 
 Detectado RUNASADMIN global32 para bio4.exe, con manifiesto asInvoker y acceso

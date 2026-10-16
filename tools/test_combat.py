@@ -1,5 +1,5 @@
 import ctypes,struct,unittest
-from re4_combat import NativeCombat,validate_combat,MAGIC,SIZE
+from re4_combat import NativeCombat,validate_combat,SIZE
 from re4_control import ControlPolicy,validate_control
 from fake_re4_host import ProtocolError
 from re4_reader import ReaderError
@@ -7,7 +7,8 @@ from test_re4_control import Writer
 from test_cube_test import Function
 class Kernel:
  def __init__(self):
-  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(MAGIC,3,455,42);self.closed=[]
+  # Native Combat v3 ABI; keep independent from the host's magic constant.
+  self.buffer=ctypes.create_string_buffer(SIZE);self.words=(ctypes.c_uint32*(SIZE//4)).from_buffer(self.buffer);self.words[:4]=(0x52453446,3,455,42);self.closed=[]
   self.OpenFileMappingW=Function(lambda a,b,n:7);self.MapViewOfFile=Function(lambda a,b,c,d,n:ctypes.addressof(self.buffer) if n==SIZE else 0)
   self.UnmapViewOfFile=Function(lambda a:self.closed.append(a));self.CloseHandle=Function(lambda a:self.closed.append(a));self.GetTickCount=Function(lambda:1000)
  def report(self):
@@ -16,6 +17,19 @@ class Kernel:
   struct.pack_into('<3fI',self.buffer,5280,1800,1000,0,0x12)
   struct.pack_into('<5I5f',self.buffer,136,0,10,0x12,950,1000,2000,0,0,250,1600)
 class CombatTests(unittest.TestCase):
+ def test_dll455_header_is_accepted_and_native_report_is_preserved(self):
+  k=Kernel();k.report();before=bytes(k.buffer)
+  native=NativeCombat(42,k)
+  self.assertTrue(native.available)
+  self.assertEqual(bytes(k.buffer[:16]),before[:16])
+  self.assertEqual(bytes(k.buffer[80:]),before[80:])
+  native.close()
+ def test_wrong_magic_version_build_or_pid_never_mutates_the_mapping(self):
+  for index,value in ((0,0x52455446),(1,2),(2,453),(3,43)):
+   with self.subTest(index=index):
+    k=Kernel();k.words[index]=value;before=bytes(k.buffer)
+    with self.assertRaisesRegex(ReaderError,'DLL0.4.55'):NativeCombat(42,k)
+    self.assertEqual(bytes(k.buffer),before);self.assertEqual(len(k.closed),2)
  def frame(self):return dict(type='re4_control',armed=True,buttons=0,arm_id=7,combat_enabled=True,combat_scale=1000,look=dict(enabled=True,first_person=True,total_yaw=0,pitch=0,eye_height=1000),combat=dict(id=1,slot=0,guid=10,damage=50,scale=1000,reach=3,start=[0,1000,0],end=[3000,1000,0]))
  def test_validation_rejects_bad_ray_damage_identity_and_session_before_any_write(self):
   base=self.frame();validate_control(base)

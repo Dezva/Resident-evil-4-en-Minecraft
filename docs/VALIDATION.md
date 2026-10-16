@@ -1,3 +1,21 @@
+# Auditoría local Windows — 2026-10-16
+
+Ver [continuidad local](LOCAL-WINDOWS.md) para entorno, selección de tests,
+fallos reproducidos y plan. Código base `b3440e2` (0.4.55), sin cambios de lógica.
+Windows10/JDK21.0.7/Gradle8.11.1: compilación core correcta,53/57 tests pasan
+en la primera ejecución. El test del simulador pasa al repetir solo ese caso con
+`PYTHONUTF8=1`; los otros tres fallos iniciales son limpieza de logs aún abiertos.
+Python:156/157 pruebas seleccionadas pasan; cuatro módulos que necesitan GCC
+no se ejecutan. El fallo es expiración `seconds=0` con reloj Windows15.625ms.
+VIEW/preparación, diagnóstico y cuatro fixtures de eventos pasan en PowerShell5.1.
+No se ejecutaron tests Minecraft, build/remap Fabric, compilador C ni gameplay.
+Captura de ventana no verificada: dos timeouts. Logs/resultados privados en
+`D:\logs\re4-local-audit-20261016`, excluidos de la publicación.
+Usuario confirma0.4.54 jugada; DLL455/JAR0.4.55 instalados por el usuario y
+verificados durante la auditoría, pendientes de prueba en RE4.
+
+---
+
 # Validación0.4.55 — trampas, altura y renderizado
 
 Linux cloud,2026-10-15. Mod/host/DLL455. La lectura del usuario en0.4.54 contiene

@@ -1,3 +1,16 @@
+## 2026-10-16 — auditoría de continuidad local (sin nueva versión)
+
+Recuperadas las ramas publicadas hasta0.4.55 desde el checkout main0.4.45,
+sin fusionar main ni cambiar mecánicas. Usuario confirma0.4.54 como última
+versión jugada; durante la auditoría actualizó DLL/JAR a0.4.55, verificados por
+lectura/hash. El agente no modificó instalación, ejecutables ni partidas.
+Windows10, Python3.12/JDK21/Gradle8.11.1 y suites PowerShell comprobados.
+Python156/157 pasan; core53/57 inicialmente: simulador pasa con entorno UTF-8,
+tres limpiezas de fixtures fallan por logs abiertos. Presupuesto temporal cero
+Python falla con resolución de reloj Windows. GCC y captura gráfica pendientes.
+Informe, límites y plan en [docs/LOCAL-WINDOWS.md](docs/LOCAL-WINDOWS.md);
+evidencia privada bajo D:\logs. Sin gameplay real ejecutado por el agente.
+
 ## 0.4.55 — trampas nativas, altura y presupuesto de renderizado
 
 Los golpes alcanzan cEm2a (trampas de osos/bombas) mediante el mensaje de impacto

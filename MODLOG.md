@@ -1,3 +1,12 @@
+## 2026-10-16 — compatibilidad y entregas de prueba (sin nueva versión)
+
+Detectado RUNASADMIN global32 para bio4.exe, con manifiesto asInvoker y acceso
+directo sin flag elevado. Usuario autorizó retirar exclusivamente ese valor;
+copia restaurable verificada y operación UAC completada, sin cambiar archivos
+del juego ni UAC global. Falta validar inicio/acceso del host sin elevación.
+Registrada preferencia: cada actualización para probar se entrega con enlace
+de descarga de paquete versionado en GitHub. Detalles en docs/LOCAL-WINDOWS.md.
+
 ## 2026-10-16 — auditoría de continuidad local (sin nueva versión)
 
 Recuperadas las ramas publicadas hasta0.4.55 desde el checkout main0.4.45,

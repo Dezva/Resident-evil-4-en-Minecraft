@@ -155,6 +155,34 @@ telemetría acotada o un informe anterior ya responden la pregunta.
 
 Para cada cambio: revisión de evidencia, modificación pequeña, compilación y
 tests del componente, análisis, documentación en MODLOG y commit publicado.
+Toda actualización que necesite una prueba del usuario debe entregarse con un
+enlace de descarga directa del paquete versionado en GitHub, acompañado de su
+versión, cambios y prueba breve. Un enlace al commit no sustituye al paquete.
 Publicar únicamente código/documentación y artefactos propios verificados.
 F8, TTL, generación, validación de identidad y recuperación permanecen requisitos;
 no se permiten escrituras exploratorias ni modificaciones de ejecutables/saves.
+
+## Elevación de RE4 — diagnóstico y corrección autorizada
+
+La revisión posterior encontró `RUNASADMIN` para la ruta documentada de
+`bio4.exe` bajo
+`HKLM\Software\WOW6432Node\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers`.
+El manifiesto embebido del EXE declara `asInvoker`; el acceso directo público
+apunta a ese EXE y no lleva el flag de ejecución elevada. START-RE4-CONTROLS
+tampoco solicita elevación por sí mismo. La diferencia de privilegios puede
+impedir que el host acceda al proceso o a los canales creados por la DLL.
+
+Con autorización expresa del usuario se retiró únicamente ese valor, después
+de guardar una copia restaurable y validar su hash. La operación necesitó UAC
+una vez; no se cambió UAC global, ningún otro valor de compatibilidad, el EXE,
+la DLL ni las partidas. Evidencia/restauración en
+`D:\logs\re4-privileges-20261016`. La lectura posterior confirma el valor ausente.
+La prueba pendiente es iniciar RE4 y el host normalmente y comprobar el token
+de proceso y el acceso real; retirar el ajuste no demuestra por sí solo que
+no exista otro problema de permisos o compatibilidad.
+
+El toolchain de cloud no se trasladó a Windows: los scripts de instalación C
+actuales usan rutas `/workspace`, paquetes Debian y apt/dpkg. El código está
+conservado en Git; preparar un toolchain local y adaptar los fixtures necesarios
+es independiente del juego. La prueba del simulador ya pasa con `PYTHONUTF8=1`;
+no exige instalar un simulador nuevo ni modificar RE4.

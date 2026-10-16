@@ -25,6 +25,7 @@ static unsigned char player[0x200],actors[3][0x408],extra_part[0x34];static uint
 static uint32_t manager[4],enemy_manager,enemy_candidates[64];static unsigned enemy_candidate_count;
 static unsigned char *image_base=(unsigned char*)(uintptr_t)0x1000;static uint32_t image_size=0x10000;
 static uint32_t now;static unsigned scripted,f8,torn,bad,race,late_f8,polls,ray_miss,ray_calls,message_calls,damage_calls;
+static unsigned ray_actor;
 static int runtime_scripted(void){return scripted;}
 static uint32_t current_player(void){return player_value;}
 static int readable(const void *p,size_t n){return p && n;}
@@ -47,7 +48,7 @@ static int original_damage(unsigned char *actor,int damage,int variance,unsigned
 }
 static int engine_ray(float *start,float *end,unsigned char **pairs,unsigned max,float *hit,float *normal,int *material,unsigned weapon,unsigned flags){
  ray_calls++;assert(max==1 && weapon==2 && !flags);(void)normal;(void)material;if(ray_miss)return 0;
- pairs[0]=actors[0];pairs[1]=actors[0]+0x344;
+ pairs[0]=actors[ray_actor];pairs[1]=actors[ray_actor]+0x344;
  if(extra_part[0x24])pairs[1]=extra_part;
  float distance=0;for(unsigned i=0;i<3;i++){hit[i]=start[i]+.6f*(end[i]-start[i]);float d=hit[i]-start[i];distance+=d*d;}
  memcpy(pairs[1]+0xC,hit,12);memcpy(pairs[1]+0x28,&distance,4);return 1;
@@ -61,7 +62,7 @@ static ControlFrame reset(void){
  memset(&report,0,sizeof(report));combat_shared=&report;combat_lock.held=collision_tick_lock.held=0;combat_consumed=combat_generation=combat_ack=combat_hits=combat_kills=combat_attempts=0;combat_reason=1;
  memset(&combat_pending,0,sizeof(combat_pending));memset(combat_hurt,0,sizeof(combat_hurt));memset(actors,0,sizeof(actors));memset(extra_part,0,sizeof(extra_part));memset(player,0,sizeof(player));
  combat_engine_ready=combat_hazards_ready=1;combat_original_damage=original_damage;combat_native_ray=engine_ray;combat_native_message=engine_message;combat_queued=combat_expired=combat_boxes_broken=0;
- player_value=(uint32_t)(uintptr_t)player;assert((uintptr_t)player<=UINT32_MAX);*state=(Shared){1,0,7};now=1000;thread_id=1;scripted=f8=torn=bad=race=late_f8=polls=ray_miss=ray_calls=message_calls=damage_calls=0;
+ player_value=(uint32_t)(uintptr_t)player;assert((uintptr_t)player<=UINT32_MAX);*state=(Shared){1,0,7};now=1000;thread_id=1;ray_actor=0;scripted=f8=torn=bad=race=late_f8=polls=ray_miss=ray_calls=message_calls=damage_calls=0;
  enemy_manager=(uint32_t)(uintptr_t)manager;enemy_candidate_count=0;manager[0]=0x1234;manager[1]=(uint32_t)(uintptr_t)actors;manager[2]=3;manager[3]=0x408;
  for(unsigned i=0;i<3;i++){uint32_t vt=0x1234,flags=0x21,guid=10+i;int16_t value=1000;float pos[3]={2000-i*300.f,0,0};memcpy(actors[i],&vt,4);memcpy(actors[i]+4,&flags,4);memcpy(actors[i]+0xf8,&guid,4);memcpy(actors[i]+0x324,&value,2);memcpy(actors[i]+0x326,&value,2);memcpy(actors[i]+0x94,pos,12);actors[i][0x100]=0x12;actors[i][0xfc]=1;actors[i][0x102]=20;actors[i][0x368]=1;actors[i][0x36A]=6;}
  actors[1][0x100]=0x18;actors[2][0xfc]=3;
@@ -70,6 +71,30 @@ static ControlFrame reset(void){
  live_control=(ControlFrame){.armed=1,.generation=7,.stamp=1000,.flags=3,.eye=1000};return live_control;
 }
 int main(void){
+ // A nearer approximate box is not an actual native impact. The native ray
+ // chooses its real actor once, including an elevated crate/window/trap.
+ for(unsigned kind=0;kind<4;kind++){
+  ControlFrame c=reset();report.kind=1;report.projectile=90;
+  actors[0][0x100]=0x2A;actors[1][0x100]=(uint8_t)(kind==0?0x53:kind==1?0x58:kind==2?0x2A:0x12);
+  ray_actor=1;combat_tick(&c,1,now);
+  assert(message_calls==1 && ray_calls==1 && combat_pending.slot==1 && combat_pending.guid==11 && combat_pending.actor==(uint32_t)(uintptr_t)actors[1]);
+  if(kind==1 || kind==3){
+   combat_damage_hook(actors[1],150,12,0);actors[1][0x32C]=actors[1][0x32D]=0;combat_tick(&c,1,now);
+   assert(hp(0)==1000 && hp(1)==900 && report.target_slot==1 && report.target_guid==11 && report.reason==0);
+  }
+ }
+ {
+  ControlFrame c=reset();report.kind=1;report.projectile=92;ray_actor=2;
+  combat_tick(&c,1,now);assert(report.reason==2 && !message_calls && !combat_projectile_count); // non-catalog actor is never dereferenced/queued
+ }
+ {
+  ControlFrame c=reset();report.kind=1;report.projectile=91;ray_miss=1;
+  combat_tick(&c,1,now);assert(report.reason==2 && !message_calls && !combat_projectile_count);
+  // The arrow advances one terrain-checked step, then can hit on a later step.
+  ray_miss=0;report.id=2;combat_tick(&c,1,now);assert(message_calls==1 && combat_projectile_count==1);
+  consume();combat_tick(&c,1,now);report.id=3;now+=600;c.stamp=report.stamp=live_control.stamp=now;
+  combat_tick(&c,1,now);assert(message_calls==1); // confirmed impact can never replay
+ }
  // A distant arrow segment is not a distant melee swing. Native ray, identity,
  // pending-message confirmation, one-projectile ownership and stops still apply.
  for(unsigned fail=0;fail<14;fail++){

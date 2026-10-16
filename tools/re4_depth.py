@@ -6,6 +6,7 @@ REASONS={0:'profundidad activa',1:'desactivada',2:'proyeccion no validada',3:'de
 class NativeDepth:
     def __init__(self,k,pid,readonly=False):
         self.k=k;self.pid=pid;self.readonly=readonly;self.handle=self.address=0;self.available=False;self.last={}
+        self.gpu_handle=self.gpu_address=0
         self.handle=k.OpenFileMappingW(4 if readonly else 6,False,f'Local\\RE4Bridge-Depth-{pid}')
         if not self.handle:return
         self.address=k.MapViewOfFile(self.handle,4 if readonly else 6,0,0,256)
@@ -13,6 +14,10 @@ class NativeDepth:
         header=struct.unpack('<5I',ctypes.string_at(self.address,20))
         if header[:2]!=(0x52453444,1) or header[3] not in (435,436,437,438,439,441,442,443,444,445,446,447,448,449,450,451,452,453,455,456,457) or header[4]!=pid:self.close();raise ReaderError('Canal de profundidad incompatible')
         self.available=True
+        self.gpu_handle=k.OpenFileMappingW(4,False,f'Local\\RE4Bridge-GpuDepth-{pid}') if header[3]>=457 else 0
+        if self.gpu_handle:
+            self.gpu_address=k.MapViewOfFile(self.gpu_handle,4,0,0,128)
+            if not self.gpu_address:k.CloseHandle(self.gpu_handle);self.gpu_handle=0
     def publish(self,enabled,generation):
         if not self.available or self.readonly:return
         seq=(ctypes.c_uint32.from_address(self.address+208).value+1)|1;ctypes.c_uint32.from_address(self.address+208).value=seq&0xffffffff
@@ -33,10 +38,23 @@ class NativeDepth:
                 self.last['depth_min_z'],self.last['depth_max_z']=struct.unpack_from('<2f',data,240)
                 if not math.isfinite(self.last['depth_min_z']+self.last['depth_max_z']):raise ReaderError('Viewport de profundidad no finito')
             if any(not math.isfinite(v) for key in ('depth_projection','depth_gx_projection') for v in self.last[key]) or not math.isfinite(self.last['depth_fov']) or not all(map(math.isfinite,floats)):raise ReaderError('Telemetria de profundidad no finita')
+            if self.gpu_address:
+                for _ in range(3):
+                    before=ctypes.c_uint32.from_address(self.gpu_address+16).value
+                    if before&1:continue
+                    gpu=ctypes.string_at(self.gpu_address,128)
+                    if before!=ctypes.c_uint32.from_address(self.gpu_address+16).value:continue
+                    if struct.unpack_from('<4I',gpu)!=(0x52453447,1,457,self.pid):break
+                    stamp,reason,compare,words=struct.unpack_from('<4I',gpu,20);wvp=list(struct.unpack_from('<16f',gpu,36));a,b,near,far=struct.unpack_from('<4f',gpu,100)
+                    if all(map(math.isfinite,[*wvp,a,b,near,far])):
+                        self.last.update(depth_gpu_reason=reason,depth_gpu_compare=compare,depth_gpu_shader_words=words,depth_gpu_wvp=wvp,depth_gpu_a=a,depth_gpu_b=b,depth_gpu_near=near,depth_gpu_far=far,depth_gpu_samples=struct.unpack_from('<I',gpu,116)[0],depth_gpu_recovered=struct.unpack_from('<I',gpu,120)[0],depth_gpu_age_ms=(self.k.GetTickCount()-stamp)&0xffffffff)
+                    break
             return self.last
         return dict(self.last or {'depth_available':True,'depth_reason':'telemetria cambiando'})
     def close(self):
         if self.available:self.publish(False,0)
         if self.address:self.k.UnmapViewOfFile(self.address);self.address=0
         if self.handle:self.k.CloseHandle(self.handle);self.handle=0
+        if self.gpu_address:self.k.UnmapViewOfFile(self.gpu_address);self.gpu_address=0
+        if self.gpu_handle:self.k.CloseHandle(self.gpu_handle);self.gpu_handle=0
         self.available=False

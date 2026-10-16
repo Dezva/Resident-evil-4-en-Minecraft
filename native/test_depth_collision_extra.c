@@ -5,6 +5,7 @@ static void world_mesh_render(CubeDevice *f){(void)f;}
 static int cube_projection(float *out){float gx[16]={.75,0,0,0,0,1,0,0,0,0,-10.f/9990,-100000.f/9990,0,0,-1,0};memcpy(out,gx,64);return 1;}
 static HRESULT render_state_read(IDirect3DDevice9 *d,D3DRENDERSTATETYPE key,DWORD *out){(void)d;queries++;*out=key==D3DRS_ZFUNC?compare:1;return S_OK;}
 static HRESULT shader_constants(IDirect3DDevice9 *d,UINT start,float *out,UINT count){(void)d;assert(!start && count==256);memset(out,0,count*16);return S_OK;}
+static int depth_wvp_gpu(IDirect3DDevice9 *d,const float *gx,float fov,const D3DVIEWPORT9 *vp,unsigned compare,BlockProjection *out){(void)d;(void)gx;(void)fov;(void)vp;(void)compare;(void)out;return 0;}
 #include "depth_device.h"
 int main(void){
  CubeDevice f=setup();f.depth_seen=0;scene_active=0;command.collisions=1;command.arm_generation=9;

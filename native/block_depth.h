@@ -2,6 +2,7 @@
 #define RE4_BLOCK_DEPTH_H
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 typedef struct {float matrix[16],a,b,near_plane,far_plane;unsigned valid,reverse;} BlockProjection;
 static inline int block_depth_world_compare(unsigned compare){return compare==2 || compare==4 || compare==5 || compare==7;}
 static inline int block_projection(const float *m,float fov,float width,float height,BlockProjection *out){
@@ -44,6 +45,21 @@ static inline int block_shader_projection(const float *constants,unsigned regist
   }
  }
  return 0;
+}
+/* UHD uploads a combined affine model/view/projection at c0..c3, not an
+ * isolated projection. With row-vector input, Z.xyz = A * W.xyz and
+ * Z.w = A * W.w + B. Recover A/B without guessing model position or scale. */
+static inline int block_wvp_projection(const float *wvp,const float *gx,float fov,float width,float height,unsigned compare,BlockProjection *out){
+ BlockProjection shape;if(!block_gx_projection(gx,fov,width,height,compare,&shape))return 0;
+ double ww=0,zw=0;for(unsigned i=0;i<16;i++)if(!isfinite(wvp[i]) || fabsf(wvp[i])>100000000.f)return 0;
+ for(unsigned i=0;i<3;i++){double w=wvp[i*4+3];ww+=w*w;zw+=w*wvp[i*4+2];}
+ if(ww<1e-12 || ww>1e12)return 0;
+ double a=zw/ww,b=wvp[14]-a*wvp[15],error=0;
+ for(unsigned i=0;i<3;i++){double e=wvp[i*4+2]-a*wvp[i*4+3];error+=e*e;}
+ if(error>ww*1e-10 || !isfinite(a+b) || fabs(b)<.001 || fabs(b)>10000000)return 0;
+ float matrix[16];memcpy(matrix,shape.matrix,64);matrix[10]=-(float)a;matrix[14]=(float)b;
+ BlockProjection candidate;if(!block_projection(matrix,fov,width,height,&candidate) || candidate.reverse!=(compare==5 || compare==7))return 0;
+ *out=candidate;return 1;
 }
 /* Clear accepts either no rectangles or one absolute rectangle covering the viewport. */
 static inline int block_depth_full_clear(unsigned count,const int32_t *rect,uint32_t x,uint32_t y,uint32_t width,uint32_t height){

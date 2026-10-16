@@ -18,6 +18,9 @@ abstract class TerrainArrowMixin implements BridgeArrow {
  @Unique private int re4bridge$generation,re4bridge$heldTicks;
  @Unique private boolean re4bridge$spawnChecked,re4bridge$rendered;
  @Unique private boolean re4bridge$visible=true;
+ @Unique private boolean re4bridge$nativeMiss;
+ @Override public void re4bridge$nativeMiss(){re4bridge$nativeMiss=true;}
+ @Override public boolean re4bridge$takeNativeMiss(){boolean value=re4bridge$nativeMiss;re4bridge$nativeMiss=false;return value;}
  @Override public boolean re4bridge$visible(){return re4bridge$visible;}
  @Override public boolean re4bridge$managed(){return re4bridge$generation!=0;}
  @Override public boolean re4bridge$markRendered(){if(re4bridge$rendered)return false;re4bridge$rendered=true;return true;}

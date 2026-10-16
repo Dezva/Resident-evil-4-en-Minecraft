@@ -112,11 +112,15 @@ static int __cdecl combat_damage_hook(unsigned char *actor,int damage,int varian
  }
  ReleaseSRWLockExclusive(&combat_lock);return result;
 }
-static unsigned char *combat_hit_part(const CombatShared *r,unsigned char *actor){
+typedef struct {unsigned char *actor,*part;} CombatRayHit;
+static CombatRayHit combat_trace(const CombatShared *r){
  unsigned char *pairs[40]={0};float start[3],end[3],hit[3]={0},normal[3]={0};int material=0;
  memcpy(start,r->start,12);memcpy(end,r->end,12);
  int count=combat_native_ray(start,end,pairs,1,hit,normal,&material,2,0);
- if(count!=1 || pairs[0]!=actor || !pairs[1])return NULL;
+ if(count!=1 || !pairs[0] || !pairs[1])return (CombatRayHit){0};
+ return (CombatRayHit){pairs[0],pairs[1]};
+}
+static unsigned char *combat_validate_part(const CombatShared *r,unsigned char *actor,unsigned char *selected){
  /* Never accept a ray result pointing outside this actor's bounded hit-part list. */
  uint32_t address=(uint32_t)(uintptr_t)(actor+0x344),seen[32];unsigned n=0;
  while(address && n<32){
@@ -124,7 +128,7 @@ static unsigned char *combat_hit_part(const CombatShared *r,unsigned char *actor
   seen[n++]=address;unsigned char *part=(unsigned char*)(uintptr_t)address;
   if((address&3u) || !readable(part,0x34))return NULL;
   uint16_t enabled;int16_t bone;memcpy(&enabled,part+0x24,2);memcpy(&bone,part+0x26,2);
-  if(part==pairs[1]){
+  if(part==selected){
    if(!(enabled&1u) || bone<0 || bone>actor[0x102] || !writable(part+0xC,4) || !writable(part+0x28,4))return NULL;
    float point[3],distance;memcpy(point,part+0xC,12);memcpy(&distance,part+0x28,4);
    float length=0,actual=0,t=0;for(unsigned i=0;i<3;i++){
@@ -139,6 +143,9 @@ static unsigned char *combat_hit_part(const CombatShared *r,unsigned char *actor
   memcpy(&address,part+0x30,4);
  }
  return NULL;
+}
+static unsigned char *combat_hit_part(const CombatShared *r,unsigned char *actor){
+ CombatRayHit hit=combat_trace(r);return hit.actor==actor?combat_validate_part(r,actor,hit.part):NULL;
 }
 static int combat_queue_message(const CombatShared *r,unsigned char *actor,unsigned char *part,uint32_t damage,uint32_t vt,uint32_t now){
  if(actor[0x32C] || actor[0x32D] || combat_pending.active || !writable(actor+0x328,0x1C))return 0;

@@ -79,15 +79,24 @@ static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
  if(r.kind){
   if(r.projectile<=combat_projectile_high)goto done;
   for(unsigned i=0;i<combat_projectile_count;i++)if(combat_projectile_ids[i]==r.projectile)goto done;
-  if(combat_projectile_count==128){
-   uint32_t oldest=combat_projectile_ids[0];unsigned index=0;
-   for(unsigned i=1;i<128;i++)if(combat_projectile_ids[i]<oldest){oldest=combat_projectile_ids[i];index=i;}
-   combat_projectile_high=oldest;combat_projectile_ids[index]=r.projectile;
-  }else combat_projectile_ids[combat_projectile_count++]=r.projectile;
  }
  CombatActor *target=NULL;float nearest=2;
- for(unsigned i=0;i<combat_count;i++){CombatActor *a=&combat_catalog[i];float b[6]={a->position[0]-a->radius,a->position[1]-(a->kind==0x2A?400:0),a->position[2]-a->radius,a->position[0]+a->radius,a->position[1]+a->height,a->position[2]+a->radius},t;if(combat_ray_box(r.start,r.end,b,&t) && t<nearest){target=a;nearest=t;}}
- combat_reason=2;if(!target || target->slot!=r.slot || target->guid!=r.guid)goto done;
+ CombatRayHit projectile_hit={0};
+ if(r.kind){
+  // The requested actor is a broad candidate, not a replacement for RE4's
+  // nearest real hit. Large trap/crate boxes must not steal a shot from it.
+  unsigned known=0;for(unsigned i=0;i<combat_count;i++)if(combat_catalog[i].slot==r.slot && combat_catalog[i].guid==r.guid)known=1;
+  combat_reason=4;if(!known)goto done;
+  projectile_hit=combat_trace(&r);
+  for(unsigned i=0;i<combat_count;i++)if(projectile_hit.actor==(unsigned char*)(uintptr_t)(combat_pool[1]+combat_catalog[i].slot*combat_pool[3])){target=&combat_catalog[i];break;}
+  combat_reason=2;if(!target)goto done;
+  r.slot=target->slot;r.guid=target->guid;
+  // Real-part occlusion is checked below; no approximate AABB veto here.
+  nearest=0;
+ }else{
+  for(unsigned i=0;i<combat_count;i++){CombatActor *a=&combat_catalog[i];float b[6]={a->position[0]-a->radius,a->position[1]-(a->kind==0x2A?400:0),a->position[2]-a->radius,a->position[0]+a->radius,a->position[1]+a->height,a->position[2]+a->radius},t;if(combat_ray_box(r.start,r.end,b,&t) && t<nearest){target=a;nearest=t;}}
+  combat_reason=2;if(!target || target->slot!=r.slot || target->guid!=r.guid)goto done;
+ }
  combat_reason=3;if(!combat_blocks_clear(&r,nearest))goto done;
  unsigned char *p=(unsigned char*)(uintptr_t)(combat_pool[1]+target->slot*combat_pool[3]);uint32_t vt,flags,guid;int16_t hp,max;uint8_t routine[4];float pose[3];
  memcpy(&vt,p,4);memcpy(&flags,p+4,4);memcpy(&guid,p+0xF8,4);memcpy(&hp,p+0x324,2);memcpy(&max,p+0x326,2);memcpy(routine,p+0xFC,4);memcpy(pose,p+0x94,12);
@@ -99,7 +108,7 @@ static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
   combat_reason=5;if(damage<=hurt->damage)goto done;damage-=hurt->damage;
  }
  combat_reason=7;if(p[0x32C] || p[0x32D])goto done;
- combat_reason=2;unsigned char *part=combat_hit_part(&r,p);if(!part)goto done;
+ combat_reason=2;unsigned char *part=r.kind?combat_validate_part(&r,p,projectile_hit.part):combat_hit_part(&r,p);if(!part)goto done;
  combat_reason=3;float hit_distance,length=0;memcpy(&hit_distance,part+0x28,4);for(unsigned i=0;i<3;i++){float d=r.end[i]-r.start[i];length+=d*d;}
  if(!combat_blocks_clear(&r,sqrtf(hit_distance/length)))goto done;
  combat_reason=4;
@@ -107,6 +116,15 @@ static void combat_tick(const ControlFrame *control,int complete,uint32_t now){
   || (GetAsyncKeyState(VK_F8)&0x8000) || *player_slot!=player || memcmp(feet,(void*)(uintptr_t)(player+0x94),12)
   || memcmp(combat_pool,(void*)(uintptr_t)combat_manager,16) || memcmp(&vt,p,4) || memcmp(&flags,p+4,4) || memcmp(&guid,p+0xF8,4)
   || memcmp(&hp,p+0x324,2) || memcmp(&max,p+0x326,2) || memcmp(routine,p+0xFC,4) || p[0x100]!=target->kind || memcmp(pose,p+0x94,12))goto done;
+ if(r.kind){
+  // A geometric miss performs no impact and may continue to a later segment.
+  // Any queued/rejected impact still retires the projectile permanently.
+  if(combat_projectile_count==128){
+   uint32_t oldest=combat_projectile_ids[0];unsigned index=0;
+   for(unsigned i=1;i<128;i++)if(combat_projectile_ids[i]<oldest){oldest=combat_projectile_ids[i];index=i;}
+   combat_projectile_high=oldest;combat_projectile_ids[index]=r.projectile;
+  }else combat_projectile_ids[combat_projectile_count++]=r.projectile;
+ }
  if(!combat_queue_message(&r,p,part,damage,vt,now)){combat_reason=7;goto done;}
  /* Consumption and acknowledgement are separate: durability waits for native HP
     confirmation in ApplyDamage, never for merely submitting a message. */

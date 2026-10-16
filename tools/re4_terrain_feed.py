@@ -1,14 +1,28 @@
 """Bounded read-only terrain snapshots. Inactive until an authenticated FP client asks.
 No process writes, native calls, world import, or reads on the input/network thread.
 """
-import logging,threading,time,struct
+import json,logging,threading,time,struct
 from re4_map_export import extract
 from re4_reader import ReaderError
 
-MAX_TRIANGLES=1024
+MAX_TRIANGLES=4096
+MAX_TERRAIN_BYTES=320000 # reserve space for actor/runtime reports in the 512 KiB frame
+
+def bounded_snapshot(rows,position,radius):
+    """Shrink the *known volume*, never truncate its geometry or claim missing space is air."""
+    minimum=min(radius,4000)
+    while True:
+        local=[row for row in rows if all(min(p[a] for p in row['vertices'])<=position[a]+radius and max(p[a] for p in row['vertices'])>=position[a]-radius for a in range(3))]
+        if len(local)<=MAX_TRIANGLES:
+            triangles=[[v for p in row['vertices'] for v in p] for row in local]
+            kinds=[row.get('kind','other') for row in local]
+            if len(json.dumps(dict(triangles=triangles,kinds=kinds),allow_nan=False,separators=(',',':')).encode('utf-8'))<=MAX_TERRAIN_BYTES:
+                return True,triangles,kinds,radius
+        if radius<=minimum:return False,[],[],radius
+        radius=max(minimum,int(radius*.75))
 
 class TerrainFeed:
-    def __init__(self,read,base,size,extractor=extract,clock=time.monotonic,radius=12000):
+    def __init__(self,read,base,size,extractor=extract,clock=time.monotonic,radius=32000):
         self.read=read;self.base=base;self.size=size;self.extractor=extractor;self.clock=clock
         self.lock=threading.Lock();self.closed=threading.Event();self.wake=threading.Event();self.thread=None
         self.request=None;self.latest=None;self.revision=0;self.cache={};self.radius=radius
@@ -30,18 +44,17 @@ class TerrainFeed:
         if frame.get('terrain_revision',0)!=data['revision']:result['terrain']=dict(data,age_ms=max(0,int(age*1000)),generation=generation)
         return result
     def capture(self,request):
-        position,generation=request;started=self.clock();radius=self.radius
+        position,generation=request;started=self.clock();requested_radius=radius=self.radius
         try:
             report=self.extractor(self.read,self.base,self.size,position,radius=radius,manager_cache=self.cache)
-            rows=report['triangles'];complete=report['complete'] and len(rows)<=MAX_TRIANGLES
-            triangles=[[*p[0],*p[1],*p[2]] for row in rows for p in [row['vertices']]] if complete else []
-            kinds=[row.get('kind','other') for row in rows] if complete else []
+            complete=report['complete'];triangles=[];kinds=[]
+            if complete:complete,triangles,kinds,radius=bounded_snapshot(report['triangles'],position,radius)
             reason='disponible' if complete else 'mapa incompleto o excede limite local'
         except (ReaderError,ValueError,OSError,struct.error) as error:
             logging.getLogger('re4bridge.host').warning('Geometria no disponible: %s',error)
             complete=False;triangles=[];kinds=[];reason='lectura de mapa no disponible'
         with self.lock:
-            if self.request is None or self.request[1]!=generation or max(abs(self.request[0][i]-position[i]) for i in range(3))>3000 or self.closed.is_set() or radius!=self.radius:return
+            if self.request is None or self.request[1]!=generation or max(abs(self.request[0][i]-position[i]) for i in range(3))>3000 or self.closed.is_set() or requested_radius!=self.radius:return
             self.revision=self.revision%2147483647+1
             self.latest=(generation,started,dict(revision=self.revision,complete=complete,reason=reason,position=list(position),radius=radius,triangles=triangles,kinds=kinds))
     def run(self):

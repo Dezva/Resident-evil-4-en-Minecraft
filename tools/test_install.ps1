@@ -1,8 +1,16 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll,[string]$TrapDll,[string]$ArrowDll,[string]$DepthDll)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll,[string]$TrapDll,[string]$ArrowDll,[string]$DepthDll,[string]$DepthfixDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
 $previousLocalAppData = $env:LOCALAPPDATA
+# Synthetic process discovery keeps installer fixtures independent of real games.
+# It is scoped to this test script; production installers retain their guard.
+$script:fixtureGameRunning = $false
+function Get-Process {
+    [CmdletBinding()] param([Parameter(Position=0)][string]$Name)
+    if ($Name -ne 'bio4') { throw 'Unexpected process query in installer fixture' }
+    if ($fixtureGameRunning) { [pscustomobject]@{ ProcessName = 'bio4' } }
+}
 try {
     $env:LOCALAPPDATA = Join-Path $sandbox 'LocalAppData'
     $game = Join-Path $sandbox 'Bin32'
@@ -12,6 +20,11 @@ try {
     Set-Content -LiteralPath (Join-Path $game 'config.ini') -Value 'synthetic-config'
     Set-Content -LiteralPath (Join-Path $saves 'savegame00.sav') -Value 'synthetic-save'
     $saveHash = (Get-FileHash -LiteralPath (Join-Path $saves 'savegame00.sav')).Hash
+    $script:fixtureGameRunning = $true
+    $rejected = $false
+    try { & (Join-Path $PackageDir 'INSTALL-RE4-CONTROLS.ps1') -GameBin $game -SavesDir $saves } catch { $rejected = $true }
+    if (-not $rejected -or (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll'))) { throw 'Running-game install guard failed' }
+    $script:fixtureGameRunning = $false
     & (Join-Path $PackageDir 'INSTALL-RE4-CONTROLS.ps1') -GameBin $game -SavesDir $saves
     $backups = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'RE4Bridge/Backups') -Directory)
     if ($backups.Count -ne 1) { throw 'Expected one backup' }
@@ -21,9 +34,20 @@ try {
     $rejected = $false
     try { & (Join-Path $PackageDir 'INSTALL-RE4-CONTROLS.ps1') -GameBin $game -SavesDir $saves } catch { $rejected = $true }
     if (-not $rejected) { throw 'Existing DLL was not rejected' }
+    $script:fixtureGameRunning = $true
+    $rejected = $false
+    try { & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game } catch { $rejected = $true }
+    if (-not $rejected -or -not (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll'))) { throw 'Running-game uninstall guard failed' }
+    $script:fixtureGameRunning = $false
     & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
     if (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')) { throw 'Own DLL remains' }
     if (-not (Test-Path -LiteralPath $copy)) { throw 'Uninstall removed backup' }
+    if($DepthfixDll){
+        if((Get-FileHash -LiteralPath $DepthfixDll).Hash.ToLowerInvariant() -ne '5250b4ae97f6c1a9f0c15c8f65e7e4be9e5d7b4649f861d118a9e83f2b35b07b'){throw 'Wrong published depthfix1 fixture'}
+        Copy-Item -LiteralPath $DepthfixDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Published depthfix1 remains'}
+    }
     if($DepthDll){
         if((Get-FileHash -LiteralPath $DepthDll).Hash.ToLowerInvariant() -ne 'be2d89e539bc9a4dc76421b93822ca7b8af73200cd6a033e6f795634117bd378'){throw 'Wrong published build457 fixture'}
         Copy-Item -LiteralPath $DepthDll -Destination (Join-Path $game 'dinput8.dll')

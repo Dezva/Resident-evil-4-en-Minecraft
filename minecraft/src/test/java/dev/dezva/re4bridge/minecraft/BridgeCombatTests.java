@@ -35,6 +35,18 @@ class BridgeCombatTests {
   var wall=new BlockHitResult(new Vec3d(13,1,0),Direction.WEST,new BlockPos(13,0,0),false);
   assertNull(BridgeCombat.select(state,MAP,from,to,wall));
  }
+ @Test void elevatedDestructiblesUseOnlyPlacedBlocksBeforeNativeImpactValidation(){
+  var from=new Vec3d(12,11,0);var to=new Vec3d(15,11,0);
+  for(int kind:new int[]{0x12,0x53,0x58,0x2A}){
+   var state=new CombatState(true,true,true,7,0,1,0,0,0,0,0,List.of(new CombatState.Enemy(0,10,kind,1000,1000,new TerrainSnapshot.Point(14000,10000,0),700,1800)),true,null,kind);
+   // Native SAT/EAT may describe the crate's own front face. It is not a
+   // Minecraft placed block and cannot preempt the native destructible query.
+   var none=TerrainInteraction.nearestPlaced(from,to,Set.of(),p->VoxelShapes.fullCube());
+   assertNotNull(BridgeCombat.select(state,MAP,from,to,none));
+   var wall=TerrainInteraction.nearestPlaced(from,to,Set.of(new BlockPos(13,10,0)),p->VoxelShapes.fullCube());
+   assertNotNull(wall);assertNull(BridgeCombat.select(state,MAP,from,to,wall));
+  }
+ }
  @org.junit.jupiter.api.BeforeAll static void bootstrap(){net.minecraft.SharedConstants.createGameVersion();net.minecraft.Bootstrap.initialize();}
  private static final ControllerMapping MAP=new ControllerMapping(new Re4Sample(0,0,0,0,0),0,0,0,0,1000);
  private static final Vec3d EYE=new Vec3d(0,1,0),END=new Vec3d(3,1,0);

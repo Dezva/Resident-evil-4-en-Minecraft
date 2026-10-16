@@ -49,7 +49,7 @@ static void __attribute__((noinline)) cube_render_enabled_device(CubeDevice *f) 
             float projection[16]={0};hr=device->lpVtbl->GetTransform(device,D3DTS_PROJECTION,(D3DMATRIX*)projection);
             unsigned source=1;
 #ifdef RE4_WORLD_MESH_RUNTIME
-            if(f->depth_gpu_valid){memcpy(projection,f->depth_gpu,64);hr=S_OK;source=3;}
+            if(f->depth_gpu_valid){memcpy(projection,f->depth_gpu,64);hr=S_OK;source=f->depth_gpu_valid==4?4:3;}
 #endif
             if(FAILED(hr) || !block_projection(projection,fov,(float)viewport.Width,(float)viewport.Height,&depth)){
                 source=2;

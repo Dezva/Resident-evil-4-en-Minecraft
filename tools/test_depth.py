@@ -5,12 +5,22 @@ class Kernel:
  def __init__(self):
   self.buffer=ctypes.create_string_buffer(256);struct.pack_into('<5I',self.buffer,0,0x52453444,1,2,435,42)
   self.access=[];self.closed=0
- def OpenFileMappingW(self,access,inherit,name):self.access.append(access);assert name=='Local\\RE4Bridge-Depth-42';return 1
- def MapViewOfFile(self,*args):return ctypes.addressof(self.buffer)
+ def OpenFileMappingW(self,access,inherit,name):
+  self.access.append(access)
+  if name=='Local\\RE4Bridge-GpuDepth-42':return 2 if hasattr(self,'gpu') else 0
+  assert name=='Local\\RE4Bridge-Depth-42';return 1
+ def MapViewOfFile(self,*args):return ctypes.addressof(self.gpu if args[0]==2 else self.buffer)
  def UnmapViewOfFile(self,*args):pass
  def CloseHandle(self,*args):self.closed+=1
  def GetTickCount(self):return 12345
 class DepthTests(unittest.TestCase):
+ def test_optional_gpu_channel_is_readonly_and_distinguishes_actual_wvp_recovery(self):
+  k=Kernel();struct.pack_into('<I',k.buffer,12,457);k.gpu=ctypes.create_string_buffer(128)
+  struct.pack_into('<9I',k.gpu,0,0x52453447,1,457,42,2,12300,0,4,99)
+  struct.pack_into('<4f',k.gpu,100,1.0001,-100.01,100,1000000);struct.pack_into('<2I',k.gpu,116,20,19)
+  before=bytes(k.gpu);depth=NativeDepth(k,42,readonly=True);status=depth.status();depth.close()
+  self.assertEqual(status['depth_gpu_recovered'],19);self.assertEqual(status['depth_gpu_age_ms'],45);self.assertEqual(status['depth_gpu_reason'],0)
+  self.assertEqual(bytes(k.gpu),before);self.assertEqual(k.access,[4,4]);self.assertEqual(k.closed,2)
  def test_command_writes_only_host_owned_fields_and_readonly_never_writes(self):
   k=Kernel();depth=NativeDepth(k,42);before=bytes(k.buffer);depth.publish(True,7)
   self.assertEqual(bytes(k.buffer)[:208],before[:208]);self.assertEqual(bytes(k.buffer)[224:],before[224:])

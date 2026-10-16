@@ -20,14 +20,17 @@ static void cube_depth_after_draw(CubeDevice *f){
   if(!f->depth_gpu_checked){
    f->depth_gpu_checked=1;f->depth_gpu_valid=0;
    float constants[256*4];BlockProjection candidate;
-   if(SUCCEEDED(d->lpVtbl->GetVertexShaderConstantF(d,0,constants,256)) && block_shader_projection(constants,256,fov,(float)vp.Width,(float)vp.Height,compare,&candidate)){
+   if(depth_wvp_gpu(d,gx,fov,&vp,compare,&candidate)){
+    memcpy(f->depth_gpu,candidate.matrix,64);f->depth_gpu_valid=4;
+   }else if(SUCCEEDED(d->lpVtbl->GetVertexShaderConstantF(d,0,constants,256)) && block_shader_projection(constants,256,fov,(float)vp.Width,(float)vp.Height,compare,&candidate)){
     memcpy(f->depth_gpu,candidate.matrix,64);f->depth_gpu_valid=1;
    }
   }
   BlockProjection candidate;
   int gpu=f->depth_gpu_valid && block_projection(f->depth_gpu,fov,(float)vp.Width,(float)vp.Height,&candidate) && candidate.reverse==(compare==5 || compare==7);
   if(!gpu && !block_gx_projection(gx,fov,(float)vp.Width,(float)vp.Height,compare,&candidate))return;
-  f->depth_gpu_valid=gpu;memcpy(f->depth_gx,gx,64);f->depth_world_compare=compare;f->depth_seen=1;
+  if(!gpu){f->depth_gpu_valid=0;}
+  memcpy(f->depth_gx,gx,64);f->depth_world_compare=compare;f->depth_seen=1;
  }
  f->depth_stage=2;
  /* A torn command or a rejected camera gets another chance next frame, never

@@ -4,6 +4,17 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.*;
 class TerrainTests {
+    @Test void villageSizedTerrainKeepsElevatedCollisionAndRejectsOversizedOrPartialSnapshots() throws Exception {
+        var j=data();var rows=new JsonArray();
+        for(int i=0;i<2985;i++)rows.add(JsonParser.parseString("[2000,10000,0,2000,12000,0,2000,10000,1000]"));
+        j.add("triangles",rows);j.addProperty("radius",32000);
+        var mesh=TerrainSnapshot.parse(j,0);
+        assertNotNull(mesh.raycast(new TerrainSnapshot.Point(0,10500,100),new TerrainSnapshot.Point(4000,10500,100)));
+        while(rows.size()<=4096)rows.add(rows.get(0));
+        assertThrows(IOException.class,()->TerrainSnapshot.parse(j,0));
+        rows.remove(rows.size()-1);assertNotNull(TerrainSnapshot.parse(j,0));
+        j.addProperty("complete",false);assertThrows(IOException.class,()->TerrainSnapshot.parse(j,0));
+    }
     TerrainSnapshot surface(String triangles,String kinds) throws Exception {
         var json=data();json.add("triangles",JsonParser.parseString("["+triangles+"]"));json.add("kinds",JsonParser.parseString("["+kinds+"]"));return TerrainSnapshot.parse(json,0);
     }

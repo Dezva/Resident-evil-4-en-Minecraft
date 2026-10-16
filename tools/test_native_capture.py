@@ -9,6 +9,9 @@ import unittest
 
 
 class NativeCaptureTests(unittest.TestCase):
+    @unittest.skipUnless(os.name=='nt','Windows COM ABI fixture')
+    def test_combined_gpu_wvp_uses_bounded_getters_and_releases_shader(self):
+        self.compile_run('test_depth_gpu.c')
     def test_render_debris_between_snapshots_preserves_colliders(self):
         self.compile_run('test_block_debris.c')
 
@@ -27,7 +30,7 @@ class NativeCaptureTests(unittest.TestCase):
                 if os.name=='nt':
                     if extra is None:extra=source.read_text()
                     source=Path(directory)/name
-                    source.write_text('#include <stdlib.h>\n__declspec(dllimport) unsigned long __stdcall SetErrorMode(unsigned long);\n__attribute__((constructor)) static void fixture_no_dialog(void){_set_error_mode(2);SetErrorMode(0x8003); }\n'+extra)
+                    source.write_text('#include <stdlib.h>\n__declspec(dllimport) unsigned int __stdcall SetErrorMode(unsigned int);\n__attribute__((constructor)) static void fixture_no_dialog(void){_set_error_mode(2);SetErrorMode(0x8003); }\n'+extra)
                 fp=['-msse2','-mfpmath=sse'] if os.name=='nt' else []
                 subprocess.run(['gcc',*fp,'-std=c11','-Wall','-Wextra','-Werror','-no-pie',
                                 '-I'+str(root/'native'),str(source),'-o',str(binary),'-lm'],check=True,capture_output=True,text=True)

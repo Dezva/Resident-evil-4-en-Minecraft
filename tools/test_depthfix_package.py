@@ -17,7 +17,12 @@ class DepthfixPackageTests(unittest.TestCase):
     if name.startswith('tools/') and name.endswith('.py'):self.assertEqual(new.read(name),source.read(name),name)
    with tempfile.TemporaryDirectory() as d:
     stage=Path(d)
+    tests=stage/'archive-tests';tests.mkdir()
+    # This immutable historical package must run its own versioned tests.
+    # Future optional GPU channels are not requirements of the old DLL/reader.
+    for name in ('test_depth','test_world_mesh','test_re4_control','test_runtime','test_combat'):
+     (tests/(name+'.py')).write_bytes(source.read('tools/'+name+'.py'))
     for name in new.namelist():
      if name.startswith('tools/') and name.endswith('.py'):(stage/Path(name).name).write_bytes(new.read(name))
     code='import sys,unittest;sys.path[:0]=sys.argv[1:];s=unittest.defaultTestLoader.loadTestsFromNames(["test_depth","test_world_mesh","test_re4_control","test_runtime","test_combat"]);sys.exit(not unittest.TextTestRunner().run(s).wasSuccessful())'
-    result=subprocess.run([sys.executable,'-X','utf8','-c',code,str(stage),str(root/'tools')],capture_output=True,text=True,timeout=30);self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+    result=subprocess.run([sys.executable,'-X','utf8','-c',code,str(stage),str(tests),str(root/'tools')],capture_output=True,text=True,timeout=30);self.assertEqual(result.returncode,0,result.stdout+result.stderr)

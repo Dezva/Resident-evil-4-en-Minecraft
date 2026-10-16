@@ -1,10 +1,12 @@
 #include "block_depth.h"
 #define RE4_DEPTH_RUNTIME 1
+#include "depth_gpu.h"
 typedef struct {uint32_t magic,version;volatile LONG sequence;uint32_t build,pid,reason,attempts,draws,stage,width,height;float near_plane,far_plane;uint32_t reverse,source,reserved;float projection[16],gx_projection[16],fov;uint32_t compare,world_draws,last_hresult;volatile LONG command_sequence;uint32_t stamp,enabled,generation;uint32_t tail[8];} DepthShared;
 _Static_assert(sizeof(DepthShared)==256,"Depth diagnostic/command ABI");
 _Static_assert(offsetof(DepthShared,command_sequence)==208,"Separate host-owned depth command");
 static DepthShared *depth_shared;static HANDLE depth_mapping;
 static void depth_initialize(DWORD pid){
+ depth_gpu_initialize(pid);
  wchar_t name[80];swprintf(name,80,L"Local\\RE4Bridge-Depth-%lu",(unsigned long)pid);
  HANDLE map=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,sizeof(DepthShared),name);if(!map)return;
  if(GetLastError()==ERROR_ALREADY_EXISTS){CloseHandle(map);return;}

@@ -1,3 +1,35 @@
+# 0.4.57-impactfix2 — extensiones compatibles de geometría/telemetría
+
+No cambia ningún tamaño ni versión de IPC existente: ABI DLL457, Combat4,
+Runtime5, WorldMesh1. Actualizar host/DLL/JAR del paquete juntos.
+TerrainSnapshot admite4096 triángulos completos. Radio deseado32000 unidades,
+presupuesto320000 bytes JSON de triángulos/tipos; si no cabe se reduce el radio
+declarado conservando todo triángulo cuyo AABB cruce el volumen. No se presenta
+un subconjunto arbitrario como terreno completo. Caducidad1s, refresco0.5s y
+worker único se conservan; fuera del volumen se pausa/oculta el proyectil.
+
+Combat kind1 usa slot/GUID como candidato conocido del catálogo. El rayo nativo
+elige el actor real, que debe seguir presente en ese mismo catálogo/pool, y su
+parte validada. Se publican el slot/GUID/posición del impacto real. Kind0 mantiene
+selección estricta anterior. SAT/EAT de construcción no veta antes el impacto
+contra su propio objeto destructible; RE4 y los bloques colocados siguen
+autorizando la colisión. Reason2 sin mensaje nativo permite continuar un paso
+con colisión de terreno; no retira el ID de proyectil. Encolar un mensaje retira
+ese ID antes de llamar al emisor, con historial/floor acotado, confirmación y
+TTL previos. Los demás rechazos/timeouts retiran la flecha en el cliente.
+
+Canal opcional Local\\RE4Bridge-GpuDepth-PID,128 bytes, propiedad nativa,
+lectura externa FILE_MAP_READ exclusivamente. Header cuatro u32 magic0x52453447,
+version1,build457,PID. Sequence16 cubre el reporte completo: stamp20,reason24
+(0recuperado,1shader no reconocido/consulta inválida,2constantes no disponibles,
+3matriz no válida),compare28,shader_words32,WVP16floats36,A100,B104,near108,far112,
+samples116,recovered120,reserved124. No contiene comandos ni punteros.
+Depth.source4 identifica proyección recuperada de WVP; source3 conserva la
+proyección aislada. Reconocedor VS3 lineal, shader<=16384 bytes, una consulta
+por intervalo de profundidad/frame; sin GPU readback ni cambios de shader.
+La relación Z.xyz=A*W.xyz y Z.w=A*W.w+B debe ser válida y coincidir con el sentido
+de comparación. Estas comprobaciones no prueban por sí mismas la oclusión real.
+
 # 0.4.57-depthfix1 — mismo IPC y JAR
 
 Mantiene build457 en todos los canales y WorldMeshv1/Runtimev5/Combatv4.

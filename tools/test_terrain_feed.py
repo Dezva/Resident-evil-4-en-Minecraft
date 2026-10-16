@@ -15,7 +15,7 @@ class TerrainFeedTests(unittest.TestCase):
         self.assertEqual(output['terrain']['kinds'],['floor'])
         frame['terrain_revision']=output['terrain']['revision'];self.assertNotIn('terrain',feed.observe(frame,sample,{'armed':True}))
         clock[0]=1.01;self.assertEqual(feed.observe(frame,sample,{'armed':True})['terrain_state'],'caducado')
-        self.assertEqual(calls[0]['radius'],12000);self.assertIs(calls[0]['manager_cache'],feed.cache)
+        self.assertEqual(calls[0]['radius'],32000);self.assertIs(calls[0]['manager_cache'],feed.cache)
         frame['arm_id']=4;self.assertEqual(feed.observe(frame,sample,{'armed':True})['terrain_state'],'cargando')
     def test_partial_or_over_budget_geometry_is_unknown_and_never_truncated(self):
         row={'vertices':[[0,0,0],[1000,0,0],[0,0,1000]]}
@@ -34,6 +34,24 @@ class TerrainFeedTests(unittest.TestCase):
         feed=None
         def extract(*args,**kwargs):feed.request=None;return {'complete':True,'triangles':[]}
         feed=TerrainFeed(None,1,2,extractor=extract);feed.request=((0,0,0),1);feed.capture(feed.request);self.assertIsNone(feed.latest)
+    def test_measured_village_sized_map_is_complete_and_reaches_elevated_targets(self):
+        from re4_terrain_feed import bounded_snapshot,MAX_TERRAIN_BYTES
+        import json
+        row={'kind':'wall','vertices':[[2000,10000,0],[2000,12000,0],[2000,10000,1000]]}
+        complete,triangles,kinds,radius=bounded_snapshot([row]*2985,[0,0,0],32000)
+        self.assertTrue(complete);self.assertEqual(radius,32000);self.assertEqual(len(triangles),2985)
+        self.assertLessEqual(len(json.dumps(dict(triangles=triangles,kinds=kinds),separators=(',',':')).encode()),MAX_TERRAIN_BYTES)
+    def test_over_budget_reduces_coverage_instead_of_truncating_or_stalling_everywhere(self):
+        from re4_terrain_feed import bounded_snapshot
+        near={'vertices':[[0,0,0],[1000,0,0],[0,0,1000]]}
+        far={'vertices':[[30000,0,0],[31000,0,0],[30000,0,1000]]}
+        complete,triangles,kinds,radius=bounded_snapshot([near]+[far]*MAX_TRIANGLES,[0,0,0],32000)
+        self.assertTrue(complete);self.assertLess(radius,30000);self.assertEqual(triangles,[[0,0,0,1000,0,0,0,0,1000]])
+    def test_one_large_triangle_crossing_reduced_volume_is_never_dropped(self):
+        from re4_terrain_feed import bounded_snapshot
+        crossing={'vertices':[[-40000,0,0],[40000,0,0],[0,0,40000]]}
+        complete,triangles,kinds,radius=bounded_snapshot([crossing]*(MAX_TRIANGLES+1),[0,0,0],32000)
+        self.assertFalse(complete);self.assertEqual(triangles,[])
 
 class CombatTerrainFeedTests(unittest.TestCase):
     def test_short_range_geometry_has_its_own_revision_and_does_not_replace_building_map(self):

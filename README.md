@@ -5,23 +5,22 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Parche de prueba:** [0.4.57-depthfix1](docs/RE4-DEPTHFIX1.md).
-**Descarga:** [paquete completo y fuentes](releases/0.4.57-depthfix1/README.md).
-Corrige la selección de pase y los reintentos de profundidad de0.4.57, tras la
-interrupción reportada al mirar bloques detrás de árboles o rearmar con bloques
-existentes. Las guardias de colisión/F8 permanecen activas. Pendiente comprobar
-la estabilidad y oclusión reales del parche jugando.
+**Parche de prueba:** [0.4.57-impactfix2](docs/RE4-IMPACTFIX2.md).
+**Descarga:** [paquete completo y fuentes](releases/0.4.57-impactfix2/README.md).
+Amplía la cobertura acotada de flechas, corrige su selección de impactos contra
+objetos y reconoce la profundidad de matrices combinadas de GPU. Los bloques
+siguen superpuestos en las capturas de depthfix1: la nueva ruta requiere
+comprobación visual y no se declara resuelta por pruebas simuladas.
 
-Conserva el mod/core0.4.57 y el contrato DLL457; cambia la DLL propia y añade
-diagnóstico de viewport. No se ha instalado automáticamente. Se mantienen las
-mecánicas previas. Modelo/skin Minecraft sobre Leon y mayor alcance del terreno
-siguen pendientes.
+Actualiza host, DLL y JAR juntos; se conservan los contratos DLL457/Combat4 y las
+mecánicas previas. No se ha instalado automáticamente. Modelo Minecraft sobre
+Leon y alcance de proyectiles fuera de la cobertura conocida siguen pendientes.
 
 ## Versiones fijadas
 
 | Componente | Versión |
 |---|---|
-| RE4 Bridge | mod/host/core0.4.57, DLL457 |
+| RE4 Bridge | mod/host/core0.4.57-impactfix2, ABI DLL457 |
 | Minecraft Java | 1.21.1 |
 | Fabric Loader | 0.16.10 (mínimo declarado) |
 | Fabric API | 0.116.6+1.21.1 (base de compilación) |

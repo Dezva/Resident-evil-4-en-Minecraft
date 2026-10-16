@@ -1,3 +1,52 @@
+# 0.4.57-impactfix2 — proyectiles y matriz combinada, 2026-10-16
+
+Capturas del usuario: depthfix1 sigue dibujando bloques sobre árboles. Flechas
+visibles/daño confirmados, con fallos contra blancos elevados y objetos.
+Lectura local sin escrituras: mapa completo de1081 triángulos a12000 unidades
+(0.532s con descubrimiento inicial) y2985 a32000 (0.078s con firmas en caché).
+El límite1024 explicaba la pausa por mapa incompleto/excedido en los logs.
+Telemetría anterior: source2/GX, pase2, near100/far≈999934, cero fallos gráficos;
+no demuestra igualdad con la profundidad del escenario.
+
+Inspección estática de bio4.exe original mediante herramientas locales:
+64 shaders VS3 únicos válidos con matWVP; el reconocedor C propio admite64/64.
+Solo se conserva un resumen privado, sin exportar bytecode/recursos del juego.
+No prueba qué shader se utiliza en el pase real ni el resultado visual.
+Evidencia privada: D:\logs\re4-impactfix2-20261016.
+
+Compilación nativa GCC14.2 x86/O2/SSE2/Wall/Wextra/Werror correcta.
+SHA25624427265a508527318669a7b0cbd9a82a77f66132d930936dc0b09b2cf37c041.
+29 fixtures de NativeCapture pasan, junto con6 pruebas Depth,9 TerrainFeed y2
+de paquetes:46 comprobaciones principales. Los paquetes se importan también
+en procesos Python nuevos, con sus lectores/protocolos y control previos.
+El fixture de combate se repitió tras añadir confirmación HP/slot/GUID sobre el
+actor real alternativo y rechazo de actores fuera del catálogo; pasa.
+
+Se cubren mapa de2985 triángulos, cobertura elevada, límite4096, radio reducido
+sin truncar y triángulos que cruzan el volumen. Cubre relectura/edad/desarmado,
+bloques anteriores, rayos nativos fallidos que continúan y un solo impacto por
+proyectil, identidad/TTL/F8/cola nativa y daño confirmado. GPU: reconocimiento
+de instrucciones propias sintéticas, matrices combinadas con giro/escala/
+traslación, rechazo de proyección incompatible, getters fallidos o sobredimensionados,
+liberación COM y fuente4 conservada en el selector. Siguen pasando los200 frames
+de colisión con pases no aptos y bloques fuera de vista; guardia500ms intacta.
+
+Gradle8.11.1/JDK21 offline, un trabajador, heap256MiB y tests192MiB: compilación
+y remapJar correctos.23 pruebas Java: TerrainTests7, BridgeCombatTests10,
+TerrainMixinTests1, BridgeArrowLifecycleTests3, WorldProjectileTests2. Se ejecutó
+solo la parte relacionada. No se cerraron procesos del usuario.
+
+PowerShell5.1: instalación/retirada únicamente en partidas/config/EXE sintéticos
+bajo Temp; copia verificada, rechazo de sobrescritura/DLL ajena/partidas vacías,
+retirada de depthfix1 conocido y bloqueo con juego simulado abierto. La detección
+de procesos se simula solo en el fixture, no en los instaladores distribuidos.
+Hashes del EXE y de la DLL instalados del usuario permanecen iguales; no se
+instaló ningún componente del parche ni se modificaron partidas.
+
+Pendiente prueba real: oclusión total/parcial de árbol/pared, enemigos elevados,
+ventanas/cajas y precisión de trampas con arco/ballesta. No se declara resuelto
+ninguno de esos resultados visuales o nativos basándose solo en simulaciones.
+
 # 0.4.57-depthfix1 — interrupción al mirar bloques, 2026-10-16
 
 Logs reales del usuario y lectura local DLL457: sesiones abiertas, primeras

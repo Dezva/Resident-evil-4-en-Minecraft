@@ -10,6 +10,12 @@ static int cube_command_requested(void){return box_requested;}
 static void world_mesh_release(CubeDevice *f){(void)f;}
 static int cube_projection(float *out){float gx[16]={.75,0,0,0,0,1,0,0,0,0,-10.f/9990,-100000.f/9990,0,0,-1,0};if(!gx_ready)gx[5]=2;memcpy(out,gx,64);return 1;}
 static int cube_camera(float *view,float *fov,uint32_t *player){memset(view,0,48);*fov=90;*player=42;return camera_ready;}
+static unsigned wvp_ready;
+static int depth_wvp_gpu(IDirect3DDevice9 *d,const float *gx,float fov,const D3DVIEWPORT9 *vp,unsigned compare_value,BlockProjection *out){
+ (void)d;(void)gx;(void)compare_value;if(!wvp_ready)return 0;
+ float p[16]={.75,0,0,0,0,1,0,0,0,0,-10000.f/9997,-1,0,0,-30000.f/9997,0};
+ return block_projection(p,fov,(float)vp->Width,(float)vp->Height,out);
+}
 static void cube_render_device(CubeDevice *f){
  BlockProjection p;int valid=f->depth_gpu_valid?block_projection(f->depth_gpu,90,640,480,&p):block_gx_projection(f->depth_gx,90,640,480,f->depth_world_compare,&p);
  if(f->depth_stage!=2 || !valid){fputs("Rejected pass reached world renderer before projection validation\n",stderr);exit(43);}
@@ -50,5 +56,7 @@ int main(void){
  f=(CubeDevice){.inner=&inner,.scene=1};gpu_ready=1;reject_draw=1;old=cubes;cube_depth_after_draw(&f);prior=reads;scans=gpu_reads;
  for(unsigned i=0;i<10000;i++)cube_depth_after_draw(&f);
  assert(cubes==old+1 && reads==prior && gpu_reads==scans && f.depth_drawn && f.world_drawn);
+ f=(CubeDevice){.inner=&inner,.scene=1};wvp_ready=1;old=cubes;scans=gpu_reads;cube_depth_after_draw(&f);
+ assert(cubes==old+1 && f.depth_gpu_valid==4 && gpu_reads==scans); // preserve source4 through validation
 
 }

@@ -27,7 +27,7 @@ public final class TerrainSnapshot {
             if(!json.getAsJsonPrimitive("complete").isBoolean())throw new IllegalArgumentException();
             boolean complete=json.get("complete").getAsBoolean();var pos=json.getAsJsonArray("position");if(pos.size()!=3)throw new IllegalArgumentException();
             Point center=new Point(number(pos.get(0)),number(pos.get(1)),number(pos.get(2)));double radius=number(json.get("radius"));if(radius<1000 || radius>60000)throw new IllegalArgumentException();
-            var rows=json.getAsJsonArray("triangles");if(rows.size()>1024 || !complete && !rows.isEmpty())throw new IllegalArgumentException();
+            var rows=json.getAsJsonArray("triangles");if(rows.size()>4096 || !complete && !rows.isEmpty())throw new IllegalArgumentException();
             var kinds=json.has("kinds")?json.getAsJsonArray("kinds"):null;
             if(kinds!=null && kinds.size()!=rows.size())throw new IllegalArgumentException();
             var triangles=new ArrayList<Triangle>();

@@ -68,15 +68,19 @@ public final class BridgeCombat {
   if(!(arrow instanceof net.minecraft.entity.projectile.ArrowEntity) && !(arrow instanceof net.minecraft.entity.projectile.SpectralArrowEntity))return false;
   var waiting=pending;if(waiting!=null && waiting.arrow!=null && waiting.arrow.getId()==arrow.getId())return true;
   if(arrow.getWorld().isClient || !active(c) || !TerrainInteraction.managedArrow(arrow))return false;
+  // A broad candidate was missed by RE4's exact ray. Advance this one vanilla
+  // step through the terrain ray instead of repeatedly querying the same segment.
+  if(arrow instanceof BridgeArrow managed && managed.re4bridge$takeNativeMiss())return false;
   var owner=arrow.getOwner();
   if(!(owner instanceof net.minecraft.server.network.ServerPlayerEntity player) || !player.isAlive() || !BridgePlayMode.supported(player))return false;
   var state=c.bridge.combatState();
   if(state==null || !state.reactionSupported() || !state.fresh(System.nanoTime()) || state.generation()!=c.generation)return true;
   Vec3d start=arrow.getPos(),end=start.add(arrow.getVelocity());double speed=arrow.getVelocity().length();
   if(speed<.00001 || speed>6 || arrow.getId()<1)return false;
-  var ray=new net.minecraft.world.RaycastContext(start,end,net.minecraft.world.RaycastContext.ShapeType.COLLIDER,net.minecraft.world.RaycastContext.FluidHandling.NONE,arrow);
-  var block=TerrainInteraction.projectile(arrow,arrow.getWorld(),start,end,arrow.getWorld().raycast(ray));
-  var aim=select(state,c.map,start,end,block.getType()==net.minecraft.util.hit.HitResult.Type.BLOCK?block:null);
+  // The cached SAT/EAT mesh also contains destructible surfaces. Let RE4's
+  // native ray choose the real actor/part before the vanilla terrain embedding.
+  var block=TerrainInteraction.nearestPlaced(start,end,c.placed,pos->arrow.getWorld().isChunkLoaded(pos)?arrow.getWorld().getBlockState(pos).getCollisionShape(arrow.getWorld(),pos):net.minecraft.util.shape.VoxelShapes.empty());
+  var aim=select(state,c.map,start,end,block);
   if(aim==null)return false;
   if(!busy.compareAndSet(false,true))return true;
   long lease=epoch.get();
@@ -120,6 +124,7 @@ public final class BridgeCombat {
   server.execute(()->{
    try{
     if(p.arrow!=null){
+     if(state.reason()==2 && active(p.context) && p.arrow instanceof BridgeArrow managed){managed.re4bridge$nativeMiss();return;}
      // A rejected/stale native impact cannot turn into a later hit on another actor.
      // No second ammunition or durability charge: vanilla already paid at launch.
      p.arrow.discard();

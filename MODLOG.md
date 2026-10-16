@@ -1,3 +1,28 @@
+## 0.4.57-impactfix2 — cobertura, impactos de flecha y matriz combinada
+
+El usuario confirma flechas visibles y daño, pero no oclusión de bloques y
+fallos en altura/destructibles/trampas. Lectura local de solo lectura:1081
+triángulos a12000 unidades y2985 a32000, ambos mapas completos; el límite1024
+descartaba el primero entero. Se admiten4096 con presupuesto JSON320000 bytes,
+radio deseado32000 y reducción conservadora de cobertura si no cabe. No se
+truncan triángulos ni se permite volar por espacio desconocido.
+
+El impacto consulta RE4 antes de la malla SAT/EAT de construcción. El nativo
+elige actor/parte reales validados, evitando que una caja aproximada de trampa
+robe un disparo. Un fallo geométrico sin mensaje permite avanzar un paso con
+colisión de terreno y consultar el siguiente; mensajes enviados conservan la
+prevención de repeticiones. Daño, gravedad, munición y carga siguen vanilla.
+
+La inspección estática local confirma matrices combinadas en los shaders.
+Se reconoce su cálculo lineal de posición y se recupera Z/W de c0..c3 mediante
+getters COM acotados, source4. Canal opcional de128 bytes solo de telemetría;
+sin cambios a shaders/EXE ni lectura de superficies GPU. No se declara resuelta
+la oclusión: falta confirmar esta ruta y el resultado visual en RE4.
+
+Paquete con host/mod/core0.4.57-impactfix2 y ABI DLL457. No se instala en el
+juego automáticamente; F8/TTL/identidad y guardias anteriores permanecen.
+Guía y pruebas manuales concretas: docs/RE4-IMPACTFIX2.md.
+
 ## 0.4.57-depthfix1 — selección de pase y parada de colisiones
 
 Usuario reporta interrupción detrás de árboles y al preparar VIEW con bloques.

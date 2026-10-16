@@ -1,3 +1,16 @@
+# 0.4.57-depthfix1 — mismo IPC y JAR
+
+Mantiene build457 en todos los canales y WorldMeshv1/Runtimev5/Combatv4.
+La selección opaca solo acepta LESS/LESSEQUAL/GREATER/GREATEREQUAL, con cámara,
+viewport no degenerado y proyección válidos antes de fijar depth_seen. Escaneo
+GPU y reintentos de geometría acotados al intervalo/frame. Guardias500ms y F8
+sin cambios; ningún nuevo acceso de memoria del juego.
+
+Depth tail240/244 publica MinZ/MaxZ cuando tail252==0x44584631. Sin esa marca,
+el lector omite esos campos (compatible con las DLL anteriores). Comando host
+208..223 y el resto de offsets permanecen intactos. Son datos de diagnóstico;
+no autorizan movimiento ni garantizan oclusión.
+
 # 0.4.57 — geometría del mundo separada del HUD
 
 WorldMesh: Local\\RE4Bridge-WorldMesh-PID, magic0x52453457/version1/build457,

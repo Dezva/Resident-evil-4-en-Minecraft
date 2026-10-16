@@ -29,6 +29,9 @@ class NativeDepth:
             self.last={'depth_available':True,'depth_reason':REASONS.get(words[5],'sin muestra de profundidad'), 'depth_reason_code':words[5],'depth_attempts':words[6],'depth_draws':words[7],'depth_stage':words[8],'depth_width':words[9],'depth_height':words[10], 'depth_near':floats[0], 'depth_far':floats[1],'depth_reverse':bool(words[13]),'depth_source':words[14],'depth_fallback_draws':words[15]}
             self.last.update(depth_projection=list(struct.unpack_from('<16f',data,64)),depth_gx_projection=list(struct.unpack_from('<16f',data,128)),depth_fov=struct.unpack_from('<f',data,192)[0],depth_compare=struct.unpack_from('<I',data,196)[0],depth_world_draws=struct.unpack_from('<I',data,200)[0])
             if words[3]>=457:self.last.update(zip(('world_reason','world_quads','world_attempts','world_draws'),struct.unpack_from('<4I',data,224)))
+            if struct.unpack_from('<I',data,252)[0]==0x44584631:
+                self.last['depth_min_z'],self.last['depth_max_z']=struct.unpack_from('<2f',data,240)
+                if not math.isfinite(self.last['depth_min_z']+self.last['depth_max_z']):raise ReaderError('Viewport de profundidad no finito')
             if any(not math.isfinite(v) for key in ('depth_projection','depth_gx_projection') for v in self.last[key]) or not math.isfinite(self.last['depth_fov']) or not all(map(math.isfinite,floats)):raise ReaderError('Telemetria de profundidad no finita')
             return self.last
         return dict(self.last or {'depth_available':True,'depth_reason':'telemetria cambiando'})

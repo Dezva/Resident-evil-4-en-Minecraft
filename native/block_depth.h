@@ -3,9 +3,10 @@
 #include <math.h>
 #include <stdint.h>
 typedef struct {float matrix[16],a,b,near_plane,far_plane;unsigned valid,reverse;} BlockProjection;
+static inline int block_depth_world_compare(unsigned compare){return compare==2 || compare==4 || compare==5 || compare==7;}
 static inline int block_projection(const float *m,float fov,float width,float height,BlockProjection *out){
     *out=(BlockProjection){0};for(unsigned i=0;i<16;i++)if(!isfinite(m[i]) || fabsf(m[i])>100000000.f)return 0;
-    if(fov<5 || fov>170 || width<1 || height<1 || fabsf(m[11])<.99f || fabsf(m[11])>1.01f || fabsf(m[15])>.001f)return 0;
+    if(!isfinite(fov+width+height) || fov<5 || fov>170 || width<1 || height<1 || fabsf(m[11])<.99f || fabsf(m[11])>1.01f || fabsf(m[15])>.001f)return 0;
     const unsigned zeros[]={1,2,3,4,6,7,8,9,12,13};for(unsigned i=0;i<10;i++)if(fabsf(m[zeros[i]])>.001f)return 0;
     float focal=1.f/tanf(fov*.00872664625997165f);
     /* CAMERA may retain a virtual 4:3 frustum in a widescreen viewport.
@@ -20,7 +21,7 @@ static inline int block_projection(const float *m,float fov,float width,float he
 /* SDK CAMERA.ProjMat_64 is GX column-vector clip Z in [-W,0].
  * Convert to D3D [0,W] using the observed opaque pass's depth comparison. */
 static inline int block_gx_projection(const float *gx,float fov,float width,float height,unsigned compare,BlockProjection *out){
-    if(compare!=2 && compare!=4 && compare!=5 && compare!=7)return 0;
+    if(!block_depth_world_compare(compare))return 0;
     float d3d[16];for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)d3d[r*4+c]=gx[c*4+r];
     if(fabsf(gx[14]+1.f)>.001f || gx[10]>=0 || gx[11]>=0)return 0;
     unsigned reverse=compare==5 || compare==7;
@@ -34,7 +35,7 @@ static inline int block_gx_projection(const float *gx,float fov,float width,floa
 /* Only accept a complete perspective matrix in actual GPU constants.
  * GX-only matrices fail the D3D near/far checks rather than masquerading as Z. */
 static inline int block_shader_projection(const float *constants,unsigned registers,float fov,float width,float height,unsigned compare,BlockProjection *out){
- if(compare!=2 && compare!=4 && compare!=5 && compare!=7)return 0;
+ if(!block_depth_world_compare(compare))return 0;
  for(unsigned start=0;start+4<=registers;start++)for(unsigned transpose=0;transpose<2;transpose++){
   float matrix[16];for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)matrix[r*4+c]=constants[start*4+(transpose?c*4+r:r*4+c)];
   BlockProjection candidate;

@@ -11,7 +11,7 @@ typedef struct {
     CubeGate gate;unsigned scene,escaped,resetting;uint32_t player,hud_generation,hud_blocked_generation;
     void *overlay;
 #ifdef RE4_WORLD_MESH_RUNTIME
-    void *world_visuals;unsigned world_drawn;float depth_gpu[16];unsigned depth_gpu_valid;
+    void *world_visuals;unsigned world_drawn;float depth_gpu[16];unsigned depth_gpu_valid,depth_gpu_checked;
 #endif
     IDirect3DTexture9 *hud_texture;unsigned hud_pixels_valid;uint32_t hud_pixels[256*32];
     BlockTextureCache block_texture;
@@ -94,7 +94,7 @@ static HRESULT WINAPI cube_BeginScene(IDirect3DDevice9 *iface) {
 #ifdef RE4_DEPTH_RUNTIME
         f->depth_seen=f->depth_drawn=f->depth_stage=0;
 #ifdef RE4_WORLD_MESH_RUNTIME
-        f->world_drawn=f->depth_gpu_valid=0;
+        f->world_drawn=f->depth_gpu_valid=f->depth_gpu_checked=0;
 #endif
         if(depth_requested(NULL)){
             f->inner->lpVtbl->GetRenderState(f->inner,D3DRS_ZENABLE,&f->depth_z);

@@ -21,7 +21,7 @@ static int depth_requested(uint32_t *generation){
 static void depth_report(unsigned reason,unsigned stage,const BlockProjection *projection,const D3DVIEWPORT9 *viewport,int drawn){
  if(!depth_shared)return;
  InterlockedIncrement(&depth_shared->sequence);MemoryBarrier();depth_shared->reason=reason;depth_shared->stage=stage;depth_shared->attempts++;depth_shared->draws+=!!drawn;
- if(viewport){depth_shared->width=viewport->Width;depth_shared->height=viewport->Height;}
+ if(viewport){depth_shared->width=viewport->Width;depth_shared->height=viewport->Height;memcpy(&depth_shared->tail[4],&viewport->MinZ,4);memcpy(&depth_shared->tail[5],&viewport->MaxZ,4);depth_shared->tail[7]=0x44584631;}
  if(projection){depth_shared->near_plane=projection->near_plane;depth_shared->far_plane=projection->far_plane;depth_shared->reverse=projection->reverse;memcpy(depth_shared->projection,projection->matrix,64);}
  MemoryBarrier();InterlockedIncrement(&depth_shared->sequence);
 }

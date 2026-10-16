@@ -235,7 +235,12 @@ static HRESULT WINAPI cube_Clear(IDirect3DDevice9 *iface, DWORD rect_count, cons
 #endif
     HRESULT result=f->inner->lpVtbl->Clear(f->inner, rect_count, rects, flags, color, z, stencil);
 #ifdef RE4_DEPTH_RUNTIME
-    if(SUCCEEDED(result) && (flags&D3DCLEAR_ZBUFFER))f->depth_seen=0;
+    if(SUCCEEDED(result) && (flags&D3DCLEAR_ZBUFFER)){
+        f->depth_seen=0;
+#ifdef RE4_WORLD_MESH_RUNTIME
+        f->depth_gpu_checked=f->depth_gpu_valid=0;
+#endif
+    }
     if(SUCCEEDED(result) && (flags&D3DCLEAR_TARGET)){
         f->depth_drawn=0;
 #ifdef RE4_WORLD_MESH_RUNTIME

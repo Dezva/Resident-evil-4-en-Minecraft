@@ -1,3 +1,29 @@
+## 0.4.57-depthfix1 — selección de pase y parada de colisiones
+
+Usuario reporta interrupción detrás de árboles y al preparar VIEW con bloques.
+Logs: primera parada por falta de ticks, luego cinco paradas nativas3 por
+referencia de colisión sin actualizar500ms. Lectura real DLL457:47973 intentos,
+594 dibujos de profundidad, última proyección rechazada/stage2, cero fallos
+Direct3D/restauración. Se conserva la evidencia privada sin publicar logs.
+
+Reproducido contra selector C real: un pase ALWAYS/NEVER/EQUAL/NOTEQUAL podía
+fijar depth_seen antes de validar proyección. Un fallo temprano de cámara o
+viewport también bloqueaba la recuperación de esa muestra. El renderer podía
+reintentarse por cada draw. Se valida el pase completo antes de fijar y se
+acotan escaneo de constantes e intento de geometría. No se aumenta TTL ni se
+quita la guardia500ms; no se permite un fallback que atraviese paredes.
+
+Fixture integrado:200 frames con25 pases ALWAYS antes del mundo y100 draw
+posteriores por frame; primeros100 fuera de vista; colisión continua y200
+correcciones. Una pérdida real600ms sigue disparando parada3. Se comprueba
+recuperación de cámara/viewport/GX dentro del mismo frame y10000 llamadas sin
+repetir consultas tras un rechazo de dibujo. La comparación del primer pase
+fallido real no estaba registrada: ese detalle se reproduce en fixture.
+
+Solo cambia el nativo/diagnóstico: JAR y contrato457 conservados, sin recompilar
+Java. Guía y descarga en [depthfix1](docs/RE4-DEPTHFIX1.md). No se instala en el
+juego; estabilidad/oclusión reales pendientes de prueba offline.
+
 ## 0.4.57 — profundidad del mundo y fin del overlay de flechas
 
 Usuario confirma arrowfix1: flechas visibles y daño de arco/ballesta. La patada

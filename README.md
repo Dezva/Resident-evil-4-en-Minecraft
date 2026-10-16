@@ -5,17 +5,17 @@ en Windows, con primera persona, construcción y combate de Minecraft dentro de
 RE4. El desarrollo utiliza las guías y herramientas de
 [Universal Modder](https://github.com/rehan-remade/universal-modder).
 
-**Versión de prueba:** [0.4.57: profundidad y flechas 3D](docs/RE4-BLOCK-0.4.57.md).
-**Descarga:** [paquete completo y fuentes](releases/0.4.57/README.md).
-El usuario confirma flechas visibles y daño de arco/ballesta en0.4.56-arrowfix1,
-y patada visible en0.4.56. Reporta bloques superpuestos a árboles/paredes y
-flechas detenidas en el aire al salir del terreno conocido. La0.4.57 aborda
-esos problemas; la oclusión real sigue pendiente de prueba visual.
+**Parche de prueba:** [0.4.57-depthfix1](docs/RE4-DEPTHFIX1.md).
+**Descarga:** [paquete completo y fuentes](releases/0.4.57-depthfix1/README.md).
+Corrige la selección de pase y los reintentos de profundidad de0.4.57, tras la
+interrupción reportada al mirar bloques detrás de árboles o rearmar con bloques
+existentes. Las guardias de colisión/F8 permanecen activas. Pendiente comprobar
+la estabilidad y oclusión reales del parche jugando.
 
-Requiere actualizar juntos DLL457, host/core/mod0.4.57. No se ha instalado
-ningún archivo en el juego. Mantiene inicio sin administrador, construcción,
-colisiones, trampas, primera persona y combate anteriores. Modelo/skin
-Minecraft sobre Leon y mayor alcance del mapa siguen pendientes.
+Conserva el mod/core0.4.57 y el contrato DLL457; cambia la DLL propia y añade
+diagnóstico de viewport. No se ha instalado automáticamente. Se mantienen las
+mecánicas previas. Modelo/skin Minecraft sobre Leon y mayor alcance del terreno
+siguen pendientes.
 
 ## Versiones fijadas
 

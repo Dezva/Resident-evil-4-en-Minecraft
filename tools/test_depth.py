@@ -29,3 +29,11 @@ class DepthTests(unittest.TestCase):
   k=Kernel();depth=NativeDepth(k,42);struct.pack_into('<f',k.buffer,64,float('nan'))
   with self.assertRaises(ReaderError):depth.status()
   depth.close()
+
+ def test_patch_viewport_marker_distinguishes_old_reserved_tail_and_rejects_nonfinite(self):
+  k=Kernel();depth=NativeDepth(k,42);self.assertNotIn('depth_min_z',depth.status())
+  struct.pack_into('<2f',k.buffer,240,.25,.75);struct.pack_into('<I',k.buffer,252,0x44584631)
+  status=depth.status();self.assertEqual((status['depth_min_z'],status['depth_max_z']),(.25,.75))
+  struct.pack_into('<f',k.buffer,240,float('nan'))
+  with self.assertRaises(ReaderError):depth.status()
+  depth.close()

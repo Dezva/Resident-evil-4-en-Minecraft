@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll,[string]$TrapDll,[string]$ArrowDll)
+param([Parameter(Mandatory=$true)][string]$PackageDir,[string]$LegacyDll,[string]$HealthDll,[string]$RuntimeDll,[string]$SceneDll,[string]$VerticalDll,[string]$ContextDll,[string]$PreviousDll,[string]$LastDll,[string]$LatestDll,[string]$RecentDll,[string]$GroundDll,[string]$MeleeDll,[string]$ImpactDll,[string]$StableDll,[string]$TrapDll,[string]$ArrowDll,[string]$DepthDll)
 $ErrorActionPreference = 'Stop'
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('re4-installer-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $sandbox | Out-Null
@@ -24,6 +24,12 @@ try {
     & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
     if (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')) { throw 'Own DLL remains' }
     if (-not (Test-Path -LiteralPath $copy)) { throw 'Uninstall removed backup' }
+    if($DepthDll){
+        if((Get-FileHash -LiteralPath $DepthDll).Hash.ToLowerInvariant() -ne 'be2d89e539bc9a4dc76421b93822ca7b8af73200cd6a033e6f795634117bd378'){throw 'Wrong published build457 fixture'}
+        Copy-Item -LiteralPath $DepthDll -Destination (Join-Path $game 'dinput8.dll')
+        & (Join-Path $PackageDir 'UNINSTALL-RE4-CONTROLS.ps1') -GameBin $game
+        if(Test-Path -LiteralPath (Join-Path $game 'dinput8.dll')){throw 'Published build457 remains'}
+    }
     if($ArrowDll){
         if((Get-FileHash -LiteralPath $ArrowDll).Hash.ToLowerInvariant() -ne '5b25e60dd954c1b5e7480418f406cce8ecd43ee8775ada587da4ecae3ee88e6d'){throw 'Wrong published build456 fixture'}
         Copy-Item -LiteralPath $ArrowDll -Destination (Join-Path $game 'dinput8.dll')

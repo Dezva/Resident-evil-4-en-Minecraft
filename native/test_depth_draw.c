@@ -15,7 +15,7 @@
 #include "block_surface.h"
 #include "block_texture.h"
 #include "block_debris.h"
-typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;void *world_visuals;unsigned world_drawn,depth_gpu_valid;float depth_gpu[16];float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;BlockDebris debris;} CubeDevice;
+typedef struct {IDirect3DDevice9 *inner;CubeGate gate;unsigned scene,escaped,resetting;uint32_t player;void *world_visuals;unsigned world_drawn,depth_gpu_valid,depth_gpu_checked;float depth_gpu[16];float depth_gx[16];unsigned depth_seen,depth_drawn,depth_stage,depth_world_compare;BlockTextureCache block_texture;BlockDebris debris;} CubeDevice;
 typedef struct {DWORD render[256],stage[2][32],sampler[16],fvf,vertex,pixel,texture,stream,decl;} TestState;
 static TestState current,saved,original;
 static unsigned events[32],surface_refs,backup_refs,creates,captures,applies,releases,setters,draws;
@@ -99,7 +99,7 @@ static HRESULT draw(IDirect3DDevice9 *d,D3DPRIMITIVETYPE type,UINT count,const v
     draws++;current.stream=0;return draw_fail?E_FAIL:S_OK;
 }
 static void depth_fallback_draw(void){depth_compat++;}
-static int depth_requested(uint32_t *gen){*gen=depth_gen;return depth_on;}
+static int depth_requested(uint32_t *gen){if(gen)*gen=depth_gen;return depth_on;}
 static void depth_report(unsigned reason,unsigned stage,const BlockProjection *p,const D3DVIEWPORT9 *v,int drawn){(void)stage;(void)p;(void)v;depth_reason=reason;depth_draws+=drawn;}
 static void depth_observe(unsigned source,const float *gx,float fov,unsigned compare,unsigned seen){(void)source;(void)gx;(void)fov;(void)compare;(void)seen;}
 static HRESULT get_depth(IDirect3DDevice9 *d,IDirect3DSurface9 **out){(void)d;if(no_depth)return E_FAIL;surface_refs++;*out=&surface;return S_OK;}

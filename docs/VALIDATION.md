@@ -1,3 +1,52 @@
+# 0.4.57-depthfix1 — interrupción al mirar bloques, 2026-10-16
+
+Logs reales del usuario y lectura local DLL457: sesiones abiertas, primeras
+paradas por falta de ticks y después parada3/ref. de colisión500ms en cinco
+rearmados. Última muestra disponible: profundidad47973 intentos/594 dibujos,
+reason2/proyección no validada/stage2,600 dibujos totales,5805 rechazos de cámara,
+0 errores gráficos y0 de restauración. El juego seguía vivo. No se atribuye a
+permisos/UAC ni a incompatibilidad de IPC. Datos privados en
+D:\logs\re4-depthfix1-20261016.
+
+Fixture del selector anterior falla con salida43 al enviar un pase no apto:
+el renderer recibe una proyección sin validar. Corregido: comparación opaca,
+backbuffer, cámara, viewport y proyección deben ser válidos antes de fijar.
+Un candidato inválido no bloquea la recuperación dentro del mismo frame.
+No se afirma que se haya medido la comparación del primer pase real fallido.
+
+33 pruebas de NativeCapture/Depth pasan en Windows/GCC14.2: helper real,
+renderer real y colisión real, gates y recursos anteriores. Nueva integración
+simula200 frames (3.2s),25 pases ALWAYS antes del mundo y100 llamadas después,
+primeros100 frames fuera de vista,200 correcciones horizontales sin parada.
+La pérdida real600ms conserva la parada3. Se cubren comparaciones no aptas,
+cámara/viewport/GX inválidos al inicio con recuperación posterior, un escaneo
+GPU y10000 llamadas sin repetir trabajo tras un rechazo de dibujo.
+
+Se mantiene la guardia500ms, F8, menú/escena, generación, control de identidad
+y superficies con Z. No se recupera el overlay plano. Una stub antigua de test
+asumía generation!=NULL; se ajusta a la API real para la prueba integrada.
+Los fixtures Windows suprimen ventanas de reporte de fallos del sistema y
+acotan ejecución30s; no modifican políticas globales ni procesos del juego.
+
+DLL PE32/i386 compila con SSE2, -Wall/-Wextra/-Werror; imports solo
+KERNEL32/msvcrt/USER32. No se recompila Java: mod y core0.4.57 se conservan
+byte a byte. El paquete compara cada archivo con la0.4.57 publicada; solo
+cambian DLL, su checksum, guía, scripts de instalación, dos lectores de
+diagnóstico y contrato/validación. Prueba del paquete ejecuta los módulos
+empaquetados en un intérprete nuevo.
+
+PowerShell5.1 pasa sobre EXE/partidas sintéticos: backup verificado,
+no sobrescritura, retirada solo de DLL propia incluida la0.4.57 anterior,
+rechazo de DLL ajena y partidas vacías. Python3.13 del lanzador ejecuta42
+casos del paquete/profundidad/host/runtime/combate correctamente. No se
+repite la batería Java ni se compila Minecraft, cuyos bytes se conservan.
+
+No se instala ni se retira una DLL de la instalación real. Pendiente probar
+la sesión con bloques existentes, estabilidad, oclusión y rendimiento en RE4.
+Ver [prueba de10+10 segundos](RE4-DEPTHFIX1.md).
+
+---
+
 # 0.4.57 — profundidad y malla de proyectiles, 2026-10-16
 
 El usuario confirma arrowfix1: flechas visibles y daño. Reporta superposición

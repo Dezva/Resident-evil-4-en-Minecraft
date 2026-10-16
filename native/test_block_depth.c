@@ -33,5 +33,7 @@ int main(void){
  memset(constants,0,sizeof(constants));for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)constants[32+r*4+c]=actual[c*4+r];
  assert(block_shader_projection(constants,256,90,640,480,4,&p));
  memset(constants,0,sizeof(constants));assert(!block_shader_projection(constants,256,90,640,480,4,&p));
+ for(unsigned c=1;c<=8;c++)assert(block_depth_world_compare(c)==(c==2 || c==4 || c==5 || c==7));
+ assert(!block_projection(actual,NAN,640,480,&p));assert(!block_projection(actual,90,INFINITY,480,&p));
  gx[5]=NAN;assert(!block_gx_projection(gx,90,640,480,4,&p));
 }

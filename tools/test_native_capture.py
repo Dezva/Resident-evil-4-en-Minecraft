@@ -27,7 +27,7 @@ class NativeCaptureTests(unittest.TestCase):
                 if os.name=='nt':
                     if extra is None:extra=source.read_text()
                     source=Path(directory)/name
-                    source.write_text('#include <stdlib.h>\n__attribute__((constructor)) static void fixture_no_dialog(void){_set_error_mode(2); }\n'+extra)
+                    source.write_text('#include <stdlib.h>\n__declspec(dllimport) unsigned long __stdcall SetErrorMode(unsigned long);\n__attribute__((constructor)) static void fixture_no_dialog(void){_set_error_mode(2);SetErrorMode(0x8003); }\n'+extra)
                 fp=['-msse2','-mfpmath=sse'] if os.name=='nt' else []
                 subprocess.run(['gcc',*fp,'-std=c11','-Wall','-Wextra','-Werror','-no-pie',
                                 '-I'+str(root/'native'),str(source),'-o',str(binary),'-lm'],check=True,capture_output=True,text=True)
@@ -97,6 +97,14 @@ class NativeCaptureTests(unittest.TestCase):
         ipc=(root/'native/world_mesh_ipc.h').read_text();ipc=ipc[:ipc.index('static void world_mesh_initialize')].replace('static HANDLE world_mesh_mapping;','')+ipc[ipc.index('static int world_mesh_requested'):]
         extra=(root/'native/test_world_mesh_extra.c').read_text().replace('/* ACTUAL_WORLD_IPC */',ipc)
         self.compile_run('world_mesh_fixture.c',fixture+extra)
+
+    def test_early_sky_pass_and_offscreen_blocks_keep_collision_live_for_200_frames(self):
+        root=Path(__file__).resolve().parents[1]
+        fixture=(root/'native/test_depth_draw.c').read_text();fixture=fixture[:fixture.index('int main(void){')]
+        fixture=fixture.replace('static void cube_record(unsigned event,uint32_t value) {(void)value;events[event]++;}', 'static unsigned scene_active;static void cube_record(unsigned event,uint32_t value){events[event]++;if(event==CUBE_DRAW || event==CUBE_ACTIVE)scene_active=event==CUBE_DRAW || value;if(event==CUBE_REJECT || event==CUBE_CAMERA_REJECT || event==CUBE_FAILURE || event==CUBE_RESTORE_FAILURE)scene_active=0;}')
+        extra=(root/'native/test_offscreen_collision.c').read_text();extra=extra[extra.index('typedef struct {unsigned held;} SRWLOCK;'):extra.index('int main(void){')]
+        case=(root/'native/test_depth_collision_extra.c').read_text()
+        self.compile_run('depth_collision_fixture.c',fixture+extra+case)
 
     def test_world_drawing_runs_in_opaque_pass_with_gpu_projection_and_bounded_queries(self):
         self.compile_run("test_depth_device.c")
